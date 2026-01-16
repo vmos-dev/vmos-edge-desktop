@@ -1,0 +1,83 @@
+appId: com.vmos.edge.desktop
+productName: VMOS Edge 2.0
+asar: true
+compression: maximum
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!scripts/*'
+  - '!resources/*' # resources 目录我们通过 extraFiles/extraResources 处理，不需要进 asar
+
+extraResources:
+  - from: resources/adi
+    to: adi
+  - from: resources/icon.ico
+    to: icon.ico
+  - from: resources/icon.png
+    to: icon.png
+
+win:
+  icon: build/icon.ico
+  executableName: vmos-edge-2.0
+ 
+  extraFiles:
+    - from: resources/win
+      to: .
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  # 国际化支持：中文 (zh_CN) 和 英文 (en_US)
+  # 安装程序会自动检测系统语言
+  installerLanguages:
+    - zh_CN
+    - en_US
+  # 自定义背景图配置 (需要将图片放入 build 目录)
+  # 侧边栏图片: 164x314 (bmp)
+  # installerSidebar: build/installerSidebar.bmp
+  # 顶部图片: 150x57 (bmp)
+  # installerHeader: build/installerHeader.bmp
+mac:
+  icon: build/icon.icns
+  hardenedRuntime: true
+  notarize: false
+  entitlementsInherit: build/entitlements.mac.plist
+  extraFiles:
+    - from: resources/mac-${arch}
+      to: .
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+linux:
+  icon: build/icon-linux.png
+  extraFiles:
+    - from: resources/linux
+      to: .
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: electronjs.org
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: true
+publish:
+  provider: generic
+  url: https://example.com/auto-updates
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

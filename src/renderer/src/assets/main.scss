@@ -1,0 +1,30 @@
+::-webkit-scrollbar {
+  width: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 2px;
+
+  &:hover {
+    background: #c0c4cc;
+  }
+}
+
+.copy-text {
+  cursor: pointer;
+  color: #606266;
+  // 超出三个点
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+html,
+body,
+#app {
+  background-color: #fff;
+}

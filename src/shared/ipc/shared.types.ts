@@ -1,0 +1,16 @@
+export const SHARED_EVENTS = {
+  // 打开浏览器窗口
+  OPEN_BROWSER_WINDOW: 'SHARED:OPEN_BROWSER_WINDOW',
+
+  // 选择文件
+  SELECT_FILE: 'SHARED:SELECT_FILE',
+
+  // 导出当天日志
+  EXPORT_TODAY_LOG: 'SHARED:EXPORT_TODAY_LOG',
+
+  // 打开文件夹
+  OPEN_FOLDER: 'SHARED:OPEN_FOLDER',
+
+  // 渲染进程日志上报
+  RENDERER_LOG: 'SHARED:RENDERER_LOG'
+}
