@@ -20,7 +20,7 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac:intel": "npm run build && electron-builder --mac --x64",
     "build:mac:arm": "npm run build && electron-builder --mac --arm64",
-    "build:linux": "npm run build && electron-builder --linux",
+    "build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
