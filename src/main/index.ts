@@ -2,17 +2,18 @@
  * 云手机 Electron 主进程
  */
 
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, powerMonitor } from 'electron'
 import path from 'path'
 import fs from 'fs'
 
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { Request } from '@shared/api/request'
 
-import { initMainWindow } from './core/window/MainWindow'
+import { initMainWindow, mainWindowManager } from './core/window/MainWindow'
 import { trayManager } from './core/window/TrayManager'
 import { UDPScanner } from './core/window/UdpScanner'
 import { HostScannerQueue } from './core/scheduler/deviceScheduler'
-import { configManager } from './core/store/managers'
+import { configManager, mediaMtxManager } from './core/store/managers'
 import { logger } from './core/logger/Logger'
 import { CONFIG_KEYS } from '@shared/constant'
 import { destroyProxyCheckWorkerManager } from './core/workers/ProxyCheckWorkerManager'
@@ -99,7 +100,7 @@ function initDefaultConfigs(): void {
       [CONFIG_KEYS.MAX_DISPLAY_SIDE]: '600',
       [CONFIG_KEYS.PROXY_CHECK_TIMEOUT]: '5000',
       [CONFIG_KEYS.PROXY_CHECK_API_KEY]: '',
-      [CONFIG_KEYS.PROXY_CHECK_PROVIDER_TYPE]: 'ipinfo',
+      [CONFIG_KEYS.PROXY_CHECK_PROVIDER_TYPE]: 'ipmap',
       [CONFIG_KEYS.SCREENSHOT_STORAGE_PATH]: screenshotStoragePath,
       [CONFIG_KEYS.VIDEO_CODEC_PREFERENCE]: 'no-preference',
       [CONFIG_KEYS.RENDER_PREFERENCE]: 'low-power',
@@ -107,8 +108,16 @@ function initDefaultConfigs(): void {
       [CONFIG_KEYS.MAIN_WINDOW_SIZE]: 'standard',
       [CONFIG_KEYS.WHEEL_SPEED]: '100',
       [CONFIG_KEYS.KEEP_HOVER_MOVE]: '0',
-      [CONFIG_KEYS.MINIMIZE_TO_TRAY]: '0'
+      [CONFIG_KEYS.APP_LANGUAGE]: app.getLocale() || 'zh-CN',
+      [CONFIG_KEYS.IS_STREAMING]: '0',
+      [CONFIG_KEYS.THEME_MODE]: 'light',
+      [CONFIG_KEYS.THEME_COLOR]: '#409eff',
+      [CONFIG_KEYS.STREAM_FPS]: '60',
+      [CONFIG_KEYS.STREAM_BITRATE]: '8'
     })
+
+    // 显式重置推流状态，确保客户端重启后必定关闭
+    configManager.setValue(CONFIG_KEYS.IS_STREAMING, '0')
 
     logger.info('[Init] Default configs initialized')
   } catch (error) {
@@ -123,6 +132,11 @@ app.whenReady().then(() => {
   logger.info('[App] Application is ready')
 
   electronApp.setAppUserModelId('com.vmos.edge.desktop')
+
+  // 配置主进程请求语言头 - 从数据库获取
+  Request.languageGetter = () => {
+    return configManager.getValue(CONFIG_KEYS.APP_LANGUAGE) || app.getLocale() || 'zh-CN'
+  }
 
   logger.info('[App] Initializing default configs...')
   initDefaultConfigs()
@@ -188,6 +202,29 @@ app.whenReady().then(() => {
   createWindow()
   logger.info('[App] Main window creation initiated')
 
+  // 监听系统休眠唤醒
+  powerMonitor.on('resume', () => {
+    logger.info('[App] System resume detected, forcing network discovery and host scan')
+
+    hostScannerQueue.forceScan()
+  })
+
+  // 监听系统解锁
+  powerMonitor.on('unlock-screen', () => {
+    logger.info('[App] System unlock detected, forcing network discovery and host scan')
+
+    hostScannerQueue.forceScan()
+  })
+
+  // 监听窗口聚焦（从任务栏点击打开也触发此事件）
+  app.on('browser-window-focus', (_event, window) => {
+    // 只有主窗口聚焦时才触发刷新，避免子窗口（如独立云机窗口）聚焦也触发大量请求
+    if (window === mainWindowManager.getWindow()) {
+      logger.info('[App] Main window focus detected, forcing host scan')
+      hostScannerQueue.forceScan()
+    }
+  })
+
   app.on('activate', () => {
     const allWindows = BrowserWindow.getAllWindows()
     if (allWindows.length === 0) {
@@ -230,13 +267,40 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  ;(app as any).isQuitting = true
+  ; (app as any).isQuitting = true
   logger.info('[App] Shutting down...')
-  udpScanner.stopAutoScan()
-  hostScannerQueue.stop()
-  // 清理代理检测 Worker
-  destroyProxyCheckWorkerManager()
-  // 关闭数据库连接 (执行 WAL Checkpoint)
-  SQLiteDB.getInstance().close()
+
+  try {
+    mediaMtxManager.stopServer()
+  } catch (error) {
+    logger.error('[App] Failed to stop MediaMtx:', error)
+  }
+
+  try {
+    udpScanner.stopAutoScan()
+  } catch (error) {
+    logger.error('[App] Failed to stop UDP scanner:', error)
+  }
+
+  try {
+    hostScannerQueue.stop()
+  } catch (error) {
+    logger.error('[App] Failed to stop host scanner:', error)
+  }
+
+  try {
+    // 清理代理检测 Worker
+    destroyProxyCheckWorkerManager()
+  } catch (error) {
+    logger.error('[App] Failed to destroy proxy worker manager:', error)
+  }
+
+  try {
+    // 关闭数据库连接 (执行 WAL Checkpoint)
+    SQLiteDB.getInstance().close()
+  } catch (error) {
+    console.error('[App] Failed to close database:', error)
+  }
+
   logger.destroy()
 })

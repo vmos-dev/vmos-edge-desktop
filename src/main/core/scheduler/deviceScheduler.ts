@@ -23,6 +23,7 @@ export class HostScannerQueue {
       return // 已经启动
     }
     this.stopped = false
+    this.taskQueue.start() // 恢复队列
     this.intervalHandle = setInterval(() => this.loop(), this.scanIntervalMs)
     logger.info(
       `[HostScannerQueue] start: interval=${this.scanIntervalMs}ms, concurrency=${this.concurrency}`
@@ -37,13 +38,20 @@ export class HostScannerQueue {
       clearInterval(this.intervalHandle)
       this.intervalHandle = null
     }
-    // 清空等待队列（可选）
-    this.taskQueue.clear()
+    // 清空任务队列
+    this.taskQueue.stop()
     logger.info(`[HostScannerQueue] stop: cleared, runningHosts=${this.runningHosts.size}`)
   }
 
+  /** 强制执行一次扫描 */
+  public forceScan() {
+    if (this.stopped) return
+    logger.info('[HostScannerQueue] forceScan: triggering immediate scan')
+    this.loop()
+  }
+
   /** 主循环：遍历所有 host 加入任务队列 */
-  private loop() {
+  public loop() {
     if (this.stopped) return
 
     const loopStartTime = Date.now()
@@ -84,7 +92,7 @@ export class HostScannerQueue {
     logger.debug(`[HostScannerQueue] scanHost: starting hostId=${host.id}, ip=${ip}`)
 
     try {
-      await deviceManager.syncHostDevices(ip)
+      await deviceManager.syncHostDevices(ip, host.id)
       const scanDuration = Date.now() - scanStartTime
       logger.info(
         `[HostScannerQueue] scanHost success: hostId=${host.id}, ip=${ip}, duration=${scanDuration}ms, hostStatus=${host.status}`
@@ -129,6 +137,16 @@ export class HostScannerQueue {
 
       if (!isOnline) {
         try {
+          // 双重检查数据库中的主机 IP 是否发生变化
+          // 如果用户在旧 IP 扫描任务挂起/运行期间更新了 IP，这可以防止将主机错误标记为离线
+          const currentHost = hostManager.getHostById(host.id)
+          if (currentHost && currentHost.ip !== ip) {
+            logger.warn(
+              `[HostScannerQueue] scanHost: ignoring offline status, host IP changed from ${ip} to ${currentHost.ip}, hostId=${host.id}`
+            )
+            return
+          }
+
           logger.info(
             `[HostScannerQueue] scanHost: marking host offline hostId=${host.id}, ip=${ip}`
           )

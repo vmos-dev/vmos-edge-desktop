@@ -1,7 +1,7 @@
 <template>
   <div class="cloud-grid-container" ref="containerRef">
     <div v-if="!data || data.length === 0" class="empty-container">
-      <el-empty description="暂无选中设备" :image-size="150" />
+      <el-empty :description="t('cloudPhone.noSelectedDevice')" :image-size="150" />
     </div>
 
     <!--
@@ -81,6 +81,9 @@ import { Device, DeviceState } from '@shared/ipc/data.types'
 import { useResizeObserver } from '@renderer/hooks/useResizeObserver'
 import GridItem from './GridItem.vue'
 import { ElEmpty } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // ==========================================
 // 类型定义
@@ -467,7 +470,7 @@ defineExpose({})
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #fff;
+  background-color: var(--el-bg-color);
   padding: 0;
   box-sizing: border-box;
 }
@@ -487,7 +490,7 @@ defineExpose({})
     height: 6px;
   }
   &::-webkit-scrollbar-thumb {
-    background: #c0c4cc;
+    background: var(--el-text-color-placeholder);
     border-radius: 4px;
   }
   &::-webkit-scrollbar-track {
@@ -506,9 +509,9 @@ defineExpose({})
 .grid-context-menu {
   position: fixed;
   z-index: 9999;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  box-shadow: 0 2px 12px 0 var(--app-shadow-hover-color, var(--el-box-shadow-light));
   border-radius: 4px;
   min-width: 120px;
   max-width: 300px;
@@ -525,7 +528,7 @@ defineExpose({})
     .menu-item {
       padding: 8px 16px;
       font-size: 13px;
-      color: #606266;
+      color: var(--el-text-color-regular);
       cursor: pointer;
       transition: background 0.2s;
       white-space: nowrap;
@@ -533,12 +536,12 @@ defineExpose({})
       text-overflow: ellipsis;
 
       &:hover {
-        background: #ecf5ff;
-        color: #409eff;
+        background: var(--el-color-primary-light-9);
+        color: var(--el-color-primary);
       }
 
       &.menu-item-divided {
-        border-top: 1px solid #ebeef5;
+        border-top: 1px solid var(--el-border-color);
         margin-top: 5px;
         padding-top: 8px;
       }

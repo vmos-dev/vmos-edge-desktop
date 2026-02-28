@@ -1,19 +1,21 @@
+@use './design-system.scss' as *;
+
 ::-webkit-scrollbar {
   width: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #dcdfe6;
+  background: var(--el-border-color);
   border-radius: 2px;
 
   &:hover {
-    background: #c0c4cc;
+    background: var(--el-text-color-placeholder);
   }
 }
 
 .copy-text {
   cursor: pointer;
-  color: #606266;
+  color: var(--el-text-color-regular);
   // 超出三个点
   overflow: hidden;
   text-overflow: ellipsis;
@@ -26,5 +28,11 @@
 html,
 body,
 #app {
-  background-color: #fff;
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+/* 强制修正 Link 按钮在禁用状态下的可见性，防止其在浅色背景下“消失” */
+.el-button.is-link.is-disabled {
+  color: var(--el-text-color-placeholder) !important;
 }

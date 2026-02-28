@@ -15,6 +15,14 @@ export class Request {
   private instance: AxiosInstance
   private options: RequestConfig
 
+  // 静态语言获取器，允许外部自定义（例如在主进程中从数据库获取）
+  public static languageGetter: () => string = () => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('app-language') || 'zh-CN'
+    }
+    return 'zh-CN'
+  }
+
   constructor(options: RequestConfig = {}) {
     this.options = options
     this.instance = axios.create({
@@ -45,6 +53,9 @@ export class Request {
       (config) => {
         // 设置固定请求头
         config.headers['X-Client-Type'] = 'vmos-edge-desktop'
+
+        // 设置语言头
+        config.headers['Accept-Language'] = Request.languageGetter()
         return config
       },
       (error) => {

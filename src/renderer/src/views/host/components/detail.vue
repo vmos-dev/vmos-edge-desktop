@@ -1,25 +1,25 @@
 <template>
-  <vmos-dialog v-model="visible" title="主机详情" width="520px" @close="handleClose">
+  <vmos-dialog v-model="visible" :title="t('host.hostInfo')" width="520px" @close="handleClose">
     <div class="host-detail-container">
       <!-- 主机基本信息 -->
       <div class="detail-section">
         <div class="detail-item">
-          <span class="detail-label">主机ID:</span>
+          <span class="detail-label">{{ t('host.columnHostId') }}:</span>
           <span class="detail-value">{{ hostDetail.id || '-' }}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">主机IP:</span>
+          <span class="detail-label">{{ t('host.columnHostIp') }}:</span>
           <span class="detail-value">{{ hostDetail.ip || '-' }}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">型号:</span>
+          <span class="detail-label">{{ t('host.model') }}:</span>
           <span class="detail-value">{{ hostDetail.model || '-' }}</span>
         </div>
       </div>
 
       <!-- 资源使用情况 -->
       <div class="detail-section">
-        <div class="section-title">资源使用情况</div>
+        <div class="section-title">{{ t('host.resourceUsage') }}</div>
 
         <!-- CPU -->
         <div class="resource-item">
@@ -38,7 +38,7 @@
         <!-- 内存 -->
         <div class="resource-item">
           <div class="resource-header">
-            <span class="resource-label">内存:</span>
+            <span class="resource-label">{{ t('host.memory') }}:</span>
             <span class="resource-percent">{{ hostDetail.memoryPercent || 0 }}%</span>
           </div>
           <el-progress
@@ -57,7 +57,7 @@
         <!-- 虚拟内存(swap) -->
         <div class="resource-item">
           <div class="resource-header">
-            <span class="resource-label">虚拟内存 (swap):</span>
+            <span class="resource-label">{{ t('host.swap') }}:</span>
             <span class="resource-percent">{{ hostDetail.swapPercent || 0 }}%</span>
           </div>
           <el-progress
@@ -74,7 +74,7 @@
         <!-- 本地存储 -->
         <div class="resource-item">
           <div class="resource-header">
-            <span class="resource-label">本地存储:</span>
+            <span class="resource-label">{{ t('host.localStorage') }}:</span>
             <span class="resource-percent">{{ hostDetail.localStoragePercent || 0 }}%</span>
           </div>
           <el-progress
@@ -93,7 +93,7 @@
         <!-- 硬盘存储 -->
         <div class="resource-item">
           <div class="resource-header">
-            <span class="resource-label">硬盘存储:</span>
+            <span class="resource-label">{{ t('host.diskStorage') }}:</span>
             <span class="resource-percent">{{ hostDetail.diskPercent || 0 }}%</span>
           </div>
           <el-progress
@@ -110,17 +110,17 @@
 
       <!-- 系统版本信息 -->
       <div class="detail-section">
-        <div class="section-title">系统版本信息</div>
+        <div class="section-title">{{ t('host.systemVersionInfo') }}</div>
         <div class="detail-item">
-          <span class="detail-label">Debian系统版本:</span>
+          <span class="detail-label">{{ t('host.debianVersion') }}:</span>
           <span class="detail-value">{{ hostDetail.debianVersion || '-' }}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">Debian内核版本:</span>
+          <span class="detail-label">{{ t('host.debianKernelVersion') }}:</span>
           <span class="detail-value">{{ hostDetail.debianKernelVersion || '-' }}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">CBS版本:</span>
+          <span class="detail-label">{{ t('host.cbsVersion') }}:</span>
           <span class="detail-value">
             {{ hostDetail.cbsVersion || '-' }}
             <el-upload
@@ -133,9 +133,9 @@
               :show-file-list="false"
               :accept="'.cbs'"
             >
-              <el-link style="font-size: 13px" size="small" type="primary" :underline="false"
-                >更新</el-link
-              >
+              <el-link style="font-size: 13px" size="small" type="primary" :underline="false">{{
+                t('host.update')
+              }}</el-link>
             </el-upload>
           </span>
         </div>
@@ -151,6 +151,9 @@ import { request } from '@shared/api/request'
 import { buildApiUrl, API_CONFIG } from '@shared/api/config'
 import { formatBytes } from '@renderer/utils/index'
 import type { Host } from '@shared/ipc/data.types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface HostDetail {
   id: string
@@ -207,9 +210,9 @@ const saveLoading = ref(false)
  * 根据百分比获取进度条颜色
  */
 function getProgressColor(percent: number): string {
-  if (percent < 50) return '#67c23a'
-  if (percent < 80) return '#e6a23c'
-  return '#f56c6c'
+  if (percent < 50) return 'var(--el-color-success)'
+  if (percent < 80) return 'var(--el-color-warning)'
+  return 'var(--el-color-danger)'
 }
 
 /**
@@ -237,15 +240,16 @@ const handleUpdateCBS = async (options: any) => {
       buildApiUrl(host.value!.ip, API_CONFIG.PATHS.UPDATE_CBS),
       formData,
       {
+        timeout: 3 * 60 * 1000,
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       }
     )
     hostDetail.cbsVersion = res?.data?.current_version || ''
-    ElMessage.success('已下发更新，请等待10s后查看')
+    ElMessage.success(t('host.updateCbsSuccess'))
   } catch (error) {
-    ElMessage.error('更新CBS版本失败，请检查文件是否正确')
+    ElMessage.error(t('host.updateCbsFailed'))
   } finally {
     saveLoading.value = false
     updateCBSRef.value?.clearFiles()
@@ -388,10 +392,10 @@ defineExpose({
 .section-title {
   font-size: 13px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
   margin-bottom: 6px;
   padding-bottom: 2px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--el-border-color);
 }
 
 .detail-item {
@@ -407,14 +411,14 @@ defineExpose({
   }
 
   .detail-label {
-    color: #606266;
+    color: var(--el-text-color-regular);
     min-width: 120px;
     margin-right: 12px;
     flex-shrink: 0;
   }
 
   .detail-value {
-    color: #303133;
+    color: var(--el-text-color-primary);
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -442,14 +446,14 @@ defineExpose({
 
     .resource-label {
       font-size: 13px;
-      color: #606266;
+      color: var(--el-text-color-regular);
       flex-shrink: 0;
     }
 
     .resource-percent {
       font-size: 13px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary);
       flex-shrink: 0;
       margin-left: 8px;
     }
@@ -458,7 +462,7 @@ defineExpose({
   .resource-usage {
     margin-top: 2px;
     font-size: 11px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
     line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -467,7 +471,7 @@ defineExpose({
 }
 
 :deep(.el-progress-bar__outer) {
-  background-color: #f0f2f5;
+  background-color: var(--el-bg-color-page);
 }
 
 :deep(.el-progress-bar__inner) {

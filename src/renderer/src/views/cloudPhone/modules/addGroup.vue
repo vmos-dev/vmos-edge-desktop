@@ -1,5 +1,5 @@
 <template>
-  <VmosDialog v-model="visible" title="添加分组" width="350px" @closed="handleClose">
+  <VmosDialog v-model="visible" :title="t('cloudPhone.addGroup')" width="350px" @closed="handleClose">
     <el-form
       ref="formRef"
       :model="form"
@@ -8,10 +8,10 @@
       label-position="top"
       @submit.prevent
     >
-      <el-form-item label="分组名称" prop="name">
+      <el-form-item :label="t('cloudPhone.groupName')" prop="name">
         <el-input
           v-model.trim="form.name"
-          placeholder="请输入分组名称"
+          :placeholder="t('cloudPhone.groupNamePlaceholder')"
           maxlength="20"
           show-word-limit
           clearable
@@ -20,34 +20,38 @@
     </el-form>
 
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="loading" @click="handleAddGroup">确定</el-button>
+      <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="loading" @click="handleAddGroup">{{ t('common.confirm') }}</el-button>
     </template>
   </VmosDialog>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ipc } from '@renderer/core/ipc'
 import { DATA_EVENTS, Group } from '@shared/ipc/data.types'
 import { ElForm, ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const visible = ref(false)
 const loading = ref(false)
 const formRef = ref<InstanceType<typeof ElForm>>()
 
-const rules = ref({
+const rules = computed(() => ({
   name: [
-    { required: true, message: '请输入分组名称', trigger: 'blur' },
+    { required: true, message: t('cloudPhone.enterGroupName'), trigger: 'blur' },
     {
       pattern: /^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/,
-      message: '分组名称只能包含中英文、数字、下划线和横线',
+      message: t('cloudPhone.groupNameFormat'),
       trigger: 'blur'
     }
   ]
-})
+}))
 const form = ref({
-  name: ''
+  name: '',
+  type: 'host'
 })
 
 const handleClose = () => {
@@ -59,10 +63,13 @@ const handleAddGroup = () => {
     if (!valid || loading.value) return
     try {
       loading.value = true
-      const res = await ipc.invoke<Group>(DATA_EVENTS.ADD_GROUP, { name: form.value.name })
+      const res = await ipc.invoke<Group>(DATA_EVENTS.ADD_GROUP, {
+        name: form.value.name,
+        type: form.value.type
+      })
       console.log(res)
       if (res.success) {
-        ElMessage.success('操作成功')
+        ElMessage.success(t('common.operationSuccess'))
         visible.value = false
       } else {
         ElMessage.error(res.error)
@@ -74,8 +81,9 @@ const handleAddGroup = () => {
   })
 }
 
-const init = () => {
+const init = (type: string = 'host') => {
   visible.value = true
+  form.value.type = type
 }
 
 defineExpose({

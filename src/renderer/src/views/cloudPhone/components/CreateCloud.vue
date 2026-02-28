@@ -1,7 +1,7 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    :title="`创建云机 | ${host?.ip} (同时运行上限: 12台)`"
+    :title="t('cloudPhone.createDeviceTitle', { ip: host?.ip ? ` | ${host.ip}` : '' })"
     width="650px"
     :show-close="!uploadLoading"
     class="create-cloud-dialog-instance"
@@ -21,13 +21,16 @@
         <el-form-item class="image-select-item" prop="image_repository">
           <template #label>
             <div class="label-row">
-              <div><span style="color: #f56c6c">*</span> 选择镜像</div>
+              <div>
+                <span style="color: var(--el-color-danger)">*</span>
+                {{ t('cloudPhone.selectImage') }}
+              </div>
               <el-link
                 type="primary"
                 :underline="false"
                 class="manage-link"
                 @click="handleManageLinkClick"
-                >前往镜像管理</el-link
+                >{{ t('cloudPhone.goToImageManagement') }}</el-link
               >
             </div>
           </template>
@@ -44,7 +47,7 @@
         <!-- DNS -->
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="DNS类型" prop="dnsType">
+            <el-form-item :label="t('cloudPhone.dnsType')" prop="dnsType">
               <el-select v-model="createCloudForm.dnsType" style="width: 100%">
                 <el-option
                   v-for="item in dnsTypeOptions"
@@ -56,18 +59,21 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="DNS地址" prop="dns">
-              <el-input v-model="createCloudForm.dns" placeholder="请输入DNS" />
+            <el-form-item :label="t('cloudPhone.dnsAddress')" prop="dns">
+              <el-input
+                v-model="createCloudForm.dns"
+                :placeholder="t('cloudPhone.dnsPlaceholder')"
+              />
             </el-form-item>
           </el-col>
         </el-row>
 
         <!-- 云机类型选择 -->
-        <el-form-item label="云机类型" prop="device_type" required>
+        <el-form-item :label="t('cloudPhone.deviceType')" prop="device_type" required>
           <vmos-tabs
             :tabs="[
-              { label: '云真机', value: 'real' },
-              { label: '虚拟机', value: 'virtual' }
+              { label: t('cloudPhone.realDevice'), value: 'real' },
+              { label: t('cloudPhone.virtualDevice'), value: 'virtual' }
             ]"
             height="38px"
             v-model="createCloudForm.device_type"
@@ -75,25 +81,25 @@
         </el-form-item>
 
         <template v-if="createCloudForm.device_type === 'real'">
-          <el-form-item prop="machine_mode" label="机型设置">
+          <el-form-item prop="machine_mode" :label="t('cloudPhone.machineSettings')">
             <el-radio-group
               v-model="createCloudForm.machine_mode"
               @change="handleMachineModeChange"
             >
-              <el-radio label="随机" value="random" />
-              <el-radio label="自定义" value="custom" />
+              <el-radio :label="t('cloudPhone.random')" value="random" />
+              <el-radio :label="t('cloudPhone.custom')" value="custom" />
             </el-radio-group>
           </el-form-item>
 
           <!-- 品牌机型选择（仅云真机支持） -->
           <el-row :gutter="20" v-show="createCloudForm.machine_mode === 'custom'">
             <el-col :span="12">
-              <el-form-item label="品牌" prop="brand">
+              <el-form-item :label="t('cloudPhone.brand')" prop="brand">
                 <el-select
                   v-model="createCloudForm.brand"
                   @change="handleBrandChange"
                   filterable
-                  placeholder="请选择品牌"
+                  :placeholder="t('cloudPhone.brandPlaceholder')"
                   style="width: 100%"
                 >
                   <el-option
@@ -106,17 +112,17 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="机型" prop="adiID">
+              <el-form-item :label="t('cloudPhone.model')" prop="adiID">
                 <el-select
                   v-model="createCloudForm.adiID"
                   filterable
-                  placeholder="请选择机型"
+                  :placeholder="t('cloudPhone.modelPlaceholder')"
                   style="width: 100%"
                 >
                   <el-option
                     v-for="item in modelOptions"
                     :key="item.id"
-                    :label="`${item.model_name}${item.isUploaded ? '(已上传)' : ''}`"
+                    :label="`${item.model_name}${item.isUploaded ? t('cloudPhone.uploaded') : ''}`"
                     :value="item.id"
                   />
                 </el-select>
@@ -127,21 +133,21 @@
 
         <!-- 分辨率选择（根据云机类型显示不同选项） -->
         <el-row :gutter="20" align="bottom">
-          <el-col :span="11">
-            <el-form-item label="分辨率" prop="resolutionStr">
+          <el-col :span="12">
+            <el-form-item :label="t('cloudPhone.resolution')" prop="resolutionStr">
               <el-select
                 v-model="createCloudForm.resolutionStr"
                 filterable
                 style="width: 100%"
-                placeholder="请选择或自定义分辨率"
+                :placeholder="t('cloudPhone.resolutionPlaceholder')"
                 @change="handleResolutionChange"
               >
                 <!-- 自定义分辨率选项（放在最顶上，所有类型都支持） -->
-                <el-option label="自定义分辨率" value="custom" />
+                <el-option :label="t('cloudPhone.customResolution')" value="custom" />
                 <!-- 机型分辨率选项（仅云真机支持，从品牌机型获取） -->
                 <el-option-group
                   v-if="createCloudForm.device_type === 'real' && adiResolutionOptions.length > 0"
-                  label="机型分辨率"
+                  :label="t('cloudPhone.modelResolution')"
                 >
                   <el-option
                     v-for="item in adiResolutionOptions"
@@ -151,7 +157,7 @@
                   />
                 </el-option-group>
                 <!-- 固定分辨率选项（所有类型都支持） -->
-                <el-option-group label="通用分辨率">
+                <el-option-group :label="t('cloudPhone.commonResolution')">
                   <el-option
                     v-for="item in fixedResolutionOptions"
                     :key="item.value"
@@ -162,8 +168,8 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="7">
-            <el-form-item label="帧率(fps)" prop="fps">
+          <el-col :span="12">
+            <el-form-item :label="t('cloudPhone.fps')" prop="fps">
               <el-select v-model="createCloudForm.fps" style="width: 100%">
                 <el-option
                   v-for="item in fpsOptions"
@@ -174,23 +180,38 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item class="no-label-item">
-              <el-checkbox v-model="createCloudForm.enableGms" label="启用谷歌套件" />
-            </el-form-item>
-          </el-col>
         </el-row>
 
         <!-- 自定义分辨率输入（当选择自定义时显示） -->
         <el-row :gutter="20" v-if="createCloudForm.resolutionStr === 'custom'">
           <el-col :span="24">
-            <el-form-item label="自定义分辨率" prop="customResolution">
+            <el-form-item :label="t('cloudPhone.customResolution')" prop="customResolution">
               <el-input
                 v-model="createCloudForm.customResolution"
-                placeholder="请输入分辨率，格式：宽度x高度xDPI，例如：1080x1920x420"
+                :placeholder="t('cloudPhone.customResolutionPlaceholder')"
                 clearable
               />
-              <div class="resolution-tip">格式：宽度x高度xDPI，例如：1080x1920x420</div>
+              <div class="resolution-tip">{{ t('cloudPhone.resolutionFormatTip') }}</div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20" align="bottom">
+          <el-col :span="6">
+            <el-form-item class="no-label-item">
+              <el-checkbox v-model="createCloudForm.enableGms" :label="t('cloudPhone.enableGms')" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6" v-if="createCloudForm.enableGms">
+            <el-form-item class="no-label-item">
+              <div style="display: flex; align-items: center; gap: 4px">
+                <el-checkbox
+                  v-model="createCloudForm.enableGmsAutoUpdate"
+                  :label="t('cloudPhone.gmsAutoUpdate')"
+                />
+                <el-tooltip :content="t('cloudPhone.gmsAutoUpdateTip')" placement="top">
+                  <span class="question-mark">?</span>
+                </el-tooltip>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -198,11 +219,8 @@
         <el-form-item style="margin-bottom: 0">
           <template #label>
             <div class="label-row">
-              <span style="margin-right: 4px">地区时区语言</span>
-              <el-tooltip
-                content="需先在「通用设置」中启用 IPinfo 检测策略，开启后才能自动识别当前地区时区；未启用或检测失败时统一使用新加坡。"
-                placement="top"
-              >
+              <span style="margin-right: 4px">{{ t('cloudPhone.regionTimezoneLanguage') }}</span>
+              <el-tooltip :content="t('cloudPhone.regionTimezoneLanguageTip')" placement="top">
                 <span class="question-mark">?</span>
               </el-tooltip>
               <el-switch
@@ -220,12 +238,16 @@
           style="padding-left: 10px"
         >
           <el-col :span="12">
-            <el-form-item label="地区" prop="country">
-              <el-select v-model="createCloudForm.country" filterable placeholder="请选择地区">
+            <el-form-item :label="t('cloudPhone.region')" prop="country">
+              <el-select
+                v-model="createCloudForm.country"
+                filterable
+                :placeholder="t('cloudPhone.regionPlaceholder')"
+              >
                 <el-option
                   v-for="item in countries"
                   :key="item.countryCode"
-                  :label="`${item.countryName} (${item.countryCode})`"
+                  :label="`${isZhCN ? item.countryName : item.countryNameEnglish} (${item.countryCode})`"
                   :value="item.countryCode"
                 />
               </el-select>
@@ -233,24 +255,32 @@
           </el-col>
 
           <el-col :span="12">
-            <el-form-item label="时区" prop="timezone">
-              <el-select v-model="createCloudForm.timezone" filterable placeholder="请选择时区">
+            <el-form-item :label="t('cloudPhone.timezone')" prop="timezone">
+              <el-select
+                v-model="createCloudForm.timezone"
+                filterable
+                :placeholder="t('cloudPhone.timezonePlaceholder')"
+              >
                 <el-option
                   v-for="item in filteredTimeZones"
                   :key="item.timeZone"
-                  :label="item.displayText"
+                  :label="isZhCN ? item.displayText : item.displayTextEnglish"
                   :value="item.timeZone"
                 />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="语言" prop="locale">
-              <el-select v-model="createCloudForm.locale" filterable placeholder="请选择语言">
+            <el-form-item :label="t('cloudPhone.language')" prop="locale">
+              <el-select
+                v-model="createCloudForm.locale"
+                filterable
+                :placeholder="t('cloudPhone.languagePlaceholder')"
+              >
                 <el-option
                   v-for="item in filteredLanguages"
                   :key="item.languageCode"
-                  :label="`${item.displayText} (${item.languageCode})`"
+                  :label="`${isZhCN ? item.displayText : item.displayTextEnglish} (${item.languageCode})`"
                   :value="item.languageCode"
                 />
               </el-select>
@@ -262,8 +292,8 @@
         <el-form-item style="margin-bottom: 0">
           <template #label>
             <div class="label-row">
-              <span style="margin-right: 4px">局域网IP</span>
-              <el-tooltip content="启用后实例将获得独立的局域网 IP" placement="top">
+              <span style="margin-right: 4px">{{ t('cloudPhone.lanIp') }}</span>
+              <el-tooltip :content="t('cloudPhone.lanIpTip')" placement="top">
                 <span class="question-mark">?</span>
               </el-tooltip>
               <el-switch v-model="createCloudForm.bool_macvlan" style="margin-left: 10px" />
@@ -274,39 +304,39 @@
         <!-- Optional fields when macvlan is enabled -->
         <el-row :gutter="20" v-if="createCloudForm.bool_macvlan" style="padding-left: 10px">
           <el-col :span="12">
-            <el-form-item label="起始IP" prop="macvlan_start_ip">
+            <el-form-item :label="t('cloudPhone.startIp')" prop="macvlan_start_ip">
               <el-input
                 v-model="createCloudForm.macvlan_start_ip"
-                placeholder="请输入起始IP"
+                :placeholder="t('cloudPhone.startIpPlaceholder')"
                 clearable
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="子网掩码" prop="netmask">
+            <el-form-item :label="t('cloudPhone.netmask')" prop="netmask">
               <el-input
                 v-model="createCloudForm.netmask"
-                placeholder="请输入子网掩码"
+                :placeholder="t('cloudPhone.netmaskPlaceholder')"
                 readonly
                 clearable
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="默认网关" prop="gateway">
+            <el-form-item :label="t('cloudPhone.gateway')" prop="gateway">
               <el-input
                 v-model="createCloudForm.gateway"
-                placeholder="请输入默认网关"
+                :placeholder="t('cloudPhone.gatewayPlaceholder')"
                 readonly
                 clearable
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="Subnet" prop="subnet">
+            <el-form-item :label="t('cloudPhone.subnet')" prop="subnet">
               <el-input
                 v-model="createCloudForm.subnet"
-                placeholder="请输入Subnet"
+                :placeholder="t('cloudPhone.subnetPlaceholder')"
                 readonly
                 clearable
               />
@@ -315,45 +345,36 @@
         </el-row>
 
         <!-- 自定义实例属性 -->
-        <!-- <el-form-item style="margin-bottom: 0" v-show="false">
+        <el-form-item style="margin-bottom: 0">
           <template #label>
             <div class="label-row">
-              <span style="margin-right: 4px">自定义系统属性</span>
-              <el-tooltip content="以 JSON 格式设置实例的自定义属性" placement="top">
+              <span style="margin-right: 4px">{{ t('cloudPhone.customSystemProperties') }}</span>
+              <el-tooltip :content="t('cloudPhone.customSystemPropertiesTip')" placement="top">
                 <span class="question-mark">?</span>
               </el-tooltip>
               <el-switch
                 v-model="createCloudForm.bool_custom_properties"
+                @change="createCloudForm.userProp = ''"
                 style="margin-left: 10px"
               />
             </div>
           </template>
         </el-form-item>
-
-        <el-form-item
-          prop="custom_properties"
-          v-if="createCloudForm.bool_custom_properties"
-          style="padding-left: 10px; margin-top: 10px"
-        >
-          <el-input
-            v-model="createCloudForm.custom_properties"
-            type="textarea"
-            :rows="4"
-            placeholder='请输入 JSON 格式的属性，例如：{"ro.product.brand": "brand"}'
-          />
-        </el-form-item> -->
+        <el-form-item prop="userProp" v-if="createCloudForm.bool_custom_properties">
+          <vmos-json v-model="createCloudForm.userProp" />
+        </el-form-item>
 
         <el-form-item style="margin-bottom: 0" v-if="createCloudForm.device_type === 'real'">
           <template #label>
             <div class="label-row">
-              <span style="margin-right: 4px">自定义证书</span>
+              <span style="margin-right: 4px">{{ t('cloudPhone.customCert') }}</span>
               <el-switch v-model="createCloudForm.bool_custom_cert" style="margin-left: 10px" />
             </div>
           </template>
         </el-form-item>
         <!-- 证书文件 -->
         <el-form-item
-          label="证书文件"
+          :label="t('cloudPhone.certFile')"
           prop="cert_hash"
           style="margin-left: 10px"
           v-if="createCloudForm.device_type === 'real' && createCloudForm.bool_custom_cert"
@@ -366,10 +387,10 @@
         </el-form-item>
 
         <!-- Name -->
-        <el-form-item label="云机名称" prop="user_name">
+        <el-form-item :label="t('cloudPhone.deviceName')" prop="user_name">
           <el-input
             v-model="createCloudForm.user_name"
-            placeholder="请输入云机名称"
+            :placeholder="t('cloudPhone.deviceNamePlaceholder')"
             maxlength="200"
             show-word-limit
             clearable
@@ -377,7 +398,7 @@
         </el-form-item>
 
         <!-- Count -->
-        <el-form-item label="云机数量" prop="count">
+        <el-form-item :label="t('cloudPhone.deviceCount')" prop="count">
           <div class="count-row">
             <el-input-number
               v-model="createCloudForm.count"
@@ -386,14 +407,14 @@
               controls-position="right"
               class="custom-input-number"
             />
-            <span class="count-tip">单次可创建云机数量不超过 12 台</span>
-            <el-checkbox v-model="createCloudForm.bool_start" label="自动启动" />
+            <span class="count-tip">{{ t('cloudPhone.maxCreateCount') }}</span>
+            <el-checkbox v-model="createCloudForm.bool_start" :label="t('cloudPhone.autoStart')" />
           </div>
         </el-form-item>
 
         <!-- Preview -->
         <div class="preview-section" v-if="createCloudForm.user_name">
-          <div>将创建{{ createCloudForm.count }}台云机:</div>
+          <div>{{ t('cloudPhone.willCreate', { count: createCloudForm.count }) }}:</div>
           <div class="preview-list">
             <div v-for="i in createCloudForm.count" :key="i" class="preview-item">
               {{ getPreviewName(i) }}
@@ -405,8 +426,12 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="visible = false" :disabled="uploadLoading">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :disabled="uploadLoading">确定</el-button>
+        <el-button @click="visible = false" :disabled="uploadLoading">{{
+          t('common.cancel')
+        }}</el-button>
+        <el-button type="primary" @click="handleSubmit" :disabled="uploadLoading">{{
+          t('common.confirm')
+        }}</el-button>
       </div>
     </template>
   </vmos-dialog>
@@ -433,6 +458,11 @@ import { CONFIG_KEYS } from '@shared/constant'
 import axios from 'axios'
 import ImageSelect from './ImageSelect.vue'
 import store from 'store'
+import { useI18n } from 'vue-i18n'
+import { useLocale } from '@renderer/hooks/useLocale'
+
+const { t } = useI18n()
+const { isZhCN } = useLocale()
 
 const CREATE_CLOUD_FORM_KEY = 'createCloudForm'
 
@@ -452,11 +482,11 @@ const strategicInformation = ref<{ timezone: string; country: string }>({
   country: ''
 })
 
-const dnsTypeOptions = [
-  { label: '阿里云 DNS(223.5.5.5)', value: '223.5.5.5' },
-  { label: 'Google DNS(8.8.8.8)', value: '8.8.8.8' },
-  { label: '自定义', value: 'custom' }
-]
+const dnsTypeOptions = computed(() => [
+  { label: t('cloudPhone.aliyunDns'), value: '223.5.5.5' },
+  { label: t('cloudPhone.googleDns'), value: '8.8.8.8' },
+  { label: t('cloudPhone.custom'), value: 'custom' }
+])
 
 // 品牌选项列表
 const brandOptions = ref<any>([])
@@ -512,7 +542,8 @@ const defaultData = () => {
     brand: '',
     machine_mode: 'random',
     // GMS和网络配置
-    bool_gms_disabled: false,
+    enableGms: false,
+    enableGmsAutoUpdate: false,
     bool_macvlan: false,
     bool_start: false,
     // 基础配置
@@ -533,8 +564,8 @@ const defaultData = () => {
     user_name: '',
     cert_hash: '',
     device_type: 'real', // 云机类型：real（云真机）或 virtual（虚拟机）
-    // bool_custom_properties: false,
-    custom_properties: '',
+    bool_custom_properties: false,
+    userProp: '',
     bool_language_country_timezone: false,
     bool_custom_cert: false,
     // 默认新加坡
@@ -546,26 +577,27 @@ const defaultData = () => {
 
 const createCloudForm = reactive<any>(defaultData())
 
-const rules = {
+const rules = computed(() => ({
   user_name: [
-    { required: true, message: '请输入云机名称', trigger: 'blur' },
-    { min: 2, message: '云机名称长度不能少于2个字符', trigger: 'blur' },
-    { max: 200, message: '云机名称长度不能超过200个字符', trigger: 'blur' },
+    { required: true, message: t('cloudPhone.deviceNamePlaceholder'), trigger: 'blur' },
+    { min: 2, message: t('cloudPhone.deviceNameMinLength'), trigger: 'blur' },
+    { max: 200, message: t('cloudPhone.deviceNameMaxLength'), trigger: 'blur' },
     {
-      pattern: /^[a-zA-Z0-9_.-]+$/,
-      message: '云机名称只能包含数字、字母、下划线、点和横线',
+      // 这个正则表达式的含义：允许由字母（大小写）、数字、下划线、点、短横线和中文字符组成，长度至少为1个字符，且可以是这些字符的任意组合。
+      pattern: /^[a-zA-Z0-9_.\-\u4e00-\u9fa5]+$/,
+      message: t('cloudPhone.deviceNameFormat'),
       trigger: 'blur'
     }
   ],
-  image_repository: [{ required: true, message: '请选择镜像', trigger: 'blur' }],
-  dnsType: [{ required: true, message: '请选择DNS类型', trigger: 'blur' }],
-  dns: [{ required: true, message: '请输入DNS', trigger: 'blur' }],
+  image_repository: [{ required: true, message: t('cloudPhone.selectImage'), trigger: 'blur' }],
+  dnsType: [{ required: true, message: t('cloudPhone.selectDnsType'), trigger: 'blur' }],
+  dns: [{ required: true, message: t('cloudPhone.dnsPlaceholder'), trigger: 'blur' }],
   // 品牌机型验证（仅云真机需要）
   brand: [
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (createCloudForm.device_type === 'real' && !value) {
-          callback(new Error('请选择品牌'))
+          callback(new Error(t('cloudPhone.selectBrand')))
         } else {
           callback()
         }
@@ -578,7 +610,7 @@ const rules = {
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (createCloudForm.device_type === 'real' && !value) {
-          callback(new Error('请选择机型'))
+          callback(new Error(t('cloudPhone.selectModel')))
         } else {
           callback()
         }
@@ -593,9 +625,9 @@ const rules = {
       validator: (_rule: any, value: string, callback: Function) => {
         if (createCloudForm.resolutionStr === 'custom') {
           if (!value) {
-            callback(new Error('请输入自定义分辨率'))
+            callback(new Error(t('cloudPhone.enterCustomResolution')))
           } else if (!/^\d+x\d+x\d+$/.test(value)) {
-            callback(new Error('分辨率格式错误，应为：宽度x高度xDPI，例如：1080x1920x420'))
+            callback(new Error(t('cloudPhone.resolutionFormatError')))
           } else {
             callback()
           }
@@ -608,56 +640,38 @@ const rules = {
     }
   ],
   macvlan_start_ip: [
-    { required: true, message: '请输入起始IP', trigger: 'blur' },
+    { required: true, message: t('cloudPhone.startIpPlaceholder'), trigger: 'blur' },
     {
       pattern:
         /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
-      message: '请输入正确的IP地址格式',
+      message: t('cloudPhone.invalidIpFormat'),
       trigger: 'blur'
     }
   ],
-  netmask: [{ required: true, message: '请输入子网掩码', trigger: 'blur' }],
-  gateway: [{ required: true, message: '请输入默认网关', trigger: 'blur' }],
-  subnet: [{ required: true, message: '请输入Subnet', trigger: 'blur' }],
+  netmask: [{ required: true, message: t('cloudPhone.netmaskPlaceholder'), trigger: 'blur' }],
+  gateway: [{ required: true, message: t('cloudPhone.gatewayPlaceholder'), trigger: 'blur' }],
+  subnet: [{ required: true, message: t('cloudPhone.subnetPlaceholder'), trigger: 'blur' }],
   resolutionStr: [
     {
       trigger: 'blur',
       required: true,
-      message: '请选择分辨率'
+      message: t('cloudPhone.selectResolution')
     }
   ],
-  fps: [{ required: true, message: '请选择帧率', trigger: 'blur' }],
-  count: [{ required: true, message: '请输入云机数量', trigger: 'blur' }],
-  // custom_properties: [
-  //   {
-  //     validator: (_rule: any, value: string, callback: Function) => {
-  //       if (createCloudForm.bool_custom_properties) {
-  //         if (!value) {
-  //           callback(new Error('请输入自定义实例属性'))
-  //         } else {
-  //           try {
-  //             const parsed = JSON.parse(value)
-  //             if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-  //               callback(new Error('请输入有效的 JSON 对象格式，例如：{"key": "value"}'))
-  //             } else {
-  //               callback()
-  //             }
-  //           } catch (e) {
-  //             callback(new Error('JSON 格式错误，请检查输入'))
-  //           }
-  //         }
-  //       } else {
-  //         callback()
-  //       }
-  //     },
-  //     trigger: 'blur'
-  //   }
-  // ],
-  locale: [{ required: true, message: '请选择语言', trigger: 'blur' }],
-  timezone: [{ required: true, message: '请选择时区', trigger: 'blur' }],
-  country: [{ required: true, message: '请选择地区', trigger: 'blur' }],
-  cert_hash: [{ required: true, message: '请选择证书', trigger: ['blur', 'change'] }]
-}
+  fps: [{ required: true, message: t('cloudPhone.selectFps'), trigger: 'blur' }],
+  count: [{ required: true, message: t('cloudPhone.enterDeviceCount'), trigger: 'blur' }],
+  userProp: [
+    {
+      required: true,
+      message: t('cloudPhone.enterCustomProperties'),
+      trigger: ['blur', 'change']
+    }
+  ],
+  locale: [{ required: true, message: t('cloudPhone.languagePlaceholder'), trigger: 'blur' }],
+  timezone: [{ required: true, message: t('cloudPhone.timezonePlaceholder'), trigger: 'blur' }],
+  country: [{ required: true, message: t('cloudPhone.regionPlaceholder'), trigger: 'blur' }],
+  cert_hash: [{ required: true, message: t('cloudPhone.selectCert'), trigger: ['blur', 'change'] }]
+}))
 
 const filteredTimeZones = computed(() => {
   if (!createCloudForm.country) {
@@ -680,7 +694,7 @@ const filteredLanguages = computed(() => {
 watch(
   () => createCloudForm.dnsType,
   (val) => {
-    const dns = dnsTypeOptions.find((item) => item.value === val)?.value ?? ''
+    const dns = dnsTypeOptions.value.find((item) => item.value === val)?.value ?? ''
     createCloudForm.dns = dns !== 'custom' ? dns : ''
   }
 )
@@ -690,18 +704,6 @@ watch(
   () => createCloudForm.bool_custom_cert,
   () => {
     createCloudForm.cert_hash = ''
-  }
-)
-/**
- * 监听自定义属性开关
- */
-watch(
-  () => createCloudForm.bool_custom_properties,
-  (val) => {
-    if (!val) {
-      createCloudForm.custom_properties = ''
-      formRef.value?.clearValidate(['custom_properties'])
-    }
   }
 )
 
@@ -775,6 +777,11 @@ watch(
     if (createCloudForm.image_repository && currentAndroidVersion.value) {
       await getBrandOptions(currentAndroidVersion.value)
     }
+
+    // 虚拟机默认分辨率
+    if (createCloudForm.device_type === 'virtual') {
+      createCloudForm.resolutionStr = '720x1280x320'
+    }
   }
 )
 
@@ -812,12 +819,12 @@ const handleMachineModeChange = () => {
   }
 }
 const handleUploadAdiProgress = (percent: number) => {
-  loadingInstance?.setText(`上传机型模板：${percent.toFixed(0)}%`)
+  loadingInstance?.setText(t('cloudPhone.uploadingModelTemplate', { percent: percent.toFixed(0) }))
 }
 const handleUploadImageProgress = (percent: number) => {
-  loadingInstance?.setText(`上传镜像：${percent.toFixed(0)}%`)
+  loadingInstance?.setText(t('cloudPhone.uploadingImage', { percent: percent.toFixed(0) }))
   if (percent == 100) {
-    loadingInstance?.setText('首次加载镜像约需 3–5 分钟…')
+    loadingInstance?.setText(t('cloudPhone.firstLoadImageTip'))
   }
 }
 
@@ -827,8 +834,8 @@ const createLoading = () => {
     loadingInstance = ElLoading.service({
       target,
       lock: true,
-      text: '创建中...',
-      background: 'rgba(255, 255, 255, 0.7)'
+      text: t('cloudPhone.creating'),
+      background: 'var(--el-mask-color-extra-light)'
     })
   }
 }
@@ -1065,7 +1072,7 @@ const getBrandOptions = async (asopVersion: string) => {
       }
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '获取主机机型模板列表失败')
+    ElMessage.error(error?.message || t('cloudPhone.getAdiListFailed'))
   }
 }
 
@@ -1081,7 +1088,8 @@ const init = (row: Host) => {
       dnsType: lastCreateCloudForm.dnsType,
       device_type: lastCreateCloudForm.device_type,
       user_name: lastCreateCloudForm.user_name,
-      bool_gms_disabled: lastCreateCloudForm.bool_gms_disabled,
+      enableGms: !lastCreateCloudForm.bool_gms_disabled,
+      enableGmsAutoUpdate: lastCreateCloudForm.bool_gms_upgrade_enable,
       bool_macvlan: lastCreateCloudForm.bool_macvlan,
       bool_start: lastCreateCloudForm.bool_start,
       count: lastCreateCloudForm.count,
@@ -1093,6 +1101,8 @@ const init = (row: Host) => {
       country: lastCreateCloudForm.country,
       resolutionStr: lastCreateCloudForm.resolutionStr,
       customResolution: lastCreateCloudForm.customResolution,
+      bool_custom_properties: lastCreateCloudForm.bool_custom_properties,
+      userProp: lastCreateCloudForm.userProp ? JSON.parse(lastCreateCloudForm.userProp) : '',
       fps: lastCreateCloudForm.fps
     })
 
@@ -1148,24 +1158,24 @@ const handleSubmit = async () => {
     }
     // 上传 adi
     if (uploads.adi) {
-      loadingInstance?.setText(`上传机型模板到主机中...`)
+      loadingInstance?.setText(t('cloudPhone.uploadingModelTemplateToHost'))
       const res = await ipc.invoke<Adi>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, {
         adi: toRaw(uploads.adi),
         host: toRaw(host.value)
       })
       if (!res.success) {
-        throw new Error(res.error || '上传机型模板到主机失败')
+        throw new Error(res.error || t('cloudPhone.uploadModelTemplateFailed'))
       }
     }
     //
     if (uploads.image) {
-      loadingInstance?.setText(`上传镜像到主机中...`)
+      loadingInstance?.setText(t('cloudPhone.uploadingImageToHost'))
       const res = await ipc.invoke<Image>(IMAGES_EVENTS.UPLOAD_IMAGE_TO_HOST, {
         image: toRaw(uploads.image),
         host: toRaw(host.value)
       })
       if (!res.success) {
-        throw new Error(res.error || '上传镜像到主机失败')
+        throw new Error(res.error || t('cloudPhone.uploadImageFailed'))
       }
     }
 
@@ -1175,7 +1185,7 @@ const handleSubmit = async () => {
     // 如果选择自定义，使用自定义分辨率输入
     if (resolutionStr === 'custom') {
       if (!createCloudForm.customResolution) {
-        throw new Error('请输入自定义分辨率')
+        throw new Error(t('cloudPhone.enterCustomResolution'))
       }
       resolutionStr = createCloudForm.customResolution
     }
@@ -1184,10 +1194,10 @@ const handleSubmit = async () => {
     const [width, height, dpi] = (resolutionStr || '').split('x').map((v) => Number(v))
 
     if (![width, height, dpi].every(Number.isFinite)) {
-      throw new Error('分辨率格式错误，应为：宽度x高度xDPI，例如：1080x1920x420')
+      throw new Error(t('cloudPhone.resolutionFormatError'))
     }
 
-    loadingInstance?.setText(`创建云机中...`)
+    loadingInstance?.setText(t('cloudPhone.creating'))
 
     // 5️⃣ 构造提交数据
     const submitData: any = {
@@ -1195,6 +1205,9 @@ const handleSubmit = async () => {
       adiID: createCloudForm.device_type === 'real' ? Number(createCloudForm.adiID) : undefined,
       // GMS和网络配置
       bool_gms_disabled: !createCloudForm.enableGms,
+      bool_gms_upgrade_enable: createCloudForm.enableGms
+        ? createCloudForm.enableGmsAutoUpdate
+        : undefined,
       bool_macvlan: createCloudForm.bool_macvlan,
       bool_start: createCloudForm.bool_start,
       // 基础配置
@@ -1217,6 +1230,8 @@ const handleSubmit = async () => {
       customResolution: createCloudForm.customResolution,
       dnsType: createCloudForm.dnsType,
       fps: createCloudForm.fps,
+      bool_custom_properties: createCloudForm.bool_custom_properties,
+      userProp: createCloudForm.userProp ? JSON.stringify(createCloudForm.userProp) : '',
       // 分辨率配置
       resolution: {
         width,
@@ -1225,6 +1240,22 @@ const handleSubmit = async () => {
         fps: createCloudForm.fps
       }
     }
+
+    // 获取推流设置并添加到 scdArgs（JSON 字符串）
+    const fpsRes = await ipc.invoke<string>(CONFIG_EVENTS.GET_CONFIGS, CONFIG_KEYS.STREAM_FPS)
+    const bitrateRes = await ipc.invoke<string>(
+      CONFIG_EVENTS.GET_CONFIGS,
+      CONFIG_KEYS.STREAM_BITRATE
+    )
+    const fps = fpsRes.success && fpsRes.data ? fpsRes.data : '30'
+    const bitrate = bitrateRes.success && bitrateRes.data ? bitrateRes.data : '2'
+    // 码率转换为字节，1MB = 1024 * 1024 字节
+    // 使用字符串形式避免 JSON.stringify 将大数字转换为科学计数法
+    const bitrateBytes = parseInt(bitrate) * 1024 * 1024
+    submitData.scdArgs = JSON.stringify({
+      video_bit_rate: String(bitrateBytes),
+      max_fps: fps
+    })
 
     // 移除undefined字段，避免提交不必要的数据
     Object.keys(submitData).forEach((key) => {
@@ -1243,13 +1274,13 @@ const handleSubmit = async () => {
 
     store.set(CREATE_CLOUD_FORM_KEY, submitData)
 
-    ElMessage.success('操作成功，请稍后查看创建结果')
+    ElMessage.success(t('cloudPhone.createDeviceSuccess'))
     visible.value = false
   } catch (error: any) {
-    ElMessage.error(getErrorMessage(error, '创建云机失败'))
+    ElMessage.error(getErrorMessage(error, t('cloudPhone.createDeviceFailed')))
   } finally {
     try {
-      await getImageOptions()
+      await getImageOptions(true)
     } catch (error) {
       console.error(error)
     }
@@ -1339,7 +1370,7 @@ defineExpose({
   overflow-y: auto;
 }
 .dialog-header-info {
-  color: #409eff;
+  color: var(--el-color-primary);
   margin-bottom: 10px;
   font-size: 14px;
   display: flex;
@@ -1371,7 +1402,7 @@ defineExpose({
   font-size: 14px;
   font-weight: bold;
   margin-bottom: 10px;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 
 .question-mark {
@@ -1381,8 +1412,8 @@ defineExpose({
   line-height: 14px;
   text-align: center;
   border-radius: 50%;
-  background-color: #909399;
-  color: #fff;
+  background-color: var(--el-text-color-secondary);
+  color: var(--el-bg-color);
   font-size: 12px;
   margin: 0 4px;
   cursor: help;
@@ -1402,20 +1433,20 @@ defineExpose({
 }
 
 .count-tip {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   flex: 1;
 }
 
 .resolution-tip {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   margin-top: 4px;
 }
 
 .preview-section {
   margin-top: 20px;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page);
   padding: 10px;
   border-radius: 4px;
 }
@@ -1431,7 +1462,7 @@ defineExpose({
 
 .preview-item {
   font-size: 13px;
-  color: #303133;
+  color: var(--el-text-color-primary);
   // 强制换行
   white-space: normal;
   word-break: break-word;

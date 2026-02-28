@@ -21,7 +21,7 @@ class MainWindowManager {
   private mainWindow: BrowserWindow | null = null
   private ipcInitialized = false
 
-  private constructor() {}
+  private constructor() { }
 
   /**
    * 获取单例实例
@@ -121,12 +121,16 @@ class MainWindowManager {
    * 获取主窗口URL
    */
   private getMainUrl(): string {
+    let url = ''
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      return process.env['ELECTRON_RENDERER_URL']
+      url = process.env['ELECTRON_RENDERER_URL']
+    } else {
+      const filePath = join(__dirname, '../renderer/index.html')
+      url = pathToFileURL(filePath).href
     }
 
-    const filePath = join(__dirname, '../renderer/index.html')
-    return pathToFileURL(filePath).href
+    // 显式添加窗口类型参数，必须放在 hash (#) 之前，确保 preload 能够第一时间解析
+    return url.includes('?') ? `${url}&winType=main` : `${url}?winType=main`
   }
 
   /**
@@ -155,7 +159,9 @@ class MainWindowManager {
     })
 
     this.mainWindow.webContents.setWindowOpenHandler((details) => {
-      shell.openExternal(details.url)
+      shell.openExternal(details.url).catch((err) => {
+        logger.error(`[MainWindow] Failed to open external url: ${details.url}`, err)
+      })
       return { action: 'deny' }
     })
 

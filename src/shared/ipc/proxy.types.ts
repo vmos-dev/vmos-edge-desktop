@@ -7,6 +7,8 @@ export const PROXY_EVENTS = {
   GET_PROXY_BY_ID: 'PROXY:GET_PROXY_BY_ID',
   // 添加代理
   ADD_PROXY: 'PROXY:ADD_PROXY',
+  // 批量添加代理
+  BATCH_ADD_PROXY: 'PROXY:BATCH_ADD_PROXY',
   // 更新代理
   UPDATE_PROXY: 'PROXY:UPDATE_PROXY',
   // 删除代理

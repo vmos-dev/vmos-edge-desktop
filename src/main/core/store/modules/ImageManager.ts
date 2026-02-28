@@ -8,14 +8,12 @@ import { Image } from '@shared/ipc/data.types'
 import { v4 as uuidv4 } from 'uuid'
 import fs from 'fs'
 import path from 'path'
+import http from 'http'
 import { extract } from 'tar'
 import { pipeline } from 'stream/promises' // Node 15+ 原生支持流管道 Promise
 import { IMAGES_EVENTS } from '@shared/ipc/images.types'
 import { ZstdDecompressStream } from '../../utils/ZstdDecompressStream'
-import { request } from '@shared/api/request'
-import { buildApiUrl } from '@shared/api/config'
 import { API_CONFIG } from '@shared/api/config'
-import FormData from 'form-data'
 import { Host } from '@shared/ipc/data.types'
 import { getFreeDiskSpace } from '../../utils'
 /**
@@ -567,58 +565,260 @@ export class ImageManager extends BaseManager {
 
   /**
    * 上传镜像到主机
+   * 优化版本：使用直接流式传输，减少 async generator 开销
    */
   public async uploadImageToHost(image: Image, host: Host): Promise<boolean> {
     const startTime = Date.now()
-    logger.info(`[ImageManager] uploadImageToHost called:`, { image, host })
-    try {
-      const { storagePath } = image
-      const filePath = path.normalize(storagePath)
-      // 1️⃣ 校验文件是否存在
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File not found: ${filePath}`)
+
+    logger.info('[ImageManager] uploadImageToHost called', {
+      imageId: image.id,
+      imageName: image.name,
+      hostIp: host.ip
+    })
+
+    let req: http.ClientRequest | null = null
+    let fileStream: fs.ReadStream | null = null
+    let settled = false
+
+    // 统一清理资源
+    const cleanup = () => {
+      if (fileStream) {
+        fileStream.removeAllListeners()
+        if (!fileStream.destroyed) {
+          fileStream.destroy()
+        }
+        fileStream = null
+      }
+      if (req) {
+        req.removeAllListeners()
+        if (!req.destroyed) {
+          req.destroy()
+        }
+        req = null
+      }
+    }
+
+    return new Promise<boolean>((resolve, reject) => {
+      const safeResolve = (value: boolean) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        resolve(value)
       }
 
-      // 2️⃣ 使用流（关键）
-      const fileStream = fs.createReadStream(filePath)
+      const safeReject = (err: Error) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        reject(err)
+      }
 
-      const fileName = path.basename(filePath)
-      const formData = new FormData()
-      formData.append('file', fileStream, {
-        filename: fileName,
-        contentType: 'application/gzip'
-      })
-      await request.post(buildApiUrl(host.ip, API_CONFIG.PATHS.IMPORT_IMAGE), formData, {
-        // responseType: 'blob',
-        headers: {
-          ...formData.getHeaders()
-        },
-        timeout: 20 * 60 * 1000,
+      try {
+        // ---------- 1. 校验文件 ----------
+        const filePath = path.normalize(image.storagePath)
 
-        onUploadProgress: (ev) => {
-          const percent = ev.total ? Math.round((ev.loaded * 100) / ev.total) : 0
-          if (percent % 20 === 0 || percent === 100) {
-            logger.info(`[ImageManager] uploadImageToHost progress: ${percent}%`)
-          }
-          this.notifyFrontend(IMAGES_EVENTS.UPLOAD_IMAGE_TO_HOST_PROGRESS, percent)
+        if (!fs.existsSync(filePath)) {
+          throw new Error(`Image file not found: ${filePath}`)
         }
-      })
-      const duration = Date.now() - startTime
-      logger.info(
-        `[ImageManager] uploadImageToHost success: image=${image.id}, duration=${duration}ms`
-      )
-      return true
-    } catch (error) {
-      logger.error('[ImageManager] uploadImageToHost failed:', {
-        error,
-        stack: error instanceof Error ? error.stack : undefined,
-        imageId: image.id,
-        hostIp: host.ip
-      })
-      throw error
-    }
-  }
 
+        const stat = fs.statSync(filePath)
+        if (!stat.isFile()) {
+          throw new Error(`Invalid image file: ${filePath}`)
+        }
+
+        if (stat.size <= 0) {
+          throw new Error(`Image file is empty: ${filePath}`)
+        }
+
+        const fileSize = stat.size
+        const fileName = path.basename(filePath)
+
+        logger.info('[ImageManager] uploadImageToHost file info', {
+          fileName,
+          fileSize: this.formatBytes(fileSize)
+        })
+
+        // ---------- 2. 构建 multipart/form-data ----------
+        const boundary =
+          '----NodeFormBoundary' + Date.now().toString(16) + Math.random().toString(36).slice(2)
+
+        const headerPart = Buffer.from(
+          `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+          `Content-Type: application/gzip\r\n\r\n`
+        )
+
+        const footerPart = Buffer.from(`\r\n--${boundary}--\r\n`)
+
+        // 请求体总长度
+        const totalLength = headerPart.length + fileSize + footerPart.length
+
+        // ---------- 3. 创建 HTTP 请求 ----------
+        req = http.request(
+          {
+            hostname: host.ip,
+            port: API_CONFIG.DEFAULT_PORT,
+            path: API_CONFIG.PATHS.IMPORT_IMAGE,
+            method: 'POST',
+            headers: {
+              'Content-Type': `multipart/form-data; boundary=${boundary}`,
+              'Content-Length': totalLength,
+              'X-Client-Type': 'vmos-edge-desktop',
+              Connection: 'keep-alive'
+            }
+          },
+          (res) => {
+            res.setEncoding('utf8')
+            let responseBody = ''
+
+            res.on('data', (chunk) => {
+              responseBody += chunk
+            })
+
+            res.on('end', () => {
+              const duration = Date.now() - startTime
+              const avgSpeed = (fileSize / (duration / 1000) / 1024 / 1024).toFixed(2)
+
+              let parsed: any = null
+              try {
+                parsed = responseBody ? JSON.parse(responseBody) : null
+              } catch {
+                // ignore
+              }
+
+              if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                if (parsed && parsed.code !== undefined && parsed.code != 200) {
+                  logger.error('[ImageManager] uploadImageToHost business error', {
+                    imageId: image.id,
+                    code: parsed.code,
+                    message: parsed.msg
+                  })
+                  safeReject(new Error(parsed.msg || `Business error, code=${parsed.code}`))
+                  return
+                }
+                logger.info('[ImageManager] uploadImageToHost success', {
+                  imageId: image.id,
+                  duration: `${duration}ms`,
+                  avgSpeed: `${avgSpeed} MB/s`
+                })
+                safeResolve(true)
+              } else {
+                safeReject(new Error(`HTTP ${res.statusCode}: ${responseBody.slice(0, 500)}`))
+              }
+            })
+
+            res.on('error', (err) => {
+              logger.error('[ImageManager] response error', { message: err.message })
+              safeReject(err)
+            })
+          }
+        )
+
+        // 优化 1: 配置 socket 选项
+        req.on('socket', (socket) => {
+          // 禁用 Nagle 算法，减少延迟
+          socket.setNoDelay(true)
+          // 启用 keep-alive
+          socket.setKeepAlive(true, 60000)
+        })
+
+        req.on('error', (err) => {
+          logger.error('[ImageManager] request error', {
+            imageId: image.id,
+            hostIp: host.ip,
+            message: err.message
+          })
+          safeReject(err)
+        })
+
+        // 超时控制（60分钟，大文件需要更长时间）
+        const timeoutMs = 60 * 60 * 1000
+        req.setTimeout(timeoutMs, () => {
+          logger.error('[ImageManager] uploadImageToHost timeout')
+          req?.destroy(new Error('Upload timeout after 60 minutes'))
+        })
+
+        // ---------- 4. 直接流式传输（优化：避免 async generator 开销）----------
+
+        // 进度追踪变量
+        let uploadedBytes = 0
+        let lastPercent = -1
+        let lastLogTime = Date.now()
+        const logInterval = 2000 // 每2秒记录一次速度
+
+        // 先写入 header
+        req.write(headerPart)
+        uploadedBytes += headerPart.length
+
+        // 优化 2: 使用更大的读取缓冲区 (16MB) 和直接 pipe
+        fileStream = fs.createReadStream(filePath, {
+          highWaterMark: 16 * 1024 * 1024 // 16MB 缓冲区
+        })
+
+        // 优化 3: 合并 data 事件处理，同时处理进度通知和背压
+        fileStream.on('data', (chunk: Buffer | string) => {
+          uploadedBytes += chunk.length
+
+          // 降低进度通知频率（每 2% 通知一次）
+          const percent = Math.floor((uploadedBytes * 100) / totalLength)
+          if (percent >= lastPercent + 2) {
+            lastPercent = percent
+            this.notifyFrontend(IMAGES_EVENTS.UPLOAD_IMAGE_TO_HOST_PROGRESS, Math.min(percent, 99))
+          }
+
+          // 速度日志（每2秒记录一次）
+          const now = Date.now()
+          if (now - lastLogTime >= logInterval) {
+            const elapsedSeconds = (now - startTime) / 1000
+            const payloadBytes = Math.max(0, uploadedBytes - headerPart.length)
+            const avgMbps = (payloadBytes / elapsedSeconds / 1024 / 1024).toFixed(2)
+            logger.info(
+              `[ImageManager] upload progress: ${percent}%, avg speed: ${avgMbps} MB/s, uploaded: ${this.formatBytes(payloadBytes)}`
+            )
+            lastLogTime = now
+          }
+
+          // 优化 4: 手动处理背压
+          const canContinue = req!.write(chunk)
+          if (!canContinue) {
+            // 暂停读取，等待 drain 事件
+            fileStream!.pause()
+          }
+        })
+
+        fileStream.on('end', () => {
+          // 文件读取完成，写入 footer
+          req!.write(footerPart)
+          req!.end()
+
+          // 通知 100%
+          this.notifyFrontend(IMAGES_EVENTS.UPLOAD_IMAGE_TO_HOST_PROGRESS, 100)
+
+          const duration = Date.now() - startTime
+          const avgSpeed = (fileSize / (duration / 1000) / 1024 / 1024).toFixed(2)
+          logger.info(`[ImageManager] file stream ended, waiting for response. Duration: ${duration}ms, Avg speed: ${avgSpeed} MB/s`)
+        })
+
+        fileStream.on('error', (err) => {
+          logger.error('[ImageManager] file stream error', { error: err.message })
+          safeReject(err)
+        })
+
+        req.on('drain', () => {
+          // 可以继续写入，恢复读取
+          fileStream?.resume()
+        })
+
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        logger.error('[ImageManager] uploadImageToHost initialization failed', {
+          imageId: image.id,
+          message: error.message
+        })
+        safeReject(error)
+      }
+    })
+  }
   /**
    * 检测镜像存储路径是否存在
    */

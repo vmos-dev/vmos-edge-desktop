@@ -54,20 +54,23 @@ export function registerGroupHandlers() {
   })
 
   // 添加分组
-  handle<{ name: string }, Group>(DATA_EVENTS.ADD_GROUP, async ({ name }) => {
-    const startTime = Date.now()
-    logger.info(`[GroupHandler] ADD_GROUP request: name=${name}`)
-    try {
-      const res = groupManager.addGroup(name)
-      const duration = Date.now() - startTime
-      logger.info(
-        `[GroupHandler] ADD_GROUP success: id=${res.id}, name=${res.name}, duration=${duration}ms`
-      )
-      return { success: true, data: res }
-    } catch (error) {
-      return handleError(error)
+  handle<{ name: string; type?: 'host' | 'device' }, Group>(
+    DATA_EVENTS.ADD_GROUP,
+    async ({ name, type }) => {
+      const startTime = Date.now()
+      logger.info(`[GroupHandler] ADD_GROUP request: name=${name}, type=${type}`)
+      try {
+        const res = groupManager.addGroup(name, type)
+        const duration = Date.now() - startTime
+        logger.info(
+          `[GroupHandler] ADD_GROUP success: id=${res.id}, name=${res.name}, duration=${duration}ms`
+        )
+        return { success: true, data: res }
+      } catch (error) {
+        return handleError(error)
+      }
     }
-  })
+  )
 
   // 更新分组
   handle<Partial<Group>, void>(DATA_EVENTS.UPDATE_GROUP, async (params: Partial<Group>) => {

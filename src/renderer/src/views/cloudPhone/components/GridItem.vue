@@ -9,18 +9,20 @@
   >
     <!-- 截图区域 -->
     <div class="item-preview" :style="getPreviewStyle(device.state)" @click="onPreviewClick">
-      <div v-if="screenshotUrl && !isError" class="preview-image">
-        <!-- 前景内容层 -->
-        <img
-          class="preview-fg"
-          :src="screenshotUrl"
-          alt="preview"
-          :style="fgStyle"
-          @error="handleImageError"
-          @load="onImgLoad"
-        />
-      </div>
-      <div v-else class="preview-placeholder">
+      <Transition name="screenshot-fade" appear>
+        <div v-if="screenshotUrl && !isError" class="preview-image">
+          <!-- 前景内容层 -->
+          <img
+            class="preview-fg"
+            :src="screenshotUrl"
+            alt="preview"
+            :style="fgStyle"
+            @error="handleImageError"
+            @load="onImgLoad"
+          />
+        </div>
+      </Transition>
+      <div v-if="!screenshotUrl || isError" class="preview-placeholder">
         <el-icon class="placeholder-icon"><Monitor /></el-icon>
         <span class="device-status">{{ formatState(device.state) }}</span>
       </div>
@@ -34,7 +36,7 @@
             circle
             v-if="device.state === DeviceState.StateStopped"
             @click.stop="$emit('command', 'start', device)"
-            title="开机"
+            :title="t('phone.powerOnNow')"
           />
           <el-button
             :size="buttonSize"
@@ -42,7 +44,7 @@
             circle
             v-if="device.state === DeviceState.StateStopped"
             @click.stop="$emit('command', 'clone', device)"
-            title="克隆"
+            :title="t('cloudPhone.cloneDevice')"
           />
           <el-button
             :size="buttonSize"
@@ -50,7 +52,7 @@
             circle
             v-if="device.state === DeviceState.StateRunning"
             @click.stop="$emit('open-window', device)"
-            title="打开窗口"
+            :title="t('cloudPhone.openWindow')"
           />
         </el-button-group>
       </div>
@@ -73,9 +75,13 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Monitor, VideoPlay, Iphone, CopyDocument } from '@element-plus/icons-vue'
 import { Device, DeviceState } from '@shared/ipc/data.types'
-import { DeviceStateMap, MacvlanPortMap } from '@renderer/utils/constant'
+import { MacvlanPortMap } from '@renderer/utils/constant'
+import { getDeviceStateText } from '@renderer/utils/i18n-maps'
 import { API_CONFIG, buildApiUrl } from '@shared/api/config'
 import { request, isCancel } from '@shared/api'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface MenuItem {
   label: string
@@ -260,7 +266,8 @@ const loadScreenshot = async () => {
       },
       {
         responseType: 'blob',
-        signal: abortController.signal
+        signal: abortController.signal,
+        timeout: 5000
       }
     )
 
@@ -336,10 +343,10 @@ const handleImageError = () => {
 
 const getPreviewStyle = (state: any) => {
   if (state === DeviceState.StateRunning) {
-    return { backgroundColor: '#f5f7fa' }
+    return { backgroundColor: 'var(--el-bg-color-page)' }
   }
   return {
-    backgroundColor: '#f5f7fa'
+    backgroundColor: 'var(--el-bg-color-page)'
   }
 }
 
@@ -364,9 +371,20 @@ watch(
 
 watch(
   () => props.device.state,
-  (newState) => {
+  (newState, oldState) => {
     if (newState === DeviceState.StateRunning) {
-      startRefresh()
+      // 如果是从停止状态变为运行状态，清理旧截图和错误状态
+      // 这样即使组件当前不可见，当变为可见时也能正确加载新截图
+      if (oldState === DeviceState.StateStopped) {
+        cleanupScreenshot()
+        isError.value = false
+        isLoading.value = false
+      }
+      // 只有在组件可见时才立即开始刷新
+      // 如果不可见，IntersectionObserver 会在组件变为可见时触发
+      if (isVisible.value) {
+        startRefresh()
+      }
     } else {
       stopRefresh()
       // 设备关机或离线时，才清理截图
@@ -475,14 +493,14 @@ const onCheckboxChange = (val: boolean | string | number) => {
 }
 
 const formatState = (state: any) => {
-  return DeviceStateMap[state as DeviceState] || state
+  return getDeviceStateText(state as DeviceState) || state
 }
 </script>
 
 <style scoped lang="scss">
 .grid-item {
   position: relative;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   display: flex;
@@ -491,12 +509,12 @@ const formatState = (state: any) => {
   cursor: pointer;
   overflow: hidden;
   box-sizing: border-box;
-  border: 1px solid #f2f3f5;
+  border: 1px solid var(--el-border-color-light);
 
   &:hover {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
-    border-color: #409eff;
+    border-color: var(--el-color-primary);
     z-index: 1;
 
     .item-overlay {
@@ -505,16 +523,16 @@ const formatState = (state: any) => {
   }
 
   &.is-selected {
-    border-color: #409eff;
+    border-color: var(--el-color-primary);
     border-width: 2px;
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+    box-shadow: 0 0 0 2px var(--el-color-primary-alpha-1);
 
     .item-info {
-      background-color: #fff;
+      background-color: var(--el-bg-color);
     }
 
     .device-name {
-      color: #409eff;
+      color: var(--el-color-primary);
     }
   }
 
@@ -551,16 +569,32 @@ const formatState = (state: any) => {
   overflow: hidden;
 }
 
+/* 截图淡入效果 - 使用 Vue Transition */
+.screenshot-fade-enter-active,
+.screenshot-fade-appear-active {
+  transition: opacity 0.2s ease-out;
+}
+
+.screenshot-fade-enter-from,
+.screenshot-fade-appear-from {
+  opacity: 0;
+}
+
+.screenshot-fade-enter-to,
+.screenshot-fade-appear-to {
+  opacity: 1;
+}
+
 .preview-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #dcdfe6;
+  color: var(--el-border-color);
   gap: 12px;
   width: 100%;
   height: 100%;
-  background-color: #f7f8fa;
+  background-color: var(--el-bg-color-page);
 
   .placeholder-icon {
     font-size: 36px;
@@ -570,7 +604,7 @@ const formatState = (state: any) => {
   .device-status {
     font-size: 13px;
     font-weight: 500;
-    color: #909399;
+    color: var(--el-text-color-secondary);
   }
 }
 
@@ -580,7 +614,7 @@ const formatState = (state: any) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--el-color-primary-alpha-1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -591,7 +625,7 @@ const formatState = (state: any) => {
 }
 
 :deep(.el-button.is-circle) {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px var(--app-shadow-hover-color, var(--el-box-shadow-light));
   border: none;
 }
 
@@ -601,8 +635,8 @@ const formatState = (state: any) => {
   display: flex;
   flex-direction: row;
   align-items: center;
-  background: #fff;
-  border-top: 1px solid #f7f8fa;
+  background: var(--el-bg-color);
+  border-top: 1px solid var(--el-bg-color-page);
 
   .info-checkbox {
     margin-right: 10px;
@@ -631,7 +665,7 @@ const formatState = (state: any) => {
     font-size: 13px;
 
     font-weight: 600;
-    color: #1f2329;
+    color: var(--el-text-color-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -641,7 +675,7 @@ const formatState = (state: any) => {
 
   .device-ip {
     font-size: 11px;
-    color: #86909c;
+    color: var(--el-text-color-placeholder);
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;

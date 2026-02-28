@@ -5,7 +5,7 @@
       <div class="cert-info">
         <el-icon class="cert-icon"><Key /></el-icon>
         <div class="cert-detail">
-          <div class="cert-label">证书 (Hash)</div>
+          <div class="cert-label">{{ t('common.certHash') }}</div>
           <div class="cert-hash" :title="modelValue">{{ modelValue }}</div>
         </div>
       </div>
@@ -19,10 +19,10 @@
           :http-request="customUploadRequest"
           :before-upload="handleBeforeUpload"
         >
-          <el-button type="primary" link size="small" :loading="uploadLoading">覆盖</el-button>
+          <el-button type="primary" link size="small" :loading="uploadLoading">{{ t('common.overwrite') }}</el-button>
         </el-upload>
         <el-divider direction="vertical" />
-        <el-button type="danger" link size="small" @click="handleRemove">删除</el-button>
+        <el-button type="danger" link size="small" @click="handleRemove">{{ t('common.delete') }}</el-button>
       </div>
     </div>
 
@@ -37,21 +37,24 @@
         :before-upload="handleBeforeUpload"
       >
         <el-button type="primary" icon="UploadFilled" plain :loading="uploadLoading"
-          >点击上传证书</el-button
+          >{{ t('common.clickUploadCert') }}</el-button
         >
       </el-upload>
-      <div class="upload-tip">支持 {{ acceptTypes }} 格式，未上传时将使用系统默认证书</div>
+      <div class="upload-tip">{{ t('common.certUploadTip', { formats: acceptTypes }) }}</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Key } from '@element-plus/icons-vue'
 import { ElMessage, ElUpload } from 'element-plus'
 import { request } from '@shared/api/request'
 import { buildApiUrl, API_CONFIG } from '@shared/api/config'
 import { getErrorMessage } from '@shared/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   hostIp: string
@@ -69,13 +72,13 @@ const handleBeforeUpload = async (file: File) => {
   // 校验扩展名
   const allowedExtensions = acceptTypes.split(',').map((ext) => ext.replace('.', ''))
   if (!allowedExtensions.includes(fileExtension)) {
-    ElMessage.error(`不支持的文件格式，请上传 ${acceptTypes}`)
+    ElMessage.error(t('common.unsupportedFileFormat', { formats: acceptTypes }))
     return false
   }
 
   // 限制不能超过 1mb
   if (file.size && file.size > 1024 * 1024) {
-    ElMessage.error('证书文件大小不能超过 1MB')
+    ElMessage.error(t('common.certFileSizeExceeded'))
     return false
   }
 
@@ -111,7 +114,7 @@ const customUploadRequest = (options: any) => {
       resolve()
     } catch (error) {
       reject(error)
-      ElMessage.error(getErrorMessage(error, '上传证书失败'))
+      ElMessage.error(getErrorMessage(error, t('common.uploadCertFailed')))
       modelValue.value = ''
     } finally {
       uploadLoading.value = false
@@ -130,7 +133,7 @@ const customUploadRequest = (options: any) => {
   align-items: center;
   justify-content: space-between;
   padding: 4px 16px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--el-border-color);
   border-radius: 4px;
 }
 
@@ -145,7 +148,7 @@ const customUploadRequest = (options: any) => {
 
 .cert-icon {
   font-size: 20px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   flex-shrink: 0;
 }
 
@@ -159,11 +162,11 @@ const customUploadRequest = (options: any) => {
 
 .cert-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 .cert-hash {
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 12px;
 
   overflow: hidden;
@@ -181,7 +184,7 @@ const customUploadRequest = (options: any) => {
 .upload-tip {
   margin-top: 8px;
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   line-height: 1.4;
 }
 </style>

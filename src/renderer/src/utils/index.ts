@@ -29,7 +29,7 @@ export function copyToClipboard(text: string, callback?: () => void) {
     navigator.clipboard.writeText(text)
     callback?.()
   } catch (error) {
-    console.error('复制失败', error)
+    console.error('Copy failed', error)
   }
 }
 
@@ -45,27 +45,27 @@ export function formatBytes(bytes: number): string {
 // 导出键盘映射工具
 export * from './keyboard-map'
 
-// 解析经纬度
-export const parseCoordinate = (input: string) => {
-  const parts = input.split(',').map((v) => Number(v.trim()))
-  if (parts.length !== 2 || parts.some(Number.isNaN)) {
+export const parseCoordinate = (
+  input: string,
+  order:  'latlng' | 'lnglat'
+) => {
+  const [a, b] = input.split(',').map(v => Number(v.trim()))
+
+  if (Number.isNaN(a) || Number.isNaN(b)) {
     throw new Error('Invalid coordinate format')
   }
 
-  const [a, b] = parts
-
-  // One value large, one small: most reliable
-  if (Math.abs(a) > 90 && Math.abs(a) <= 180 && Math.abs(b) <= 90) {
-    return { longitude: a, latitude: b }
-  }
-  if (Math.abs(b) > 90 && Math.abs(b) <= 180 && Math.abs(a) <= 90) {
-    return { longitude: b, latitude: a }
+  if (order === 'latlng') {
+    if (Math.abs(a) > 90 || Math.abs(b) > 180) {
+      throw new Error('Invalid lat,lng')
+    }
+    return { latitude: a, longitude: b }
   }
 
-  // Both in reasonable ranges, assume lng,lat by default
-  if (Math.abs(a) <= 180 && Math.abs(b) <= 90) {
-    return { longitude: a, latitude: b }
+  // lnglat
+  if (Math.abs(a) > 180 || Math.abs(b) > 90) {
+    throw new Error('Invalid lng,lat')
   }
 
-  throw new Error('Invalid longitude or latitude range')
+  return { longitude: a, latitude: b }
 }

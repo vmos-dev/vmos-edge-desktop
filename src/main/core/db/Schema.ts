@@ -26,6 +26,7 @@ export const GROUPS_SCHEMA: TableSchema = {
   columns: [
     { name: 'id', type: 'TEXT', primaryKey: true },
     { name: 'name', type: 'TEXT', notNull: true },
+    { name: 'type', type: 'TEXT', defaultValue: 'host' },
     { name: 'sortIndex', type: 'INTEGER', defaultValue: 0 },
     { name: 'createTime', type: 'INTEGER' }
   ],
@@ -98,15 +99,23 @@ export const DEVICES_SCHEMA: TableSchema = {
     { name: 'user_name', type: 'TEXT' },
     { name: 'width', type: 'TEXT' },
     { name: 'host_ip', type: 'TEXT' },
+    { name: 'hostId', type: 'TEXT' }, // 关联的主机ID (优先使用)
+    { name: 'groupId', type: 'TEXT' }, // 设备独立分组ID
     { name: 'adiID', type: 'INTEGER' },
     { name: 'brand', type: 'TEXT' },
     { name: 'model', type: 'TEXT' },
     { name: 'model_name', type: 'TEXT' },
     { name: 'device_type', type: 'TEXT' },
+    { name: 'gms_disabled', type: 'TEXT' },
+    { name: 'gms_upgrade_enable', type: 'TEXT' },
     // 最后活跃时间
     { name: 'lastActiveTime', type: 'INTEGER' }
   ],
-  indexes: ['CREATE INDEX IF NOT EXISTS idx_devices_host_ip ON devices(host_ip)']
+  indexes: [
+    'CREATE INDEX IF NOT EXISTS idx_devices_host_ip ON devices(host_ip)',
+    'CREATE INDEX IF NOT EXISTS idx_devices_hostId ON devices(hostId)',
+    'CREATE INDEX IF NOT EXISTS idx_devices_groupId ON devices(groupId)'
+  ]
 }
 
 // Configs 配置字典表结构

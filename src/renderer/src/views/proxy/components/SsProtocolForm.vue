@@ -1,59 +1,59 @@
 <template>
   <div class="ss-protocol-form">
-    <el-form-item label="服务器地址" prop="ss.server">
+    <el-form-item :label="t('proxy.serverAddress')" prop="ss.server">
       <el-input
         v-model.trim="modelValue.server"
         maxlength="200"
         show-word-limit
-        placeholder="请输入服务器地址"
+        :placeholder="t('proxy.serverAddressPlaceholder')"
       />
     </el-form-item>
 
-    <el-form-item label="端口" prop="ss.port">
+    <el-form-item :label="t('proxy.port')" prop="ss.port">
       <el-input-number
         v-model="modelValue.port"
         :min="1"
         :max="65535"
-        placeholder="请输入端口"
+        :placeholder="t('proxy.portPlaceholder')"
         style="width: 100%"
       />
     </el-form-item>
 
-    <el-form-item label="加密方法" prop="ss.cipher">
+    <el-form-item :label="t('proxy.cipher')" prop="ss.cipher">
       <el-input
         v-model.trim="modelValue.cipher"
         maxlength="200"
         show-word-limit
-        placeholder="请输入加密方法，如：aes-256-gcm、aes-128-gcm、chacha20-poly1305 等"
+        :placeholder="t('proxy.cipherExamples')"
       />
     </el-form-item>
 
-    <el-form-item label="密码" prop="ss.password">
+    <el-form-item :label="t('proxy.password')" prop="ss.password">
       <el-input
         v-model.trim="modelValue.password"
         type="password"
-        placeholder="请输入密码"
+        :placeholder="t('proxy.passwordPlaceholder')"
         show-password
         maxlength="200"
         show-word-limit
       />
     </el-form-item>
 
-    <el-form-item label="插件 (Plugin)" prop="ss.plugin">
+    <el-form-item :label="t('proxy.plugin')" prop="ss.plugin">
       <el-input
         v-model.trim="modelValue.plugin"
         maxlength="200"
-        placeholder="插件名称 (如 obfs-local)"
+        :placeholder="t('proxy.pluginPlaceholder')"
       />
     </el-form-item>
 
-    <el-form-item label="插件参数" prop="ss.plugin-opts">
+    <el-form-item :label="t('proxy.pluginOpts')" prop="ss.plugin-opts">
       <el-input
         v-model.trim="modelValue['plugin-opts']"
         type="textarea"
         :rows="4"
         maxlength="500"
-        placeholder="插件参数"
+        :placeholder="t('proxy.pluginOptsPlaceholder')"
       />
     </el-form-item>
   </div>
@@ -62,7 +62,9 @@
 <script setup lang="ts">
 import parseUri from '@renderer/utils/uri-parser'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const modelValue = defineModel<IProxyShadowsocksConfig>({ required: true })
 
 /**
@@ -90,7 +92,7 @@ defineExpose({
 <style scoped lang="scss">
 .form-tip {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   margin-top: 4px;
   line-height: 1.5;
 }

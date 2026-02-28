@@ -5,18 +5,18 @@
       <div class="path-section">
         <div class="path-label">
           <el-icon class="folder-icon"><Folder /></el-icon>
-          <span>镜像存储路径：</span>
+          <span>{{ t('image.storagePath') }}</span>
         </div>
         <div
           class="path-value"
           :class="{ 'path-invalid': !isPathValid }"
-          :title="storagePath || '路径未设置'"
+          :title="storagePath || t('image.pathNotSet')"
         >
           <span v-if="storagePath">{{ storagePath }}</span>
-          <span v-else class="path-empty">路径未设置</span>
+          <span v-else class="path-empty">{{ t('image.pathNotSet') }}</span>
           <el-tooltip
             v-if="!isPathValid"
-            content="镜像存储路径不存在，请点击「设置路径」按钮设置有效的存储路径"
+            :content="t('image.pathNotExistTip')"
             placement="top"
           >
             <el-icon class="warning-icon"><Warning /></el-icon>
@@ -29,18 +29,18 @@
           :class="{ 'path-warning-btn': !isPathValid }"
           @click="changeStoragePath"
         >
-          {{ !isPathValid ? '设置路径' : '更改路径' }}
+          {{ !isPathValid ? t('image.setPath') : t('image.changePath') }}
         </el-button>
       </div>
 
       <div class="action-buttons">
         <el-button plain @click="openOfficialDownload">
           <el-icon class="el-icon--left"><Download /></el-icon>
-          官方镜像下载
+          {{ t('image.officialDownload') }}
         </el-button>
         <el-button type="primary" @click="handleImportClick">
           <el-icon class="el-icon--left"><Download /></el-icon>
-          导入镜像
+          {{ t('image.importImage') }}
         </el-button>
       </div>
     </div>
@@ -49,13 +49,10 @@
     <div class="list-header">
       <div class="list-title">
         <el-icon><List /></el-icon>
-        <span>镜像列表</span>
+        <span>{{ t('image.imageList') }}</span>
         <div class="path-tip">
           <el-icon><Warning /></el-icon>
-          <span
-            >建议选择空间充足的非根目录作为存储路径（如
-            D:\VMOSData），禁止选择磁盘根目录，以避免镜像解压过程中的路径逃逸风险。</span
-          >
+          <span>{{ t('image.pathTip') }}</span>
         </div>
       </div>
     </div>
@@ -70,36 +67,36 @@
         @submit.prevent
         @keyup.enter="handleSearch"
       >
-        <el-form-item label="镜像名称" prop="name" class="form-item">
+        <el-form-item :label="t('image.imageName')" prop="name" class="form-item">
           <el-input
             v-model.trim="searchForm.name"
-            placeholder="请输入镜像名称"
+            :placeholder="t('image.namePlaceholder')"
             clearable
             class="search-input"
           />
         </el-form-item>
-        <el-form-item label="Android版本" prop="androidVersion" class="form-item">
+        <el-form-item :label="t('image.androidVersion')" prop="androidVersion" class="form-item">
           <el-select
             v-model="searchForm.androidVersion"
-            placeholder="请选择Android版本"
+            :placeholder="t('image.androidVersionPlaceholder')"
             clearable
             filterable
             class="search-select"
           >
-            <el-option label="Android 15" value="15" />
-            <el-option label="Android 14" value="14" />
-            <el-option label="Android 13" value="13" />
-            <el-option label="Android 10" value="10" />
+            <el-option :label="t('adi.android15')" value="15" />
+            <el-option :label="t('adi.android14')" value="14" />
+            <el-option :label="t('adi.android13')" value="13" />
+            <el-option :label="t('adi.android10')" value="10" />
           </el-select>
         </el-form-item>
         <el-form-item class="form-item-actions">
           <el-button type="primary" :loading="loading" @click="handleSearch">
             <el-icon class="el-icon--left"><Search /></el-icon>
-            查询
+            {{ t('common.search') }}
           </el-button>
           <el-button :loading="loading" @click="handleReset">
             <el-icon class="el-icon--left"><Refresh /></el-icon>
-            重置
+            {{ t('common.reset') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -125,9 +122,11 @@ import ImportDialog from './components/ImportDialog.vue'
 import { ipc } from '@renderer/core/ipc'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
-import { SHARED_EVENTS } from '@shared/ipc/shared.types'
 import { IMAGES_EVENTS } from '@shared/ipc/images.types'
 import type { Image } from '@shared/ipc/data.types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const storagePath = ref<string>('')
 const isPathValid = ref<boolean>(true) // 路径是否有效
@@ -203,10 +202,7 @@ const filteredImages = computed(() => {
 // ==========================================
 
 const openOfficialDownload = () => {
-  ipc.send(
-    SHARED_EVENTS.OPEN_BROWSER_WINDOW,
-    'https://help.vmosedge.com/zh/productupdates/image-release-history.html'
-  )
+  window.open('https://help.vmosedge.com/zh/productupdates/image-release-history.html', '_blank')
 }
 
 const changeStoragePath = async () => {
@@ -216,28 +212,28 @@ const changeStoragePath = async () => {
       getConfig()
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '更改路径失败')
+    ElMessage.error(error?.message || t('image.changePathFailed'))
   }
 }
 
 const handleDelete = async (row: ImageItem) => {
   try {
-    await ElMessageBox.confirm(`确定要删除镜像“${row.name}”吗？此操作不可恢复。`, '删除确认', {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('image.deleteConfirmMessage', { name: row.name }), t('image.deleteConfirm'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
 
     const res = await ipc.invoke(IMAGES_EVENTS.DELETE_IMAGE, row.id)
     if (res.success) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('common.deleteSuccess'))
       await loadImages()
     } else {
-      ElMessage.error(res.error || '删除失败')
+      ElMessage.error(res.error || t('common.deleteFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error?.message || '删除失败')
+      ElMessage.error(error?.message || t('common.deleteFailed'))
     }
   }
 }
@@ -252,9 +248,9 @@ const showImportDialog = () => {
  */
 const handleImportClick = () => {
   if (!isPathValid.value) {
-    ElMessageBox.confirm('镜像存储路径不存在，请先设置有效的存储路径后再导入镜像。', '提示', {
-      confirmButtonText: '立即设置',
-      cancelButtonText: '取消',
+    ElMessageBox.confirm(t('image.pathNotExistConfirm'), t('common.tips'), {
+      confirmButtonText: t('image.setPathNow'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
       distinguishCancelAndClose: true
     })
@@ -300,11 +296,11 @@ const loadImages = async () => {
     if (res.success && res.data) {
       imageList.value = res.data.map(convertImageToItem)
     } else {
-      ElMessage.error(res.error || '加载镜像列表失败')
+      ElMessage.error(res.error || t('common.loadFailed'))
       imageList.value = []
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '加载镜像列表失败')
+    ElMessage.error(error?.message || t('common.loadFailed'))
     imageList.value = []
   } finally {
     loading.value = false
@@ -353,7 +349,7 @@ onMounted(() => {
 .image-manage-container {
   height: 100%;
   padding: 20px;
-  background-color: #fff;
+  background-color: var(--el-bg-color);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -364,11 +360,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fff;
+  background: var(--el-bg-color);
   padding: 16px 20px;
   border-radius: 6px;
   margin-bottom: 16px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   flex-shrink: 0;
 
   .path-section {
@@ -381,22 +377,22 @@ onMounted(() => {
     .path-label {
       display: flex;
       align-items: center;
-      color: #303133;
+      color: var(--el-text-color-primary);
       font-weight: 600;
       font-size: 14px;
       white-space: nowrap;
 
       .folder-icon {
         font-size: 18px;
-        color: #409eff;
+        color: var(--el-color-primary);
         margin-right: 8px;
       }
     }
 
     .path-value {
       font-weight: 600;
-      color: #606266;
-      background: #fff;
+      color: var(--el-text-color-regular);
+      background: var(--el-bg-color);
       padding: 6px 12px;
       border-radius: 4px;
       margin: 0 12px;
@@ -405,7 +401,7 @@ onMounted(() => {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      border: 1px solid #dcdfe6;
+      border: 1px solid var(--el-border-color);
       font-size: 13px;
       display: flex;
       align-items: center;
@@ -415,17 +411,17 @@ onMounted(() => {
       padding-right: 30px;
 
       &.path-invalid {
-        border-color: #f56c6c;
-        background-color: #fef0f0;
-        color: #f56c6c;
+        border-color: var(--el-color-danger);
+        background-color: var(--el-color-danger-light-9);
+        color: var(--el-color-danger);
 
         .path-empty {
-          color: #f56c6c;
+          color: var(--el-color-danger);
           font-style: italic;
         }
 
         .warning-icon {
-          color: #f56c6c;
+          color: var(--el-color-danger);
           font-size: 16px;
           flex-shrink: 0;
           cursor: help;
@@ -443,10 +439,10 @@ onMounted(() => {
 
       &.path-warning-btn {
         font-weight: 600;
-        color: #e6a23c;
+        color: var(--el-color-warning);
 
         &:hover {
-          color: #f56c6c;
+          color: var(--el-color-danger);
         }
       }
     }
@@ -472,11 +468,11 @@ onMounted(() => {
     align-items: center;
     font-size: 16px;
     font-weight: 600;
-    color: #303133;
+    color: var(--el-text-color-primary);
 
     .el-icon {
       margin-right: 8px;
-      color: #409eff;
+      color: var(--el-color-primary);
       font-size: 18px;
     }
 
@@ -485,27 +481,27 @@ onMounted(() => {
       display: flex;
       align-items: center;
       font-size: 12px;
-      color: #909399;
+      color: var(--el-text-color-secondary);
       font-weight: normal;
-      background: #f4f4f5;
+      background: var(--el-fill-color-light);
       padding: 4px 8px;
       border-radius: 4px;
 
       .el-icon {
         margin-right: 4px;
         font-size: 14px;
-        color: #e6a23c;
+        color: var(--el-color-warning);
       }
     }
   }
 }
 
 .search-form-container {
-  background: #fff;
+  background: var(--el-bg-color);
   padding: 16px 20px;
   border-radius: 6px;
   margin-bottom: 16px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   flex-shrink: 0;
 
   .search-form {
@@ -520,7 +516,7 @@ onMounted(() => {
 
       :deep(.el-form-item__label) {
         font-weight: normal;
-        color: #606266;
+        color: var(--el-text-color-regular);
         font-size: 14px;
         padding-right: 8px;
         width: auto;
@@ -561,9 +557,9 @@ onMounted(() => {
 .table-container {
   flex: 1;
   min-height: 0;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   overflow: hidden;
   display: flex;
   flex-direction: column;

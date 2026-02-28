@@ -143,6 +143,14 @@ export class SQLiteDB {
     if (this.db && this.db.open) {
       try {
         logger.info('[SQLiteDB] Closing connection...')
+
+        // 尝试执行 checkpoint，减少 WAL 文件残留导致的锁死风险
+        try {
+          this.db.pragma('wal_checkpoint(TRUNCATE)')
+        } catch (ckptError) {
+          logger.warn('[SQLiteDB] WAL Checkpoint failed:', ckptError)
+        }
+
         // 仅关闭连接以释放文件锁，不强制执行 checkpoint
         this.db.close()
         logger.info('[SQLiteDB] Connection closed.')
@@ -349,12 +357,33 @@ export class SQLiteDB {
     try {
       const stmt = this.db.prepare('SELECT count(*) as count FROM groups WHERE id = ?')
       const result = stmt.get('default') as { count: number }
-
+      // 获取系统语言，如果语言为英文，则默认分组名称为 Default Group
+      const language = app.getLocale()
+      const defaultGroupName = language.indexOf('zh') !== -1 ? '默认分组' : 'Default Group'
       if (result.count === 0) {
+
         this.db
-          .prepare('INSERT INTO groups (id, name, sortIndex, createTime) VALUES (?, ?, ?, ?)')
-          .run('default', '默认分组', 0, Date.now())
+          .prepare(
+            'INSERT INTO groups (id, name, type, sortIndex, createTime) VALUES (?, ?, ?, ?, ?)'
+          )
+          .run('default', defaultGroupName, 'host', 0, Date.now())
+
       }
+
+      const stmt2 = this.db.prepare('SELECT count(*) as count FROM groups WHERE id = ?')
+      const result2 = stmt2.get('device_default') as { count: number }
+
+      if (result2.count === 0) {
+        this.db
+          .prepare(
+            'INSERT INTO groups (id, name, type, sortIndex, createTime) VALUES (?, ?, ?, ?, ?)'
+          )
+          .run('device_default', defaultGroupName, 'device', 0, Date.now())
+      }
+
+      // 强制修正默认分组类型（确保旧数据迁移后类型正确）
+      this.db.prepare("UPDATE groups SET type = 'host' WHERE id = 'default'").run()
+      this.db.prepare("UPDATE groups SET type = 'device' WHERE id = 'device_default'").run()
     } catch (error) {
       logger.error('[SQLiteDB] initDefaults failed:', error)
     }

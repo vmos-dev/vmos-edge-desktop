@@ -20,18 +20,16 @@
         <div class="upload-zone-content">
           <el-icon class="upload-icon"><upload-filled /></el-icon>
           <div class="upload-text">
-            <p class="upload-primary-text">点击上传或拖拽文件到此处</p>
+            <p class="upload-primary-text">{{ t('cloudPhone.clickUploadOrDragFile') }}</p>
             <p class="upload-secondary-text">
-              支持批量上传，支持文件格式：{{
-                allowedExtensions?.map((ext) => `.${ext}`).join(', ') || '所有文件'
-              }}
+              {{ t('cloudPhone.batchUploadSupported', { formats: allowedExtensions?.map((ext) => `.${ext}`).join(', ') || t('cloudPhone.allFiles') }) }}
             </p>
           </div>
         </div>
         <template #tip>
           <div class="upload-tip">
             <el-icon><InfoFilled /></el-icon>
-            <span>最大支持同时上传 {{ concurrency }} 个文件</span>
+            <span>{{ t('phone.maxConcurrentUpload', { count: concurrency }) }}</span>
           </div>
         </template>
       </el-upload>
@@ -41,32 +39,32 @@
     <div class="file-list">
       <div class="file-list-header">
         <div class="header-left">
-          <span class="list-title">文件列表</span>
+          <span class="list-title">{{ t('phone.fileList') }}</span>
           <div class="upload-stats">
             <span class="stats-item total">
               <el-icon><DocumentAdd /></el-icon>
-              总计: {{ tasks.length }}
+              {{ t('common.total') }}: {{ tasks.length }}
             </span>
             <span class="stats-item waiting" v-if="waitingCount > 0">
               <el-icon><Clock /></el-icon>
-              等待: {{ waitingCount }}
+              {{ t('common.waiting') }}: {{ waitingCount }}
             </span>
             <span class="stats-item uploading" v-if="uploadingCount > 0">
               <el-icon class="rotating"><Loading /></el-icon>
-              进行中: {{ uploadingCount }}
+              {{ t('common.processing') }}: {{ uploadingCount }}
             </span>
             <span class="stats-item success" v-if="successCount > 0">
               <el-icon><CircleCheck /></el-icon>
-              成功: {{ successCount }}
+              {{ t('common.success') }}: {{ successCount }}
             </span>
             <span class="stats-item error" v-if="errorCount > 0">
               <el-icon><CircleClose /></el-icon>
-              失败: {{ errorCount }}
+              {{ t('common.failed') }}: {{ errorCount }}
             </span>
           </div>
         </div>
         <el-button v-if="tasks.length > 0" link type="danger" size="small" @click="clearAll">
-          清空全部
+          {{ t('common.clearAll') }}
         </el-button>
       </div>
 
@@ -90,9 +88,9 @@
             v-if="task.status === 'uploading' || task.status === 'pushing'"
             :style="{
               background: `linear-gradient(to right, 
-                rgba(64, 158, 255, 0.15) 0%, 
-                rgba(64, 158, 255, 0.25) ${task.progress * 100 * 0.5}%,
-                rgba(64, 158, 255, 0.35) ${task.progress * 100}%, 
+                var(--el-color-primary-alpha-1) 0%, 
+                var(--el-color-primary-alpha-2) ${task.progress * 100 * 0.5}%,
+                var(--el-color-primary-alpha-3) ${task.progress * 100}%, 
                 transparent ${task.progress * 100}%)`
             }"
           ></div>
@@ -136,7 +134,7 @@
                         class="error-info-content"
                         style="max-width: 300px; max-height: 200px; overflow-y: auto"
                       >
-                        <p>{{ task.errorInfo || '未知错误' }}</p>
+                        <p>{{ task.errorInfo || t('common.unknownError') }}</p>
                       </div>
                     </template>
                     <el-icon class="error-info-icon"><InfoFilled /></el-icon>
@@ -150,7 +148,7 @@
               v-if="task.status === 'waiting'"
               class="delete-btn"
               @click="removeTask(task.id)"
-              title="删除"
+              :title="t('common.delete')"
             >
               <Delete />
             </el-icon>
@@ -159,7 +157,7 @@
 
         <!-- 空状态 -->
         <div v-if="tasks.length === 0" class="empty-state">
-          <el-empty description="暂无文件" :image-size="120" />
+          <el-empty :description="t('cloudPhone.noFile')" :image-size="120" />
         </div>
       </div>
     </div>
@@ -180,6 +178,9 @@ import {
 import { UploadQueue, UploadTask, UploadStatus } from '@renderer/utils/upload'
 import { ref, computed } from 'vue'
 import { ElUpload } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -193,7 +194,7 @@ const props = withDefaults(
   {
     allowedExtensions: () => [],
     concurrency: () => 1,
-    title: () => '应用上传'
+    title: () => 'App Upload'
   }
 )
 
@@ -300,12 +301,12 @@ const formatFileSize = (bytes: number): string => {
 // 获取状态文本
 const getStatusText = (status: UploadStatus): string => {
   const statusMap: Record<UploadStatus, string> = {
-    waiting: '等待中',
-    uploading: '上传中',
-    pushing: '推送中',
-    success: '成功',
-    error: '失败',
-    cancelled: '已取消'
+    waiting: t('host.waitingStatus'),
+    uploading: t('host.uploading'),
+    pushing: t('host.pushing'),
+    success: t('common.success'),
+    error: t('common.failed'),
+    cancelled: t('host.cancelled')
   }
   return statusMap[status] || status
 }
@@ -359,14 +360,14 @@ uploadQueue.on('finish', () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--el-bg-color);
   overflow: hidden;
 }
 
 /* ==================== 上传区域 ==================== */
 .upload-area {
   flex-shrink: 0;
-  background: #ffffff;
+  background: var(--el-bg-color);
   padding: 16px 20px;
 
   .upload-header {
@@ -379,7 +380,7 @@ uploadQueue.on('finish', () => {
       margin: 0;
       font-size: 16px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary);
     }
 
     .upload-stats {
@@ -391,7 +392,7 @@ uploadQueue.on('finish', () => {
         align-items: center;
         gap: 4px;
         font-size: 12px;
-        color: #606266;
+        color: var(--el-text-color-regular);
 
         .el-icon {
           font-size: 14px;
@@ -402,13 +403,13 @@ uploadQueue.on('finish', () => {
         }
 
         &:first-child .el-icon {
-          color: #909399;
+          color: var(--el-text-color-secondary);
         }
         &:nth-child(2) .el-icon {
-          color: #67c23a;
+          color: var(--el-color-success);
         }
         &:nth-child(3) .el-icon {
-          color: #409eff;
+          color: var(--el-color-primary);
         }
       }
     }
@@ -421,7 +422,7 @@ uploadQueue.on('finish', () => {
 
       .upload-icon {
         font-size: 32px;
-        color: #c0c4cc;
+        color: var(--el-text-color-placeholder);
         margin-bottom: 12px;
         transition: all 0.3s ease;
       }
@@ -430,30 +431,30 @@ uploadQueue.on('finish', () => {
         .upload-primary-text {
           margin: 0 0 6px 0;
           font-size: 14px;
-          color: #303133;
+          color: var(--el-text-color-primary);
           font-weight: 500;
         }
 
         .upload-secondary-text {
           margin: 0;
           font-size: 11px;
-          color: #909399;
+          color: var(--el-text-color-secondary);
         }
       }
     }
 
     :deep(.el-upload-dragger) {
-      border: 2px dashed #dcdfe6;
+      border: 2px dashed var(--el-border-color);
       border-radius: 8px;
-      background: #fafafa;
+      background: var(--el-bg-color-page);
       transition: all 0.3s ease;
       padding: 20px 0;
       &:hover {
-        border-color: #409eff;
-        background: #ecf5ff;
+        border-color: var(--el-color-primary);
+        background: var(--el-color-primary-light-9);
 
         .upload-icon {
-          color: #409eff;
+          color: var(--el-color-primary);
           transform: scale(1.1);
         }
       }
@@ -466,7 +467,7 @@ uploadQueue.on('finish', () => {
       gap: 6px;
       margin-top: 12px;
       font-size: 12px;
-      color: #909399;
+      color: var(--el-text-color-secondary);
 
       .el-icon {
         font-size: 14px;
@@ -502,7 +503,7 @@ uploadQueue.on('finish', () => {
     align-items: center;
     margin-bottom: 5px;
     padding-bottom: 12px;
-    border-bottom: 1px solid #f0f2f5;
+    border-bottom: 1px solid var(--el-bg-color-page);
 
     .header-left {
       display: flex;
@@ -515,7 +516,7 @@ uploadQueue.on('finish', () => {
     .list-title {
       font-size: 14px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary);
       white-space: nowrap;
     }
 
@@ -532,7 +533,7 @@ uploadQueue.on('finish', () => {
         border-radius: 12px;
         font-size: 12px;
         font-weight: 500;
-        background: #f8f9fa;
+        background: var(--el-bg-color-page);
         transition: all 0.3s ease;
 
         .el-icon {
@@ -544,42 +545,42 @@ uploadQueue.on('finish', () => {
         }
 
         &.total {
-          color: #606266;
-          background: #f4f4f5;
+          color: var(--el-text-color-regular);
+          background: var(--el-fill-color-light);
           .el-icon {
-            color: #909399;
+            color: var(--el-text-color-secondary);
           }
         }
 
         &.waiting {
-          color: #e6a23c;
-          background: #fdf6ec;
+          color: var(--el-color-warning);
+          background: var(--el-color-warning-light-9);
           .el-icon {
-            color: #e6a23c;
+            color: var(--el-color-warning);
           }
         }
 
         &.uploading {
-          color: #409eff;
-          background: #ecf5ff;
+          color: var(--el-color-primary);
+          background: var(--el-color-primary-light-9);
           .el-icon {
-            color: #409eff;
+            color: var(--el-color-primary);
           }
         }
 
         &.success {
-          color: #67c23a;
-          background: #f0f9ff;
+          color: var(--el-color-success);
+          background: var(--el-color-primary-light-9);
           .el-icon {
-            color: #67c23a;
+            color: var(--el-color-success);
           }
         }
 
         &.error {
-          color: #f56c6c;
-          background: #fef0f0;
+          color: var(--el-color-danger);
+          background: var(--el-color-danger-light-9);
           .el-icon {
-            color: #f56c6c;
+            color: var(--el-color-danger);
           }
         }
       }
@@ -597,8 +598,8 @@ uploadQueue.on('finish', () => {
 .file-item {
   position: relative;
   padding: 5px 12px;
-  background: #ffffff;
-  border: 1px solid #ebeef5;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
   border-radius: 6px;
   margin-bottom: 8px;
   display: flex;
@@ -609,27 +610,27 @@ uploadQueue.on('finish', () => {
   min-height: 42px;
 
   &:hover {
-    border-color: #c6e2ff;
+    border-color: var(--el-color-primary-light-7);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   &.status-uploading,
   &.status-pushing {
-    border-color: #b3d8ff;
+    border-color: var(--el-color-primary-light-6);
   }
 
   &.status-success {
-    border-color: #c2e7b0;
-    background: #f6ffed;
+    border-color: var(--el-color-success-light-7);
+    background: var(--el-color-success-light-9);
   }
 
   &.status-error {
-    border-color: #fbc4c4;
-    background: #fef2f2;
+    border-color: var(--el-color-danger-light-7);
+    background: var(--el-color-danger-light-9);
   }
 
   &.status-waiting {
-    border-color: #f0c78a;
+    border-color: var(--el-color-warning-light-7);
   }
 
   /* 背景进度条效果 - 增强可见度 */
@@ -667,31 +668,31 @@ uploadQueue.on('finish', () => {
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    background: #f8f9fa;
+    background: var(--el-bg-color-page);
 
     .file-icon {
       font-size: 16px;
       transition: all 0.3s ease;
 
       &.icon-default {
-        color: #409eff;
+        color: var(--el-color-primary);
       }
 
       &.icon-uploading {
-        color: #409eff;
+        color: var(--el-color-primary);
         animation: pulse 1.5s infinite;
       }
 
       &.icon-success {
-        color: #67c23a;
+        color: var(--el-color-success);
       }
 
       &.icon-error {
-        color: #f56c6c;
+        color: var(--el-color-danger);
       }
 
       &.icon-waiting {
-        color: #e6a23c;
+        color: var(--el-color-warning);
       }
     }
   }
@@ -703,7 +704,7 @@ uploadQueue.on('finish', () => {
     .file-name {
       font-size: 13px;
       font-weight: 500;
-      color: #303133;
+      color: var(--el-text-color-primary);
       line-height: 1.4;
       white-space: nowrap;
       overflow: hidden;
@@ -713,7 +714,7 @@ uploadQueue.on('finish', () => {
 
     .file-size {
       font-size: 11px;
-      color: #909399;
+      color: var(--el-text-color-secondary);
       line-height: 1;
     }
   }
@@ -738,7 +739,7 @@ uploadQueue.on('finish', () => {
 
       .status-icon {
         font-size: 14px;
-        color: #409eff;
+        color: var(--el-color-primary);
 
         &.rotating {
           animation: rotate 1.2s linear infinite;
@@ -747,7 +748,7 @@ uploadQueue.on('finish', () => {
 
       .progress-text {
         font-size: 12px;
-        color: #409eff;
+        color: var(--el-color-primary);
         font-weight: 600;
         line-height: 1;
       }
@@ -758,20 +759,20 @@ uploadQueue.on('finish', () => {
         line-height: 1.3;
 
         &.status-waiting {
-          color: #e6a23c;
+          color: var(--el-color-warning);
         }
 
         &.status-uploading,
         &.status-pushing {
-          color: #409eff;
+          color: var(--el-color-primary);
         }
 
         &.status-success {
-          color: #67c23a;
+          color: var(--el-color-success);
         }
 
         &.status-error {
-          color: #f56c6c;
+          color: var(--el-color-danger);
         }
 
         .error-info-icon {
@@ -786,15 +787,15 @@ uploadQueue.on('finish', () => {
   }
 
   .delete-btn {
-    color: #c0c4cc;
+    color: var(--el-text-color-placeholder);
     cursor: pointer;
     border-radius: 4px;
     font-size: 14px;
     transition: all 0.2s ease;
 
     &:hover {
-      color: #f56c6c;
-      background: #fef2f2;
+      color: var(--el-color-danger);
+      background: var(--el-color-danger-light-9);
       transform: scale(1.1);
     }
   }
@@ -804,11 +805,11 @@ uploadQueue.on('finish', () => {
 .empty-state {
   text-align: center;
   padding: 30px 20px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 
   .empty-icon {
     font-size: 48px;
-    color: #dcdfe6;
+    color: var(--el-border-color);
     margin-bottom: 12px;
   }
 

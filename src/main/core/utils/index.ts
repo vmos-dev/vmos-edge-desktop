@@ -1,38 +1,48 @@
-import os from 'os'
-import path from 'path'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import checkDiskSpaceModule from 'check-disk-space'
 import { logger } from '../logger'
 
-const execAsync = promisify(exec)
+// 兼容 ESM/CJS 导入差异 (构建后可能是 { default: fn } 或直接是 fn)
+const checkDiskSpace =
+  typeof checkDiskSpaceModule === 'function'
+    ? checkDiskSpaceModule
+    : (checkDiskSpaceModule as any).default
 
+/**
+ * 获取指定目录所在磁盘的剩余空间 (字节)
+ * 使用 check-disk-space 库，跨平台支持 Windows/macOS/Linux
+ */
 export const getFreeDiskSpace = async (directory: string): Promise<number> => {
-  const platform = os.platform()
-  let command: string
-
   try {
-    if (platform === 'win32') {
-      const driveRoot = path.parse(directory).root
-      const driveLetter = driveRoot.replace(/[\\/:]/g, '').toUpperCase()
-      if (!driveLetter) throw new Error(`Cannot parse drive letter: ${directory}`)
-      command = `powershell -Command "(Get-PSDrive -Name '${driveLetter}').Free"`
-    } else {
-      // Mac/Linux
-      command = `df -k "${directory}" | tail -1 | awk '{print $4}'`
-    }
+    const { free } = await checkDiskSpace(directory)
+    return free
+  } catch (error) {
+    logger.warn(`[getFreeDiskSpace] Failed to get disk space for "${directory}":`, error)
+    return Number.MAX_SAFE_INTEGER // 失败时假设空间充足，避免阻塞业务
+  }
+}
 
-    const { stdout } = await execAsync(command, { encoding: 'utf8', timeout: 5000 })
-
-    if (platform === 'win32') {
-      // PowerShell 返回字节
-      return parseInt(stdout.trim(), 10) || 0
-    } else {
-      // df 返回 KB
-      return (parseInt(stdout.trim(), 10) || 0) * 1024
+/**
+ * 获取指定目录所在磁盘的完整信息
+ */
+export const getDiskInfo = async (
+  directory: string
+): Promise<{
+  diskPath: string
+  free: number
+  size: number
+  used: number
+} | null> => {
+  try {
+    const { diskPath, free, size } = await checkDiskSpace(directory)
+    return {
+      diskPath,
+      free,
+      size,
+      used: size - free
     }
   } catch (error) {
-    logger.warn(`[getFreeDiskSpace] getFreeDiskSpace failed, assuming sufficient space:`, error)
-    return Number.MAX_SAFE_INTEGER
+    logger.warn(`[getDiskInfo] Failed to get disk info for "${directory}":`, error)
+    return null
   }
 }
 

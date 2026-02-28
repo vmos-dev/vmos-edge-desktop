@@ -231,7 +231,7 @@ defineExpose({
 <style scoped lang="scss">
 .vmos-table {
   :deep(.el-table-v2__cell-text) {
-    color: #606266;
+    color: var(--el-text-color-regular);
   }
 
   :deep(.el-table-v2__right) {

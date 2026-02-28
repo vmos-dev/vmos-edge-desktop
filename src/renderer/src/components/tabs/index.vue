@@ -36,7 +36,7 @@ const modelValue = defineModel<string>('modelValue')
 .tabs {
   display: flex;
   width: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page);
   border-radius: 8px;
   padding: 4px;
   gap: 4px;
@@ -61,7 +61,7 @@ const modelValue = defineModel<string>('modelValue')
       z-index: 2;
       font-size: 14px;
       font-weight: 500;
-      color: #909399;
+      color: var(--el-text-color-secondary);
       transition: color 0.25s ease;
       user-select: none;
       white-space: nowrap;
@@ -73,7 +73,7 @@ const modelValue = defineModel<string>('modelValue')
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: #ffffff;
+      background-color: var(--el-bg-color);
       border-radius: 6px;
       opacity: 0;
       transition: opacity 0.25s ease;
@@ -87,13 +87,13 @@ const modelValue = defineModel<string>('modelValue')
 
     &:hover:not(.active) {
       .tab-label {
-        color: #409eff;
+        color: var(--el-color-primary);
       }
     }
 
     &.active {
       .tab-label {
-        color: #606266;
+        color: var(--el-text-color-regular);
         font-weight: 500;
       }
     }

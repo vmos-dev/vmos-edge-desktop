@@ -74,7 +74,7 @@ export class ProxyDao extends BaseDao<Proxy> {
         params.push(`%${options.host}%`)
       }
 
-      sql += ' ORDER BY createTime DESC'
+      sql += ' ORDER BY name ASC, createTime DESC'
 
       const rows = this.dbInstance.db.prepare(sql).all(...params)
       return rows.map((row) => this.deserialize(row))

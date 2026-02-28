@@ -13,37 +13,37 @@ const router = createRouter({
           path: '/cloud',
           name: 'Cloud',
           component: () => import('@renderer/views/cloudPhone/index.vue'),
-          meta: { title: '云机' }
+          meta: { title: 'layout.cloud' }
         },
         {
           path: '/host',
           name: 'Host',
           component: () => import('@renderer/views/host/index.vue'),
-          meta: { title: '主机' }
+          meta: { title: 'layout.host' }
         },
         {
           path: '/image',
           name: 'Image',
           component: () => import('@renderer/views/image/index.vue'),
-          meta: { title: '镜像' }
+          meta: { title: 'layout.image' }
         },
         {
           path: '/proxy',
           name: 'Proxy',
           component: () => import('@renderer/views/proxy/index.vue'),
-          meta: { title: '代理' }
+          meta: { title: 'layout.proxy' }
         },
         {
           path: '/adi',
           name: 'Adi',
           component: () => import('@renderer/views/adi/index.vue'),
-          meta: { title: '机型设置' }
+          meta: { title: 'layout.header.machineSettings' }
         },
         {
           path: '/general',
           name: 'General',
           component: () => import('@renderer/views/general/index.vue'),
-          meta: { title: '通用设置' }
+          meta: { title: 'layout.header.generalSettings' }
         }
       ]
     },
@@ -51,7 +51,7 @@ const router = createRouter({
       path: '/phone',
       name: 'Phone',
       component: () => import('@renderer/views/phone/index.vue'),
-      meta: { title: '手机' }
+      meta: { title: 'layout.phone' }
     }
   ]
 })

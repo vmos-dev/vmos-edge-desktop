@@ -222,9 +222,13 @@ export class HostManager extends BaseManager {
       }
       // 删除该主机下的设备（deleteByHostIp 内部会通知前端）
       this.dbInstance.transaction(() => {
-        logger.debug(`[HostManager] deleteHost: deleting devices for host ip=${host.ip}`)
-        this.deviceManager.deleteByHostIp(host.ip)
-        logger.info(`[HostManager] deleteHost: devices deleted for host ip=${host.ip}`)
+        logger.debug(
+          `[HostManager] deleteHost: deleting devices for host ip=${host.ip}, id=${host.id}`
+        )
+        this.deviceManager.deleteByHostIp(host.ip, host.id)
+        logger.info(
+          `[HostManager] deleteHost: devices deleted for host ip=${host.ip}, id=${host.id}`
+        )
         this.hostDao.delete(host.id)
         logger.info(`[HostManager] deleteHost: host deleted id=${host.id}`)
       })
@@ -261,11 +265,11 @@ export class HostManager extends BaseManager {
     }
   }
 
-  public openApiDetail(device: Device) {
+  public async openApiDetail(device: Device) {
     const url = `http://${device.host_ip}:${API_CONFIG.DEFAULT_PORT}/docs`
     logger.info(`[HostManager] openApiDetail called:`, { device, url })
     try {
-      shell.openExternal(url)
+      await shell.openExternal(url)
       logger.info(`[HostManager] openApiDetail success: deviceId=${device.id}`)
     } catch (error) {
       logger.error('[HostManager] openApiDetail failed:', {
@@ -284,13 +288,33 @@ export class HostManager extends BaseManager {
     logger.info(`[HostManager] addHosts called:`, hosts)
     try {
       const addedHosts: Host[] = []
+      const updatedHosts: Host[] = []
       this.dbInstance.transaction(() => {
         // 先获取所有主机，避免在循环中多次查询
         const allHosts = this.hostDao.getAll()
         const existingIps = new Set(allHosts.map((h) => h.ip))
+        // 创建 ID 映射，用于快速查找
+        const existingIds = new Map(allHosts.map((h) => [h.id, h]))
 
         for (const host of hosts) {
-          // 检查具有此 IP 的主机是否已存在
+          // 优先检查 ID 是否存在，存在则更新
+          if (existingIds.has(host.id)) {
+            const existingHost = existingIds.get(host.id)!
+            logger.info(`[HostManager] addHosts: updating existing host id=${host.id}`)
+
+            const updates: Partial<Host> = {
+              ip: host.ip,
+              groupId: host.groupId,
+              name: host.name || host.ip,
+              status: 'online',
+              lastActiveTime: Date.now()
+            }
+            this.hostDao.update(host.id, updates)
+            updatedHosts.push({ ...existingHost, ...updates })
+            continue
+          }
+
+          // 检查具有此 IP 的主机是否已存在 (如果 ID 不同但 IP 相同，则跳过以避免 IP 冲突)
           if (existingIps.has(host.ip)) {
             logger.debug(`[HostManager] addHosts: skipping existing host ip=${host.ip}`)
             continue
@@ -314,7 +338,9 @@ export class HostManager extends BaseManager {
 
       const duration = Date.now() - startTime
       logger.info(
-        `[HostManager] addHosts success: added=${addedHosts.length}, skipped=${hosts.length - addedHosts.length}, duration=${duration}ms`
+        `[HostManager] addHosts success: added=${addedHosts.length}, updated=${updatedHosts.length}, skipped=${
+          hosts.length - addedHosts.length - updatedHosts.length
+        }, duration=${duration}ms`
       )
 
       // 为每个添加的主机通知前端
@@ -322,7 +348,12 @@ export class HostManager extends BaseManager {
         this.notifyFrontend(DATA_EVENTS.HOST_ADDED, host)
       })
 
-      return addedHosts
+      // 为每个更新的主机通知前端
+      updatedHosts.forEach((host) => {
+        this.notifyFrontend(DATA_EVENTS.HOST_UPDATED, host)
+      })
+
+      return [...addedHosts, ...updatedHosts]
     } catch (error) {
       logger.error('[HostManager] addHosts failed:', {
         error,
@@ -408,7 +439,7 @@ export class HostManager extends BaseManager {
       this.dbInstance.transaction(() => {
         if (host.ip) {
           // 删除设备（deleteByHostIp 内部会通知前端）
-          this.deviceManager.deleteByHostIp(host.ip)
+          this.deviceManager.deleteByHostIp(host.ip, host.id)
         }
         // 标记主机离线
         this.hostDao.updateStatus(host.id, 'offline')
@@ -469,6 +500,21 @@ export class HostManager extends BaseManager {
         ip
       })
       throw error
+    }
+  }
+
+  /**
+   * 根据 ID 获取主机信息
+   */
+  public getHostById(id: string): Host | undefined {
+    try {
+      return this.hostDao.getById(id)
+    } catch (error) {
+      logger.error('[HostManager] getHostById failed:', {
+        error,
+        id
+      })
+      return undefined
     }
   }
 }

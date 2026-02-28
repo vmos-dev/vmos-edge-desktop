@@ -1,9 +1,9 @@
 <template>
   <el-dialog
-    ref="dialogRef"
+    v-if="modelValue"
     v-model="modelValue"
     modal-class="vmos-dialog-modal"
-    class="vmos-dialog"
+    :class="randomClass"
     append-to-body
     align-center
     v-bind="$attrs"
@@ -11,7 +11,6 @@
     :width="width"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
-    @open="handleOpen"
     @close="emits('close')"
     @closed="emits('closed')"
   >
@@ -22,9 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, useSlots, nextTick } from 'vue'
-import type { ElDialog } from 'element-plus'
-
+import { useSlots } from 'vue'
 defineOptions({ name: 'VmosDialog' })
 
 const props = defineProps({
@@ -40,22 +37,22 @@ const props = defineProps({
 
 const emits = defineEmits(['close', 'closed'])
 const modelValue = defineModel<boolean>()
+// 生成随机 id
+const randomId = `vmos-dialog-${Math.random().toString(36).substring(2, 15)}`
+// 生成随机 class
+const randomClass = `vmos-dialog ${randomId}`
 const $slots = useSlots()
 
-const dialogRef = ref<InstanceType<typeof ElDialog>>()
+// const handleOpen = async () => {
+//   await nextTick()
+//   const dialogEl = document.querySelector(`.${randomId}`) as HTMLElement | undefined
+//   if (!dialogEl) return
 
-const handleOpen = async () => {
-  await nextTick()
-
-  const dialogEl = dialogRef.value?.$el as HTMLElement | undefined
-  if (!dialogEl) return
-
-  // 重置拖拽残留状态
-  dialogEl.style.transform = ''
-  dialogEl.style.left = ''
-  dialogEl.style.top = ''
-  dialogEl.style.margin = ''
-}
+//   // 重置拖拽残留状态，确保每次打开都居中
+//   dialogEl.style.transform = 'none'
+//   dialogEl.style.left = ''
+//   dialogEl.style.top = ''
+// }
 </script>
 
 <style lang="scss">
@@ -64,12 +61,13 @@ const handleOpen = async () => {
   .el-dialog__header {
     margin-bottom: 0px;
     -webkit-app-region: no-drag;
-    border-bottom: 1px solid #e4e4e7;
+    border-bottom: 1px solid var(--el-border-color-light);
     padding: 10px 15px;
     box-sizing: border-box;
     .el-dialog__headerbtn {
       height: 53px;
       -webkit-app-region: no-drag;
+      pointer-events: auto;
     }
     span {
       font-weight: bold;
@@ -81,7 +79,7 @@ const handleOpen = async () => {
     padding: 20px 15px;
   }
   .el-dialog__footer {
-    border-top: 1px solid #e4e4e7;
+    border-top: 1px solid var(--el-border-color-light);
     padding: 8px 20px;
   }
 }

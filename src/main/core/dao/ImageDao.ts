@@ -59,7 +59,7 @@ export class ImageDao extends BaseDao<Image> {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-    const sql = `SELECT * FROM ${this.tableName} ${whereClause}`
+    const sql = `SELECT * FROM ${this.tableName} ${whereClause} ORDER BY name ASC, importTime DESC`
 
     const rows = this.dbInstance.db.prepare(sql).all(...params)
     return rows.map((row) => this.deserialize(row))

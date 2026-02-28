@@ -39,7 +39,9 @@ export function registerSharedHandlers() {
   on<string>(SHARED_EVENTS.OPEN_BROWSER_WINDOW, (url) => {
     try {
       logger.info(`[SharedHandler] OPEN_BROWSER_WINDOW request: url=${url}`)
-      shell.openExternal(url)
+      shell.openExternal(url).catch((err) => {
+        logger.error(`[SharedHandler] Failed to open browser window: ${url}`, err)
+      })
     } catch (error) {}
   })
 
@@ -109,7 +111,11 @@ export function registerSharedHandlers() {
         logger.error(`[SharedHandler] OPEN_FOLDER request: path=${path} not exists`)
         throw new Error('Folder does not exist')
       }
-      shell.openPath(path)
+      shell.openPath(path).then((errorMessage) => {
+        if (errorMessage) {
+          logger.error(`[SharedHandler] Failed to open path: ${path}`, errorMessage)
+        }
+      })
       return { success: true }
     } catch (error) {
       return handleError(error)

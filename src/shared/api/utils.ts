@@ -1,6 +1,6 @@
 import { isAxiosError } from './request'
 
-export function getErrorMessage(error: any, defaultMsg = '操作失败') {
+export function getErrorMessage(error: any, defaultMsg: string = 'operation failed') {
   try {
     if (isAxiosError(error)) {
       return (
@@ -8,9 +8,12 @@ export function getErrorMessage(error: any, defaultMsg = '操作失败') {
       )
     }
 
+    if (typeof error === 'string') {
+      return error
+    }
     return error?.msg || error?.message || defaultMsg
   } catch (error: any) {
-    return error?.message || defaultMsg
+    return error?.message
   }
 }
 

@@ -279,6 +279,27 @@ export function registerDeviceHandlers() {
     }
   })
 
+  // 批量移动云机
+  handle<{ deviceIds: string[]; groupId: string }, void>(
+    DATA_EVENTS.MOVE_DEVICES,
+    async ({ deviceIds, groupId }) => {
+      const startTime = Date.now()
+      logger.info(
+        `[DeviceHandler] MOVE_DEVICES request: count=${deviceIds.length}, groupId=${groupId}`
+      )
+      try {
+        deviceManager.moveDevices(deviceIds, groupId)
+        const duration = Date.now() - startTime
+        logger.info(
+          `[DeviceHandler] MOVE_DEVICES success: count=${deviceIds.length}, duration=${duration}ms`
+        )
+        return { success: true }
+      } catch (error) {
+        return handleError(error)
+      }
+    }
+  )
+
   // 截图
   handle<Device, void>(DATA_EVENTS.DEVICE_SCREENSHOT, async (device) => {
     const startTime = Date.now()

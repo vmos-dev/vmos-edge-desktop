@@ -6,6 +6,11 @@ import { DATA_EVENTS, type Host, type Device } from '@shared/ipc/data.types'
 import { hostManager } from '../../store/managers'
 import { logger } from '../../logger'
 import { isAxiosError } from '@shared/api/request'
+import dns from 'dns'
+import { promisify } from 'util'
+import ipLib from 'ip'
+
+const resolve4 = promisify(dns.resolve4)
 
 /**
  * 处理错误，只返回错误信息，不打印日志（日志已在 manager 层打印）
@@ -144,7 +149,7 @@ export function registerHostHandlers() {
       `[HostHandler] HOST_OPEN_API_DETAIL request: deviceId=${device?.id}, hostIp=${device?.host_ip}`
     )
     try {
-      hostManager.openApiDetail(device)
+      await hostManager.openApiDetail(device)
       const duration = Date.now() - startTime
       logger.info(
         `[HostHandler] HOST_OPEN_API_DETAIL success: deviceId=${device?.id}, duration=${duration}ms`
@@ -250,6 +255,36 @@ export function registerHostHandlers() {
         stack: error instanceof Error ? error.stack : undefined,
         ip
       })
+      return handleError(error)
+    }
+  })
+
+  // 解析域名返回 IP
+  handle<string, string>(DATA_EVENTS.RESOLVE_DOMAIN, async (domain) => {
+    const startTime = Date.now()
+    logger.info(`[HostHandler] RESOLVE_DOMAIN request: domain=${domain}`)
+    try {
+      // 如果已经是 IP，直接返回
+      if (ipLib.isV4Format(domain) || ipLib.isV6Format(domain)) {
+        return { success: true, data: domain }
+      }
+
+      // 处理 localhost
+      if (domain.toLowerCase() === 'localhost') {
+        return { success: true, data: '127.0.0.1' }
+      }
+
+      const addresses = await resolve4(domain)
+      if (!addresses || addresses.length === 0) {
+        throw new Error(`无法解析域名: ${domain}`)
+      }
+
+      const ip = addresses[0]
+      const duration = Date.now() - startTime
+      logger.info(`[HostHandler] RESOLVE_DOMAIN success: domain=${domain}, ip=${ip}, duration=${duration}ms`)
+      return { success: true, data: ip }
+    } catch (error) {
+      logger.error(`[HostHandler] RESOLVE_DOMAIN failed: domain=${domain}`, error)
       return handleError(error)
     }
   })

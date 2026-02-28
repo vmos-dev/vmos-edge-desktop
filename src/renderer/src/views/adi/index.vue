@@ -3,7 +3,7 @@
     <!-- 头部区域 -->
     <div class="header-section">
       <div class="header-content">
-        <div class="header-title">机型列表</div>
+        <div class="header-title">{{ t('adi.deviceList') }}</div>
         <!-- 筛选按钮 -->
         <div class="filter-buttons">
           <div
@@ -41,19 +41,22 @@ import { Adi } from '@shared/ipc/adi.types'
 import { ipc } from '@renderer/core/ipc'
 import { ADI_EVENTS } from '@shared/ipc/adi.types'
 import { ElTag, ElLink } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 数据
 const adis = ref<Adi[]>([])
 const activeFilter = ref<string | number>('all')
 
 // 筛选选项
-const filters = [
-  { label: '全部', value: 'all' },
-  { label: 'Android 10', value: 10 },
-  { label: 'Android 13', value: 13 },
-  { label: 'Android 14', value: 14 },
-  { label: 'Android 15', value: 15 }
-]
+const filters = computed(() => [
+  { label: t('adi.all'), value: 'all' },
+  { label: t('adi.android10'), value: 10 },
+  { label: t('adi.android13'), value: 13 },
+  { label: t('adi.android14'), value: 14 },
+  { label: t('adi.android15'), value: 15 }
+])
 
 // 筛选后的数据
 const filteredAdis = computed(() => {
@@ -68,32 +71,32 @@ const filteredAdis = computed(() => {
 })
 
 // 表格列定义
-const columns: Column<Adi>[] = [
+const columns = computed<Column<Adi>[]>(() => [
   {
     key: 'brand',
     dataKey: 'brand',
-    title: '品牌',
+    title: t('adi.brand'),
     width: 150,
     flexGrow: 1
   },
   {
     key: 'model_name',
     dataKey: 'model_name',
-    title: '机型',
+    title: t('adi.model'),
     width: 200,
     flexGrow: 1
   },
   {
     key: 'layout',
     dataKey: 'layout',
-    title: '屏幕分辨率',
+    title: t('adi.screenResolution'),
     width: 200,
     flexGrow: 1
   },
   {
     key: 'asopVersion',
     dataKey: 'asopVersion',
-    title: 'Android版本',
+    title: t('adi.androidVersion'),
     width: 150,
     cellRenderer: ({ cellData }: { cellData: any }) => (
       <ElTag effect="light" round>
@@ -102,8 +105,8 @@ const columns: Column<Adi>[] = [
         </ElLink>
       </ElTag>
     )
-  }
-]
+  },
+])
 
 // 筛选变化
 const handleFilterChange = (value: string | number) => {
@@ -116,7 +119,7 @@ const getAdis = async () => {
   if (res.success) {
     adis.value = res.data || []
   } else {
-    ElMessage.error(res.error || '获取机型列表失败')
+    ElMessage.error(res.error || t('common.loadFailed'))
   }
 }
 
@@ -127,7 +130,7 @@ getAdis()
 .adi-container {
   height: 100%;
   padding: 20px;
-  background-color: #fff;
+  background-color: var(--el-bg-color);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -135,11 +138,11 @@ getAdis()
 }
 
 .header-section {
-  background: #fff;
+  background: var(--el-bg-color);
   padding: 16px 20px;
   border-radius: 6px;
   margin-bottom: 16px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   flex-shrink: 0;
 }
 
@@ -152,7 +155,7 @@ getAdis()
 .header-title {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -161,7 +164,7 @@ getAdis()
     display: inline-block;
     width: 4px;
     height: 22px;
-    background: #409eff;
+    background: var(--el-color-primary);
     margin-right: 8px;
     border-radius: 2px;
   }
@@ -171,7 +174,7 @@ getAdis()
   display: flex;
   gap: 0;
   align-items: center;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 6px;
   padding: 4px;
 }
@@ -179,7 +182,7 @@ getAdis()
 .filter-btn {
   padding: 8px 20px;
   font-size: 14px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.2s ease;
@@ -188,24 +191,24 @@ getAdis()
   font-weight: normal;
 
   &:hover:not(.active) {
-    color: #409eff;
-    background-color: rgba(64, 158, 255, 0.08);
+    color: var(--el-color-primary);
+    background-color: var(--el-color-primary-alpha-1);
   }
 
   &.active {
-    color: #fff;
-    background-color: #409eff;
+    color: var(--el-bg-color);
+    background-color: var(--el-color-primary);
     font-weight: 500;
-    box-shadow: 0 2px 4px rgba(64, 158, 255, 0.2);
+    box-shadow: 0 2px 4px var(--el-color-primary-alpha-2);
   }
 }
 
 .table-container {
   flex: 1;
   min-height: 0;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   overflow: hidden;
   display: flex;
   flex-direction: column;

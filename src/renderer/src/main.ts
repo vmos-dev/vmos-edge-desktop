@@ -4,6 +4,7 @@ import router from './router'
 import { setupElementPlus } from './plugins/element-plus'
 import { setupGlobalComponents } from './plugins/components'
 import { initErrorCapture } from './utils/logger'
+import i18n from './locales'
 import './assets/main.scss'
 
 const app = createApp(App)
@@ -14,5 +15,6 @@ initErrorCapture(app)
 setupElementPlus(app)
 setupGlobalComponents(app)
 app.use(router)
+app.use(i18n)
 
 app.mount('#app')

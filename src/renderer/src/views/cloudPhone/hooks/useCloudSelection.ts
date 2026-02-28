@@ -5,7 +5,7 @@ import type { TreeNode } from './useCloudTree'
 
 export function useCloudSelection(
   treeRef: Ref<any>,
-  deviceFilter: Ref<string>,
+  deviceFilter: Ref<string[]>,
   deviceTypeFilter: Ref<string>,
   viewMode: Ref<'list' | 'grid'>,
   tableRef: Ref<any> // VmosTable instance
@@ -54,7 +54,8 @@ export function useCloudSelection(
        * - 未选择状态：全部满足
        * - 选择状态：必须完全匹配
        */
-      const isStateMatch = !stateFilter || device.state === stateFilter
+      const isStateMatch =
+        stateFilter.length === 0 || (!!device.state && stateFilter.includes(device.state))
 
       /**
        * 3. 类型是否满足

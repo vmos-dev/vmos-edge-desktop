@@ -1,49 +1,49 @@
 <template>
   <div class="vmess-protocol-form">
-    <el-form-item label="服务器地址" prop="vmess.server">
+    <el-form-item :label="t('proxy.serverAddress')" prop="vmess.server">
       <el-input
         v-model.trim="modelValue.server"
         maxlength="200"
         show-word-limit
-        placeholder="请输入服务器地址"
+        :placeholder="t('proxy.serverAddressPlaceholder')"
       />
     </el-form-item>
-    <el-form-item label="端口" prop="vmess.port">
+    <el-form-item :label="t('proxy.port')" prop="vmess.port">
       <el-input-number
         v-model="modelValue.port"
         :min="1"
         :max="65535"
-        placeholder="请输入端口"
+        :placeholder="t('proxy.portPlaceholder')"
         style="width: 100%"
       />
     </el-form-item>
-    <el-form-item label="用户ID (UUID)" prop="vmess.uuid">
+    <el-form-item :label="t('proxy.userId')" prop="vmess.uuid">
       <el-input
         v-model.trim="modelValue.uuid"
         maxlength="200"
         show-word-limit
-        placeholder="请输入用户ID"
+        :placeholder="t('proxy.userIdPlaceholder')"
       />
     </el-form-item>
-    <el-form-item label="额外ID (AlterId)" prop="vmess.alterId">
+    <el-form-item :label="t('proxy.alterId')" prop="vmess.alterId">
       <el-input-number
         v-model="modelValue.alterId"
         :min="0"
         :max="65535"
-        placeholder="请输入AlterId (默认0)"
+        :placeholder="t('proxy.alterIdPlaceholder')"
         style="width: 100%"
       />
     </el-form-item>
-    <el-form-item label="加密方式" prop="vmess.cipher">
-      <el-select v-model="modelValue.cipher" placeholder="请选择加密方式" style="width: 100%">
+    <el-form-item :label="t('proxy.encryption')" prop="vmess.cipher">
+      <el-select v-model="modelValue.cipher" :placeholder="t('proxy.encryptionPlaceholder')" style="width: 100%">
         <el-option label="Auto" value="auto" />
         <el-option label="AES-128-GCM" value="aes-128-gcm" />
         <el-option label="ChaCha20-Poly1305" value="chacha20-poly1305" />
         <el-option label="None" value="none" />
       </el-select>
     </el-form-item>
-    <el-form-item label="传输协议" prop="vmess.network">
-      <el-select v-model="modelValue.network" placeholder="请选择传输协议" style="width: 100%">
+    <el-form-item :label="t('proxy.transportProtocol')" prop="vmess.network">
+      <el-select v-model="modelValue.network" :placeholder="t('proxy.transportProtocolPlaceholder')" style="width: 100%">
         <el-option label="TCP" value="tcp" />
         <el-option label="UDP" value="udp" />
         <el-option label="WebSocket" value="ws" />
@@ -53,23 +53,23 @@
         <el-option label="mKCP" value="kcp" />
       </el-select>
     </el-form-item>
-    <el-form-item label="TLS" prop="vmess.tls">
+    <el-form-item :label="t('proxy.tls')" prop="vmess.tls">
       <el-switch v-model="modelValue.tls" />
     </el-form-item>
 
     <template v-if="modelValue.tls">
-      <el-form-item label="SNI" prop="vmess.servername">
+      <el-form-item :label="t('proxy.sni')" prop="vmess.servername">
         <el-input
           v-model.trim="modelValue.servername"
           maxlength="200"
           placeholder="Server Name Indication"
         />
       </el-form-item>
-      <el-form-item label="Fingerprint" prop="vmess.fingerprint">
+      <el-form-item :label="t('proxy.fingerprint')" prop="vmess.fingerprint">
         <el-input
           v-model.trim="modelValue.fingerprint"
           maxlength="50"
-          placeholder="TLS Fingerprint (e.g. chrome, firefox)"
+          :placeholder="t('proxy.fingerprintPlaceholder')"
         />
       </el-form-item>
     </template>
@@ -79,6 +79,9 @@
 <script setup lang="ts">
 import parseUri from '@renderer/utils/uri-parser'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const modelValue = defineModel<IProxyVmessConfig>({ required: true })
 
@@ -107,7 +110,7 @@ defineExpose({
 <style scoped lang="scss">
 .form-tip {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   margin-top: 4px;
   line-height: 1.5;
 }

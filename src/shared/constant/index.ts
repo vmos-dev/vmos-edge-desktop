@@ -11,5 +11,11 @@ export const CONFIG_KEYS = {
   MAIN_WINDOW_SIZE: 'main.window.size',
   WHEEL_SPEED: 'wheel.speed',
   KEEP_HOVER_MOVE: 'keep.hover.move',
-  MINIMIZE_TO_TRAY: 'minimize.to.tray'
+  MINIMIZE_TO_TRAY: 'minimize.to.tray',
+  APP_LANGUAGE: 'app.language',
+  IS_STREAMING: 'is.streaming',
+  THEME_MODE: 'theme.mode',
+  THEME_COLOR: 'theme.color',
+  STREAM_FPS: 'stream.fps',
+  STREAM_BITRATE: 'stream.bitrate'
 } as const

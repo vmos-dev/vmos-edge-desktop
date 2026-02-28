@@ -18,6 +18,7 @@ export interface UDPDevice {
 export class UDPScanner {
   private scanTimer: NodeJS.Timeout | null = null
   private isScanning = false
+  private shouldStop = false
   private taskQueue: TaskQueue
   constructor() {
     logger.info('💡 UDP Scanner Initialized')
@@ -140,14 +141,19 @@ export class UDPScanner {
 
     try {
       logger.info(`[UDPScanner] ✅ 自动扫描已启动 (间隔: ${intervalSec}秒)`)
+      this.taskQueue.start() // 恢复队列
 
       this.scanTimer = setInterval(() => {
         if (!this.isScanning) {
-          this.discoverUdpDevices(2)
+          this.discoverUdpDevices(2).catch((err) => {
+            logger.error('[UDPScanner] Auto scan cycle failed:', err)
+          })
         }
       }, intervalSec * 1000)
 
-      this.discoverUdpDevices(2)
+      this.discoverUdpDevices(2).catch((err) => {
+        logger.error('[UDPScanner] Initial scan failed:', err)
+      })
     } catch (error) {
       logger.error('[UDPScanner] 自动扫描启动失败:', error)
     }
@@ -155,16 +161,19 @@ export class UDPScanner {
 
   /** 停止自动扫描 */
   public stopAutoScan() {
+    this.shouldStop = true
     if (this.scanTimer) {
       clearInterval(this.scanTimer)
       this.scanTimer = null
     }
+    this.taskQueue.stop()
   }
 
   /** 并发扫描整个网段 */
   async discoverUdpDevices(_timeoutSec = 5): Promise<UDPDevice[]> {
     if (this.isScanning) return []
     this.isScanning = true
+    this.shouldStop = false
 
     logger.debug('[UDPScanner] Starting UDP discovery...')
 
@@ -196,6 +205,7 @@ export class UDPScanner {
     const activePromises = new Set<Promise<void>>()
 
     for (const ipAddr of ips) {
+      if (this.shouldStop) break
       // 创建任务
       const promise = this.scanSingleIP(ipAddr, 150).then((dev) => {
         if (dev) devices.push(dev)

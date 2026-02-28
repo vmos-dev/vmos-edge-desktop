@@ -80,7 +80,20 @@ export const API_CONFIG = {
     // 设置时区
     SET_DEVICE_TIMEZONE: '/android_api/v1/timezone_set',
     // 设置实例经纬度
-    SET_DEVICE_LOCATION: '/android_api/v1/gps_inject'
+    SET_DEVICE_LOCATION: '/android_api/v1/gps_inject',
+    // 执行命令
+    EXEC_COMMAND: '/android_api/v1/shell',
+    // 修改系统属性
+    UPDATE_USER_PROP: '/container_api/v1/update_user_prop',
+    // 视频注入
+    VIDEO_INJECT: '/android_api/v1/video_inject',
+    // 关闭视频注入
+    CLOSE_VIDEO_INJECT: '/android_api/v1/video_inject_off',
+    // 获取视频注入状态
+    GET_VIDEO_INJECT_STATUS: '/android_api/v1/getInjectStatus',
+
+    // 获取指定实例详细信息
+    GET_CLOUD_PHONE_INFO: '/container_api/v1/get_android_detail'
   }
 } as const
 

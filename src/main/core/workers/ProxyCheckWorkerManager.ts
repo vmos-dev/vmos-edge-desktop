@@ -7,6 +7,7 @@ import { Worker } from 'worker_threads'
 import path from 'path'
 import { logger } from '../logger'
 import { v4 as uuidv4 } from 'uuid'
+import { app } from 'electron'
 
 /**
  * 代理检测结果
@@ -30,6 +31,7 @@ export interface ProxyInfo {
   port: number
   username?: string
   password?: string
+  rawLink?: string
 }
 
 /**
@@ -47,6 +49,19 @@ export class ProxyCheckWorkerManager {
     }
   > = new Map()
 
+
+
+  /**
+   * 获取 resources 目录路径
+   */
+  private getResourcesPath(): string {
+    if (app.isPackaged) {
+      return process.resourcesPath || ''
+    }
+    // 开发环境：使用项目根目录的 resources 目录
+    return path.join(process.cwd(), 'resources')
+  }
+
   /**
    * 初始化 worker
    */
@@ -56,9 +71,16 @@ export class ProxyCheckWorkerManager {
     }
 
     const workerPath = path.join(__dirname, 'proxyCheckWorker.js')
+    const resourcesPath = this.getResourcesPath()
     logger.info(`[ProxyCheckWorkerManager] Creating worker at: ${workerPath}`)
+    logger.info(`[ProxyCheckWorkerManager] resourcesPath: ${resourcesPath}`)
 
-    this.worker = new Worker(workerPath)
+    this.worker = new Worker(workerPath, {
+      workerData: {
+        resourcesPath: resourcesPath,
+        isPackaged: app.isPackaged
+      }
+    })
 
     // 监听 worker 消息
     this.worker.on('message', (response: any) => {
@@ -126,7 +148,7 @@ export class ProxyCheckWorkerManager {
    * 检测代理
    */
   public async check(
-    proxy: ProxyInfo,
+    proxy: ProxyInfo | ProxyInfo[],
     timeout: number,
     providerType: string = 'default',
     apiKey: string = ''
@@ -149,7 +171,7 @@ export class ProxyCheckWorkerManager {
         id,
         type: 'check',
         data: {
-          proxy,
+          proxies: Array.isArray(proxy) ? proxy : [proxy],
           timeout,
           providerType,
           apiKey

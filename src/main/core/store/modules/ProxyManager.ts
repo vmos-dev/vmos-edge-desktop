@@ -100,7 +100,7 @@ export class ProxyManager extends BaseManager {
       }
       let lastCheckStatus: 'success' | 'failed' | '' = ''
       let result: { success: boolean; data?: any; error?: string } | undefined
-      if (['http', 'https', 'socks5'].includes(proxy.protocol)) {
+      if (['http', 'https', 'socks5', 'vmess', 'vless', 'ss', 'ssr'].includes(proxy.protocol)) {
         try {
           result = await this.checkProxy(proxy as any)
           lastCheckStatus = result.success ? 'success' : 'failed'
@@ -133,6 +133,68 @@ export class ProxyManager extends BaseManager {
   }
 
   /**
+   * 批量添加代理
+   */
+  public async batchAddProxies(
+    proxies: Omit<Proxy, 'id' | 'createTime' | 'lastCheckStatus'>[]
+  ): Promise<{ success: number; failed: number; errors: string[] }> {
+    const startTime = Date.now()
+    logger.info(`[ProxyManager] batchAddProxies called: count=${proxies.length}`)
+
+    let success = 0
+    let failed = 0
+    const errors: string[] = []
+
+    if (!proxies || !Array.isArray(proxies) || proxies.length === 0) {
+      return { success: 0, failed: 0, errors: [] }
+    }
+
+    // 开启事务处理
+    try {
+      this.dbInstance.transaction(() => {
+        for (const proxy of proxies) {
+          try {
+            if (!proxy.name || !proxy.protocol) {
+              throw new Error(
+                '[ProxyManager] batchAddProxies: Incomplete proxy data: name, protocol are required fields'
+              )
+            }
+
+            const newProxy: any = {
+              ...proxy,
+              id: uuidv4(),
+              createTime: Date.now(),
+              lastCheckStatus: '', // 批量导入不检测
+              ip: '',
+              country: '',
+              city: '',
+              timezone: '',
+              loc: ''
+            }
+            this.proxyDao.addProxy(newProxy)
+            success++
+          } catch (error: any) {
+            failed++
+            errors.push(error.message || String(error))
+            // 捕获错误，允许部分成功
+          }
+        }
+      })
+    } catch (error: any) {
+      logger.error('[ProxyManager] batchAddProxies transaction failed:', error)
+      // 如果事务本身（begin/commit）失败，则全部失败
+      // 但由于我们在内部循环 try-catch 了，只有数据库本身炸了才会走到这里
+      return { success: 0, failed: proxies.length, errors: [error.message || 'Transaction failed'] }
+    }
+
+    const duration = Date.now() - startTime
+    logger.info(
+      `[ProxyManager] batchAddProxies completed: success=${success}, failed=${failed}, duration=${duration}ms`
+    )
+    return { success, failed, errors }
+  }
+
+  /**
    * 更新代理
    */
   public async updateProxy(
@@ -151,14 +213,20 @@ export class ProxyManager extends BaseManager {
       let lastCheckStatus: 'success' | 'failed' | '' = ''
       let result: { success: boolean; data?: any; error?: string } | undefined
 
-      if (['http', 'https', 'socks5'].includes(updates.protocol as any) && isCheck) {
+      if (
+        ['http', 'https', 'socks5', 'vmess', 'vless', 'ss', 'ssr'].includes(
+          updates.protocol as any
+        ) &&
+        isCheck
+      ) {
         try {
           result = await this.checkProxy({
             protocol: updates.protocol as any,
             host: updates.host || '',
             port: updates.port || 0,
             username: updates.username || undefined,
-            password: updates.password || undefined
+            password: updates.password || undefined,
+            rawLink: updates.rawLink || undefined
           })
           lastCheckStatus = result?.success ? 'success' : 'failed'
         } catch (error) {
@@ -171,14 +239,14 @@ export class ProxyManager extends BaseManager {
         !isCheck
           ? { ...updates }
           : {
-              ...updates,
-              lastCheckStatus: lastCheckStatus,
-              ip: result?.data?.ip || '',
-              country: result?.data?.country || '',
-              city: result?.data?.city || '',
-              timezone: result?.data?.timezone || '',
-              loc: result?.data?.loc || ''
-            }
+            ...updates,
+            lastCheckStatus: lastCheckStatus,
+            ip: result?.data?.ip || '',
+            country: result?.data?.country || '',
+            city: result?.data?.city || '',
+            timezone: result?.data?.timezone || '',
+            loc: result?.data?.loc || ''
+          }
       )
       const duration = Date.now() - startTime
       if (!updated) {
@@ -265,15 +333,11 @@ export class ProxyManager extends BaseManager {
    *   port: 1080
    * })
    */
-  public async checkProxy(proxy: {
-    protocol: 'http' | 'https' | 'socks5' | 'vmess' | 'ss' | 'ssr' | 'vless'
-    host: string
-    port: number
-    username?: string
-    password?: string
-  }): Promise<{ success: boolean; data?: any; error?: string }> {
+  public async checkProxy(proxy: any | any[]): Promise<{ success: boolean; data?: any; error?: string }> {
+    const isArray = Array.isArray(proxy)
+    const firstProxy = isArray ? proxy[0] : proxy
     logger.info(
-      `[ProxyManager] checkProxy called (Worker): ${proxy.protocol}://${proxy.host}:${proxy.port}`
+      `[ProxyManager] checkProxy called (Worker): ${firstProxy.protocol}://${firstProxy.host}:${firstProxy.port}${isArray ? ` (Total: ${proxy.length})` : ''}`
     )
 
     const startTime = Date.now()
@@ -293,28 +357,17 @@ export class ProxyManager extends BaseManager {
       const workerManager = getProxyCheckWorkerManager()
 
       // 步骤 3: 在 Worker 中执行检测（隔离运行，崩溃不影响主进程）
-      const result = await workerManager.check(
-        {
-          protocol: proxy.protocol,
-          host: proxy.host,
-          port: proxy.port,
-          username: proxy.username,
-          password: proxy.password
-        },
-        timeout,
-        providerType,
-        apiKey
-      )
+      const result = await workerManager.check(proxy, timeout, providerType, apiKey)
 
       const duration = Date.now() - startTime
 
       if (result.success) {
         logger.info(
-          `[ProxyManager] checkProxy success: ${proxy.protocol}://${proxy.host}:${proxy.port}, IP=${result.data?.ip}, Country=${result.data?.country}, duration=${duration}ms`
+          `[ProxyManager] checkProxy success: ${firstProxy.protocol}://${firstProxy.host}:${firstProxy.port}, IP=${result.data?.ip}, Country=${result.data?.country}, duration=${duration}ms`
         )
       } else {
         logger.warn(
-          `[ProxyManager] checkProxy failed: ${proxy.protocol}://${proxy.host}:${proxy.port}, error=${result.error}, duration=${duration}ms`
+          `[ProxyManager] checkProxy failed: ${firstProxy.protocol}://${firstProxy.host}:${firstProxy.port}, error=${result.error}, duration=${duration}ms`
         )
       }
 
@@ -328,7 +381,7 @@ export class ProxyManager extends BaseManager {
       const duration = Date.now() - startTime
       const errorMsg = error instanceof Error ? error.message : String(error)
       logger.warn(
-        `[ProxyManager] checkProxy failed: ${proxy.protocol}://${proxy.host}:${proxy.port}, error=${errorMsg}, duration=${duration}ms`
+        `[ProxyManager] checkProxy failed: ${firstProxy.protocol}://${firstProxy.host}:${firstProxy.port}, error=${errorMsg}, duration=${duration}ms`
       )
       throw new Error(errorMsg)
     }

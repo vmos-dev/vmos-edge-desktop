@@ -3,11 +3,95 @@
  * 运行在独立的 utility process 中，崩溃不影响主进程
  */
 
-import { parentPort } from 'worker_threads'
-import axios from 'axios'
-import { HttpProxyAgent } from 'http-proxy-agent'
-import { HttpsProxyAgent } from 'https-proxy-agent'
-import { SocksProxyAgent } from 'socks-proxy-agent'
+import { parentPort, workerData } from 'worker_threads'
+import { VMOSEdgeProxy } from '@vmosedge/proxy-sdk'
+import net from 'net'
+import path from 'path'
+import os from 'os'
+import fs from 'fs'
+
+// 在 Worker 线程中保存 resourcesPath
+const resourcesPath = workerData?.resourcesPath
+const isPackaged = workerData?.isPackaged
+
+// 请求处理锁，确保同一时间只有一个检测任务在执行
+let isProcessing = false
+// 当前活跃的 SDK 实例，用于确保清理
+let currentSdk: VMOSEdgeProxy | null = null
+// 最后一次检测完成时间，用于添加冷却期
+let lastCheckEndTime = 0
+// 冷却期时间（毫秒），确保前一个 SDK 完全清理
+const COOLDOWN_MS = 300
+// 最大重试次数
+const MAX_RETRIES = 2
+// 可重试的错误关键词
+const RETRYABLE_ERRORS = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'socket hang up', 'network']
+
+
+/**
+ * 获取 SDK 二进制文件路径
+ */
+function getSdkBinPath() {
+  if (!resourcesPath) {
+    console.warn('[ProxyWorker] resourcesPath is not available')
+    return undefined
+  }
+
+  const platform = os.platform()
+  const arch = os.arch()
+  const binName = platform === 'win32' ? 'mihomo.exe' : 'mihomo'
+
+  // 修改为对应 electron-builder.yml 中的路径: vmosedge-proxy-sdk/bin/...
+  // 注意：electron-builder 不支持 to 路径中的 @ 符号，所以使用 vmosedge-proxy-sdk 代替 @vmosedge/proxy-sdk
+  const prodBinPath = path.join(
+    resourcesPath,
+    'vmosedge-proxy-sdk',
+    'bin',
+    `${platform}-${arch}`,
+    binName
+  )
+
+  console.log(`[ProxyWorker] Looking for binary at: ${prodBinPath}`)
+  console.log(`[ProxyWorker] resourcesPath: ${resourcesPath}`)
+  console.log(`[ProxyWorker] File exists: ${fs.existsSync(prodBinPath)}`)
+
+  if (fs.existsSync(prodBinPath)) {
+    // macOS/Linux: 确保二进制文件有执行权限
+    console.log(`[ProxyWorker] Found binary: ${prodBinPath}`)
+    return prodBinPath
+  }
+
+  // 如果打包路径不存在，尝试检查目录是否存在（用于调试）
+  const binDir = path.join(resourcesPath, 'vmosedge-proxy-sdk', 'bin', `${platform}-${arch}`)
+  if (fs.existsSync(binDir)) {
+    const files = fs.readdirSync(binDir)
+    console.warn(`[ProxyWorker] Directory exists but binary not found. Files in directory:`, files)
+  } else {
+    console.warn(`[ProxyWorker] Directory does not exist: ${binDir}`)
+  }
+
+  return undefined
+}
+
+/**
+ * 获取一个可用的随机端口
+ */
+async function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer()
+    server.unref()
+    server.on('error', reject)
+    server.listen(0, () => {
+      const address = server.address()
+      if (address && typeof address !== 'string') {
+        const port = address.port
+        server.close(() => resolve(port))
+      } else {
+        server.close(() => reject(new Error('Failed to get port')))
+      }
+    })
+  })
+}
 
 /**
  * Worker 消息类型
@@ -16,13 +100,14 @@ interface WorkerMessage {
   id: string
   type: 'check'
   data: {
-    proxy: {
-      protocol: 'http' | 'https' | 'socks4' | 'socks5'
+    proxies: {
+      protocol: 'http' | 'https' | 'socks4' | 'socks5' | 'vmess' | 'vless' | 'ss' | 'ssr'
       host: string
       port: number
       username?: string
       password?: string
-    }
+      rawLink?: string
+    }[]
     timeout: number
     providerType: string
     apiKey?: string
@@ -41,171 +126,268 @@ interface WorkerResponse {
       ip: string
       country: string
       providerType: string
+      timezone?: string
+      city?: string
+      loc?: string
     }
     error?: string
   }
   error?: string
 }
 
-interface CheckResult {
-  ip: string
-  country: string
-  timezone: string
-  city: string
-  providerType: string
-  loc: string
-}
-
 /**
- * 构建代理 URL
+ * 将内部代理对象转换为 SDK 所需的配置
  */
-function buildProxyUrl(proxy: WorkerMessage['data']['proxy']): string {
+function getProxyConfig(proxy: WorkerMessage['data']['proxies'][number]) {
+  // 如果有原始链接，优先使用
+  if (proxy.rawLink) {
+    try {
+      // 尝试解析 JSON（适配 UI 存入的 rawLink）
+
+      return JSON.parse(proxy.rawLink)
+    } catch (e) {
+      // 如果不是 JSON，可能是 URI 字符串 (ss://..., vmess://...)
+      return proxy.rawLink
+    }
+  }
+
+  // 传统协议 (http, https, socks5) 的手动构建
+  const protocol = proxy.protocol.toLowerCase()
+  const config: any = {
+    name: 'test-proxy',
+    type: protocol === 'https' ? 'http' : protocol,
+    server: proxy.host,
+    port: proxy.port
+  }
+
   if (proxy.username && proxy.password) {
-    return `${proxy.protocol.toLowerCase()}://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}`
+    config.username = proxy.username
+    config.password = proxy.password
   }
-  return `${proxy.protocol.toLowerCase()}://${proxy.host}:${proxy.port}`
+
+  if (protocol === 'https') {
+    config.tls = true
+  }
+
+  return config
 }
 
 /**
- * 创建代理 agent
+ * 获取检测 URL
  */
-function createProxyAgents(
-  proxyUrl: string,
-  protocol: string
-): {
-  httpAgent: any
-  httpsAgent: any
-} {
-  const agentOptions = {
-    rejectUnauthorized: false, // 忽略 TLS 证书验证错误
-    timeout: 30000 // socket 超时时间
-  }
-
-  if (protocol === 'http' || protocol === 'https') {
-    const httpAgent = new HttpProxyAgent(proxyUrl, agentOptions)
-    const httpsAgent = new HttpsProxyAgent(proxyUrl, agentOptions)
-    return { httpAgent, httpsAgent }
-  }
-
-  if (protocol === 'socks4' || protocol === 'socks5') {
-    const socksAgent = new SocksProxyAgent(proxyUrl, agentOptions)
-    return {
-      httpAgent: socksAgent,
-      httpsAgent: socksAgent
+function getCheckUrl(providerType: string, apiKey: string = ''): string {
+  if (providerType === 'ipinfo') {
+    const url = new URL('https://ipinfo.io/json')
+    if (apiKey) {
+      url.searchParams.set('token', apiKey)
     }
+    return url.toString()
   }
 
-  throw new Error(`Unsupported proxy protocol: ${protocol}`)
-}
-
-/**
- * 默认检测策略 - 使用 Cloudflare
- */
-async function checkDefault(
-  proxy: WorkerMessage['data']['proxy'],
-  timeout: number
-): Promise<CheckResult> {
-  const proxyUrl = buildProxyUrl(proxy)
-  const { httpAgent, httpsAgent } = createProxyAgents(proxyUrl, proxy.protocol)
-
-  const response = await axios.get('http://cp.cloudflare.com', {
-    httpAgent,
-    httpsAgent,
-    timeout,
-    validateStatus: (status) => status < 500
-  })
-
-  if (response.status >= 200 && response.status < 500) {
-    return {
-      ip: '',
-      country: '',
-      timezone: '',
-      city: '',
-      providerType: 'default',
-      loc: ''
+  if (providerType === 'ipmap') {
+    const url = new URL('https://ipmap.sh/api')
+    if (apiKey) {
+      url.searchParams.set('token', apiKey)
     }
+    return url.toString()
   }
 
-  throw new Error(`Proxy connectivity check failed with status code: ${response.status}`)
+  // 默认使用 Cloudflare
+  return 'http://cp.cloudflare.com'
 }
 
 /**
- * IPinfo 检测策略
+ * 判断错误是否可重试
  */
-async function checkIpInfo(
-  proxy: WorkerMessage['data']['proxy'],
-  timeout: number,
-  apiKey: string = ''
-): Promise<CheckResult> {
-  const proxyUrl = buildProxyUrl(proxy)
-  const { httpAgent, httpsAgent } = createProxyAgents(proxyUrl, proxy.protocol)
-
-  const urlObj = new URL('https://ipinfo.io/json')
-  if (apiKey) {
-    urlObj.searchParams.set('token', apiKey)
-  }
-
-  const response = await axios.get(urlObj.toString(), {
-    httpAgent,
-    httpsAgent,
-    timeout,
-    validateStatus: (status) => status < 500
-  })
-
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`IPinfo API request failed with status code: ${response.status}`)
-  }
-
-  const data = response?.data || {}
-  return {
-    ip: data.ip || '',
-    country: data.country || '',
-    timezone: data.timezone || '',
-    city: data.city || '',
-    providerType: 'ipinfo',
-    loc: data.loc || ''
-  }
+function isRetryableError(error: string): boolean {
+  const lowerError = error.toLowerCase()
+  return RETRYABLE_ERRORS.some((keyword) => lowerError.includes(keyword.toLowerCase()))
 }
 
 /**
- * 处理检测请求
+ * 安全地停止并清理 SDK 实例
  */
-async function handleCheck(message: WorkerMessage): Promise<WorkerResponse> {
+async function cleanupSdk(sdk: VMOSEdgeProxy | null): Promise<void> {
+  if (!sdk) return
+
   try {
-    const { proxy, timeout, providerType, apiKey } = message.data
+    sdk.stop()
+    // 给一点时间让进程完全退出
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  } catch (e) {
+    console.warn('[ProxyWorker] Error stopping SDK:', e)
+  }
+}
 
-    let result: {
-      ip: string
-      country: string
-      timezone: string
-      city: string
-      providerType: string
-      loc: string
+/**
+ * 等待冷却期结束
+ */
+async function waitForCooldown(): Promise<void> {
+  const now = Date.now()
+  const elapsed = now - lastCheckEndTime
+  if (elapsed < COOLDOWN_MS && lastCheckEndTime > 0) {
+    const waitTime = COOLDOWN_MS - elapsed
+    console.log(`[ProxyWorker] Waiting ${waitTime}ms for cooldown...`)
+    await new Promise((resolve) => setTimeout(resolve, waitTime))
+  }
+}
+
+/**
+ * 执行单次代理检测
+ */
+async function doSingleCheck(
+  proxies: WorkerMessage['data']['proxies'],
+  timeout: number,
+  providerType: string,
+  apiKey: string
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  const sdk = new VMOSEdgeProxy({
+    timeout: timeout,
+    logLevel: 'debug',
+    binPath: isPackaged ? getSdkBinPath() : undefined
+  })
+  currentSdk = sdk
+
+  try {
+    const proxyConfigs = proxies.map((p) => getProxyConfig(p))
+    const checkUrl = getCheckUrl(providerType, apiKey)
+
+    // 获取动态可用端口，添加重试机制
+    let mixedPort: number
+    try {
+      mixedPort = await getFreePort()
+    } catch (e) {
+      console.warn('[ProxyWorker] Failed to get free port, using fallback')
+      mixedPort = 7891 + Math.floor(Math.random() * 1000)
     }
 
-    if (providerType === 'ipinfo') {
-      result = await checkIpInfo(proxy, timeout, apiKey)
-    } else {
-      result = await checkDefault(proxy, timeout)
-    }
+    // 使用 SDK 进行请求
+    const response = await sdk.request(
+      proxyConfigs,
+      {
+        url: checkUrl,
+        timeout: timeout
+      },
+      { 'mixed-port': mixedPort }
+    )
 
-    return {
-      id: message.id,
-      type: 'result',
-      data: {
-        success: true,
-        data: result
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Proxy request failed'
       }
     }
-  } catch (error: any) {
+
+    // 处理返回的数据
+    const data = response.data
+
+    let resultData: any = {
+      ip: '',
+      country: '',
+      providerType: providerType
+    }
+
+    if (providerType === 'ipinfo' || providerType === 'ipmap') {
+      try {
+        const businessData = typeof data === 'string' ? JSON.parse(data) : data
+        resultData = {
+          ...resultData,
+          ip: businessData.ip || '',
+          country: businessData.country || '',
+          timezone: businessData.timezone || '',
+          city: businessData.city || '',
+          loc: businessData.loc || ''
+        }
+      } catch (e) {
+        console.warn('[ProxyWorker] Failed to parse business data:', e)
+      }
+    }
+
+    return {
+      success: true,
+      data: resultData
+    }
+  } finally {
+    // 确保停止 SDK
+    await cleanupSdk(sdk)
+    currentSdk = null
+  }
+}
+
+/**
+ * 处理检测请求（带重试机制）
+ */
+async function handleCheck(message: WorkerMessage): Promise<WorkerResponse> {
+  // 如果正在处理其他请求，先清理并等待
+  if (isProcessing) {
+    console.warn('[ProxyWorker] Previous check still in progress, cleaning up...')
+    await cleanupSdk(currentSdk)
+    currentSdk = null
+    // 给更多时间确保完全清理
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+
+  // 等待冷却期
+  await waitForCooldown()
+
+  isProcessing = true
+  const { proxies, timeout, providerType, apiKey = '' } = message.data
+
+  let lastError: string = ''
+  let result: { success: boolean; data?: any; error?: string } | null = null
+
+  try {
+    // 重试循环
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        console.log(`[ProxyWorker] Retry attempt ${attempt}/${MAX_RETRIES}...`)
+        // 重试前等待一段时间，让之前的资源完全释放
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+
+      try {
+        result = await doSingleCheck(proxies, timeout, providerType, apiKey)
+
+        // 检测成功，直接返回
+        if (result.success) {
+          return {
+            id: message.id,
+            type: 'result',
+            data: result
+          }
+        }
+
+        // 检测失败，检查是否可重试
+        lastError = result.error || 'Unknown error'
+        if (!isRetryableError(lastError)) {
+          // 不可重试的错误，直接返回
+          console.log(`[ProxyWorker] Non-retryable error: ${lastError}`)
+          break
+        }
+
+        console.warn(`[ProxyWorker] Retryable error on attempt ${attempt}: ${lastError}`)
+      } catch (error: any) {
+        lastError = error?.message || String(error)
+        if (!isRetryableError(lastError)) {
+          console.log(`[ProxyWorker] Non-retryable exception: ${lastError}`)
+          break
+        }
+        console.warn(`[ProxyWorker] Retryable exception on attempt ${attempt}: ${lastError}`)
+      }
+    }
+
+    // 所有重试都失败了
     return {
       id: message.id,
       type: 'result',
       data: {
         success: false,
-        error: error?.message || String(error)
+        error: lastError
       }
     }
+  } finally {
+    isProcessing = false
+    lastCheckEndTime = Date.now()
   }
 }
 

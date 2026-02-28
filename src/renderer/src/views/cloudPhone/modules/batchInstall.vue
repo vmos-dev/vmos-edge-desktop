@@ -24,18 +24,16 @@
             <div class="upload-zone-content">
               <el-icon class="upload-icon"><upload-filled /></el-icon>
               <div class="upload-text">
-                <p class="upload-primary-text">点击上传或拖拽文件到此处</p>
+                <p class="upload-primary-text">{{ t('cloudPhone.clickUploadOrDragFile') }}</p>
                 <p class="upload-secondary-text">
-                  支持批量上传，支持文件格式：{{
-                    allowedExtensions?.map((ext) => `.${ext}`).join(', ') || '所有文件'
-                  }}
+                  {{ t('cloudPhone.batchUploadSupported', { formats: allowedExtensions?.map((ext) => `.${ext}`).join(', ') || t('cloudPhone.allFiles') }) }}
                 </p>
               </div>
             </div>
             <template #tip>
               <div class="upload-tip">
                 <el-icon><InfoFilled /></el-icon>
-                <span>最多支持 {{ concurrency }} 个主机同时并行上传文件</span>
+                <span>{{ t('cloudPhone.maxConcurrentUpload', { count: concurrency }) }}</span>
               </div>
             </template>
           </el-upload>
@@ -46,7 +44,7 @@
           <div class="select-device-header">
             <span class="select-device-title">
               <el-icon><DocumentAdd /></el-icon>
-              已选文件
+              {{ t('cloudPhone.selectedFiles') }}
               <span class="file-count-badge">{{ uploadFileList.length }}</span>
             </span>
             <el-button
@@ -56,7 +54,7 @@
               size="small"
               @click="clearAllFiles"
             >
-              清空全部
+              {{ t('common.clearAll') }}
             </el-button>
           </div>
           <div class="select-device-content">
@@ -71,7 +69,7 @@
               <el-icon
                 class="delete-btn"
                 @click="removeFile(index)"
-                title="删除"
+                :title="t('common.delete')"
                 v-if="isAllTasksCompleted"
               >
                 <Delete />
@@ -80,7 +78,7 @@
           </div>
         </div>
         <div v-else>
-          <el-empty :description="`请先选择需要${subTitle}的文件`" :image-size="120" />
+          <el-empty :description="t('cloudPhone.selectFileTip', { type: subTitle })" :image-size="120" />
         </div>
       </div>
       <!-- 文件列表区域 -->
@@ -88,32 +86,32 @@
         <div class="file-list-header">
           <div class="title">
             <div class="header-left">
-              <span class="list-title">{{ subTitle }}列表</span>
+              <span class="list-title">{{ subTitle }}{{ t('cloudPhone.list') }}</span>
             </div>
             <el-button v-if="tasks.length > 0" link type="danger" size="small" @click="clearAll">
-              清空全部
+              {{ t('common.clearAll') }}
             </el-button>
           </div>
           <div class="upload-stats">
             <span class="stats-item total">
               <el-icon><DocumentAdd /></el-icon>
-              总计: {{ tasks.length }}
+              {{ t('common.total') }}: {{ tasks.length }}
             </span>
             <span class="stats-item waiting" v-if="waitingCount > 0">
               <el-icon><Clock /></el-icon>
-              等待: {{ waitingCount }}
+              {{ t('common.waiting') }}: {{ waitingCount }}
             </span>
             <span class="stats-item uploading" v-if="uploadingCount > 0">
               <el-icon class="rotating"><Loading /></el-icon>
-              进行中: {{ uploadingCount }}
+              {{ t('common.processing') }}: {{ uploadingCount }}
             </span>
             <span class="stats-item success" v-if="successCount > 0">
               <el-icon><CircleCheck /></el-icon>
-              成功: {{ successCount }}
+              {{ t('common.success') }}: {{ successCount }}
             </span>
             <span class="stats-item error" v-if="errorCount > 0">
               <el-icon><CircleClose /></el-icon>
-              失败: {{ errorCount }}
+              {{ t('common.failed') }}: {{ errorCount }}
             </span>
           </div>
         </div>
@@ -137,9 +135,9 @@
               v-if="task.status === 'uploading' || task.status === 'pushing'"
               :style="{
                 background: `linear-gradient(to right, 
-                rgba(64, 158, 255, 0.15) 0%, 
-                rgba(64, 158, 255, 0.25) ${task.progress * 100 * 0.5}%,
-                rgba(64, 158, 255, 0.35) ${task.progress * 100}%, 
+                var(--el-color-primary-alpha-1) 0%, 
+                var(--el-color-primary-alpha-2) ${task.progress * 100 * 0.5}%,
+                var(--el-color-primary-alpha-3) ${task.progress * 100}%, 
                 transparent ${task.progress * 100}%)`
               }"
             ></div>
@@ -156,17 +154,17 @@
                   <span class="ip-text">{{ task.hostIp }}</span>
                   <div v-if="task.status === 'success' && task.meta" class="result-stats">
                     <span v-if="getTaskStats(task).success > 0" class="success-tag">
-                      成功 {{ getTaskStats(task).success }}
+                      {{ t('cloudPhone.successCount') }} {{ getTaskStats(task).success }}
                     </span>
                     <el-popover
                       v-if="getTaskStats(task).fail > 0"
                       placement="bottom"
-                      title="失败详情"
+                      :title="t('cloudPhone.failDetails')"
                       :width="600"
                       trigger="hover"
                     >
                       <template #reference>
-                        <span class="fail-tag"> 失败 {{ getTaskStats(task).fail }} </span>
+                        <span class="fail-tag"> {{ t('cloudPhone.failCount') }} {{ getTaskStats(task).fail }} </span>
                       </template>
                       <div class="fail-list">
                         <div
@@ -214,7 +212,7 @@
                           class="error-info-content"
                           style="max-width: 300px; max-height: 200px; overflow-y: auto"
                         >
-                          <p>{{ task.errorInfo || '未知错误' }}</p>
+                          <p>{{ task.errorInfo || t('common.unknownError') }}</p>
                         </div>
                       </template>
                       <el-icon class="error-info-icon"><InfoFilled /></el-icon>
@@ -227,7 +225,7 @@
                 v-if="task.status === 'waiting'"
                 class="delete-btn"
                 @click="removeTask(task.id)"
-                title="删除"
+                :title="t('common.delete')"
               >
                 <Delete />
               </el-icon>
@@ -236,19 +234,19 @@
 
           <!-- 空状态 -->
           <div v-if="tasks.length === 0" class="empty-state">
-            <el-empty description="暂无主机" :image-size="120" />
+            <el-empty :description="t('cloudPhone.noHost')" :image-size="120" />
           </div>
         </div>
       </div>
     </div>
     <template #footer>
-      <el-button @click="visible = false" v-if="isAllTasksCompleted">取消</el-button>
+      <el-button @click="visible = false" v-if="isAllTasksCompleted">{{ t('common.cancel') }}</el-button>
       <el-button
         type="primary"
         @click="handleInstall"
         :loading="!isAllTasksCompleted"
         :disabled="uploadFileList.length === 0"
-        >{{ isAllTasksCompleted ? `一键${subTitle}` : `${subTitle}中...` }}</el-button
+        >{{ isAllTasksCompleted ? (operationType === 'install' ? t('cloudPhone.oneClickInstall') : t('cloudPhone.oneClickUpload')) : (operationType === 'install' ? t('cloudPhone.installing') : t('cloudPhone.uploading')) }}</el-button
       >
     </template>
   </vmos-dialog>
@@ -271,6 +269,9 @@ import { ElUpload } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import type { Device } from '@shared/ipc/data.types'
 import { buildApiUrl, API_CONFIG } from '@shared/api'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const visible = ref(false)
 const uploadFileList = ref<UploadFile[]>([])
@@ -284,7 +285,7 @@ const allowedExtensions = computed(() => {
 })
 
 const subTitle = computed(() => {
-  return operationType.value === 'install' ? '安装' : '上传'
+  return operationType.value === 'install' ? t('cloudPhone.install') : t('cloudPhone.upload')
 })
 const uploadQueue = new UploadQueue({ concurrency: props.concurrency })
 const tasks = ref<UploadTask[]>([])
@@ -334,7 +335,9 @@ const errorCount = computed(() => tasks.value.filter((t) => t.status === 'error'
 const title = computed(() => {
   const hostCount = new Set(targetDevices.value.map((device) => device.host_ip)).size
   // 多少主机和云机需要安装文件
-  return `${operationType.value === 'install' ? '批量安装' : '批量上传'} (${hostCount} 台主机, ${targetDevices.value.length} 个云机)`
+  return operationType.value === 'install' 
+    ? t('cloudPhone.batchInstallTitle', { hostCount, deviceCount: targetDevices.value.length })
+    : t('cloudPhone.batchUploadTitle', { hostCount, deviceCount: targetDevices.value.length })
 })
 
 // 判断所有任务是否都处理完成
@@ -408,8 +411,8 @@ const getTaskStats = (task: UploadTask) => {
     } else {
       result.fail++
       result.failReasons.push({
-        id: item.db_id || '未知设备',
-        msg: item.msg || '未知错误'
+        id: item.db_id || t('cloudPhone.unknownDevice'),
+        msg: item.msg || t('common.unknownError')
       })
     }
   })
@@ -434,12 +437,12 @@ const formatFileSize = (bytes: number): string => {
 // 获取状态文本
 const getStatusText = (status: UploadStatus): string => {
   const statusMap: Record<UploadStatus, string> = {
-    waiting: '等待中',
-    uploading: '上传中',
-    pushing: '推送中',
-    success: '成功',
-    error: '失败',
-    cancelled: '已取消'
+    waiting: t('host.waitingStatus'),
+    uploading: t('host.uploading'),
+    pushing: t('host.pushing'),
+    success: t('common.success'),
+    error: t('common.failed'),
+    cancelled: t('host.cancelled')
   }
   return statusMap[status] || status
 }
@@ -509,7 +512,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   display: flex;
-  background: #ffffff;
+  background: var(--el-bg-color);
 
   overflow: hidden;
 }
@@ -523,7 +526,7 @@ defineExpose({
 /* ==================== 上传区域 ==================== */
 .upload-area {
   flex-shrink: 0;
-  background: #ffffff;
+  background: var(--el-bg-color);
 
   .upload-header {
     display: flex;
@@ -535,7 +538,7 @@ defineExpose({
       margin: 0;
       font-size: 16px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary);
     }
 
     .upload-stats {
@@ -547,7 +550,7 @@ defineExpose({
         align-items: center;
         gap: 4px;
         font-size: 12px;
-        color: #606266;
+        color: var(--el-text-color-regular);
 
         .el-icon {
           font-size: 14px;
@@ -558,13 +561,13 @@ defineExpose({
         }
 
         &:first-child .el-icon {
-          color: #909399;
+          color: var(--el-text-color-secondary);
         }
         &:nth-child(2) .el-icon {
-          color: #67c23a;
+          color: var(--el-color-success);
         }
         &:nth-child(3) .el-icon {
-          color: #409eff;
+          color: var(--el-color-primary);
         }
       }
     }
@@ -577,7 +580,7 @@ defineExpose({
 
       .upload-icon {
         font-size: 32px;
-        color: #c0c4cc;
+        color: var(--el-text-color-placeholder);
         margin-bottom: 12px;
         transition: all 0.3s ease;
       }
@@ -586,30 +589,30 @@ defineExpose({
         .upload-primary-text {
           margin: 0 0 6px 0;
           font-size: 14px;
-          color: #303133;
+          color: var(--el-text-color-primary);
           font-weight: 500;
         }
 
         .upload-secondary-text {
           margin: 0;
           font-size: 11px;
-          color: #909399;
+          color: var(--el-text-color-secondary);
         }
       }
     }
 
     :deep(.el-upload-dragger) {
-      border: 2px dashed #dcdfe6;
+      border: 2px dashed var(--el-border-color);
       border-radius: 8px;
-      background: #fafafa;
+      background: var(--el-bg-color-page);
       transition: all 0.3s ease;
       padding: 20px 0;
       &:hover {
-        border-color: #409eff;
-        background: #ecf5ff;
+        border-color: var(--el-color-primary);
+        background: var(--el-color-primary-light-9);
 
         .upload-icon {
-          color: #409eff;
+          color: var(--el-color-primary);
           transform: scale(1.1);
         }
       }
@@ -622,7 +625,7 @@ defineExpose({
       gap: 6px;
       margin-top: 12px;
       font-size: 12px;
-      color: #909399;
+      color: var(--el-text-color-secondary);
 
       .el-icon {
         font-size: 14px;
@@ -650,7 +653,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   margin-top: 8px;
-  background: #ffffff;
+  background: var(--el-bg-color);
   min-height: 0;
   overflow: hidden;
 
@@ -667,11 +670,11 @@ defineExpose({
       gap: 6px;
       font-size: 12px;
       font-weight: 600;
-      color: #606266;
+      color: var(--el-text-color-regular);
 
       .el-icon {
         font-size: 14px;
-        color: #409eff;
+        color: var(--el-color-primary);
       }
 
       .file-count-badge {
@@ -684,8 +687,8 @@ defineExpose({
         border-radius: 9px;
         font-size: 10px;
         font-weight: 600;
-        color: #409eff;
-        background: #ecf5ff;
+        color: var(--el-color-primary);
+        background: var(--el-color-primary-light-9);
         line-height: 1;
       }
     }
@@ -704,16 +707,16 @@ defineExpose({
       align-items: center;
       gap: 8px;
       padding: 4px 8px;
-      background: #f8f9fa;
-      border: 1px solid #ebeef5;
+      background: var(--el-bg-color-page);
+      border: 1px solid var(--el-border-color);
       border-radius: 4px;
       margin-bottom: 4px;
       transition: all 0.2s ease;
       cursor: default;
 
       &:hover {
-        border-color: #c6e2ff;
-        background: #ecf5ff;
+        border-color: var(--el-color-primary-light-7);
+        background: var(--el-color-primary-light-9);
       }
 
       &:last-child {
@@ -723,7 +726,7 @@ defineExpose({
       .file-icon {
         flex-shrink: 0;
         font-size: 14px;
-        color: #409eff;
+        color: var(--el-color-primary);
       }
 
       .file-name {
@@ -731,7 +734,7 @@ defineExpose({
         min-width: 0;
         font-size: 12px;
         font-weight: 500;
-        color: #303133;
+        color: var(--el-text-color-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -740,13 +743,13 @@ defineExpose({
       .file-info {
         flex-shrink: 0;
         font-size: 11px;
-        color: #909399;
+        color: var(--el-text-color-secondary);
         margin-left: auto;
       }
 
       .delete-btn {
         flex-shrink: 0;
-        color: #c0c4cc;
+        color: var(--el-text-color-placeholder);
         cursor: pointer;
         font-size: 14px;
         margin-left: 8px;
@@ -755,8 +758,8 @@ defineExpose({
         transition: all 0.2s ease;
 
         &:hover {
-          color: #f56c6c;
-          background: #fef2f2;
+          color: var(--el-color-danger);
+          background: var(--el-color-danger-light-9);
           transform: scale(1.1);
         }
       }
@@ -779,7 +782,7 @@ defineExpose({
     gap: 8px;
     margin-bottom: 10px;
     padding-bottom: 5px;
-    border-bottom: 1px solid #f0f2f5;
+    border-bottom: 1px solid var(--el-bg-color-page);
     .title {
       display: flex;
       justify-content: space-between;
@@ -797,7 +800,7 @@ defineExpose({
     .list-title {
       font-size: 14px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary);
       white-space: nowrap;
     }
 
@@ -814,7 +817,7 @@ defineExpose({
         border-radius: 8px;
         font-size: 12px;
         font-weight: 500;
-        background: #f8f9fa;
+        background: var(--el-bg-color-page);
         transition: all 0.3s ease;
 
         .el-icon {
@@ -826,42 +829,42 @@ defineExpose({
         }
 
         &.total {
-          color: #606266;
-          background: #f4f4f5;
+          color: var(--el-text-color-regular);
+          background: var(--el-fill-color-light);
           .el-icon {
-            color: #909399;
+            color: var(--el-text-color-secondary);
           }
         }
 
         &.waiting {
-          color: #e6a23c;
-          background: #fdf6ec;
+          color: var(--el-color-warning);
+          background: var(--el-color-warning-light-9);
           .el-icon {
-            color: #e6a23c;
+            color: var(--el-color-warning);
           }
         }
 
         &.uploading {
-          color: #409eff;
-          background: #ecf5ff;
+          color: var(--el-color-primary);
+          background: var(--el-color-primary-light-9);
           .el-icon {
-            color: #409eff;
+            color: var(--el-color-primary);
           }
         }
 
         &.success {
-          color: #67c23a;
-          background: #f0f9ff;
+          color: var(--el-color-success);
+          background: var(--el-color-primary-light-9);
           .el-icon {
-            color: #67c23a;
+            color: var(--el-color-success);
           }
         }
 
         &.error {
-          color: #f56c6c;
-          background: #fef0f0;
+          color: var(--el-color-danger);
+          background: var(--el-color-danger-light-9);
           .el-icon {
-            color: #f56c6c;
+            color: var(--el-color-danger);
           }
         }
       }
@@ -879,8 +882,8 @@ defineExpose({
 .file-item {
   position: relative;
   padding: 5px 12px;
-  background: #ffffff;
-  border: 1px solid #ebeef5;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
   border-radius: 6px;
   margin-bottom: 8px;
   display: flex;
@@ -891,27 +894,27 @@ defineExpose({
   min-height: 42px;
 
   &:hover {
-    border-color: #c6e2ff;
+    border-color: var(--el-color-primary-light-7);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   &.status-uploading,
   &.status-pushing {
-    border-color: #b3d8ff;
+    border-color: var(--el-color-primary-light-6);
   }
 
   &.status-success {
-    border-color: #c2e7b0;
-    background: #f6ffed;
+    border-color: var(--el-color-success-light-7);
+    background: var(--el-color-success-light-9);
   }
 
   &.status-error {
-    border-color: #fbc4c4;
-    background: #fef2f2;
+    border-color: var(--el-color-danger-light-7);
+    background: var(--el-color-danger-light-9);
   }
 
   &.status-waiting {
-    border-color: #f0c78a;
+    border-color: var(--el-color-warning-light-7);
   }
 
   /* 背景进度条效果 - 增强可见度 */
@@ -949,31 +952,31 @@ defineExpose({
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    background: #f8f9fa;
+    background: var(--el-bg-color-page);
 
     .file-icon {
       font-size: 16px;
       transition: all 0.3s ease;
 
       &.icon-default {
-        color: #409eff;
+        color: var(--el-color-primary);
       }
 
       &.icon-uploading {
-        color: #409eff;
+        color: var(--el-color-primary);
         animation: pulse 1.5s infinite;
       }
 
       &.icon-success {
-        color: #67c23a;
+        color: var(--el-color-success);
       }
 
       &.icon-error {
-        color: #f56c6c;
+        color: var(--el-color-danger);
       }
 
       &.icon-waiting {
-        color: #e6a23c;
+        color: var(--el-color-warning);
       }
     }
   }
@@ -986,7 +989,7 @@ defineExpose({
     .file-host-ip {
       font-size: 12px;
       font-weight: 500;
-      color: #303133;
+      color: var(--el-text-color-primary);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -996,16 +999,16 @@ defineExpose({
         gap: 6px;
 
         .success-tag {
-          color: #67c23a;
-          background: #f0f9eb;
+          color: var(--el-color-success);
+          background: var(--el-color-success-light-9);
           padding: 0 4px;
           border-radius: 4px;
           font-size: 11px;
         }
 
         .fail-tag {
-          color: #f56c6c;
-          background: #fef0f0;
+          color: var(--el-color-danger);
+          background: var(--el-color-danger-light-9);
           padding: 0 4px;
           border-radius: 4px;
           font-size: 11px;
@@ -1023,7 +1026,7 @@ defineExpose({
       align-items: center;
       .file-name {
         font-size: 11px;
-        color: #909399;
+        color: var(--el-text-color-secondary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1032,7 +1035,7 @@ defineExpose({
       .file-size {
         font-size: 11px;
         flex-shrink: 0;
-        color: #909399;
+        color: var(--el-text-color-secondary);
       }
     }
   }
@@ -1057,7 +1060,7 @@ defineExpose({
 
       .status-icon {
         font-size: 14px;
-        color: #409eff;
+        color: var(--el-color-primary);
 
         &.rotating {
           animation: rotate 1.2s linear infinite;
@@ -1066,7 +1069,7 @@ defineExpose({
 
       .progress-text {
         font-size: 12px;
-        color: #409eff;
+        color: var(--el-color-primary);
         font-weight: 600;
         line-height: 1;
       }
@@ -1077,20 +1080,20 @@ defineExpose({
         line-height: 1.3;
 
         &.status-waiting {
-          color: #e6a23c;
+          color: var(--el-color-warning);
         }
 
         &.status-uploading,
         &.status-pushing {
-          color: #409eff;
+          color: var(--el-color-primary);
         }
 
         &.status-success {
-          color: #67c23a;
+          color: var(--el-color-success);
         }
 
         &.status-error {
-          color: #f56c6c;
+          color: var(--el-color-danger);
         }
 
         .error-info-icon {
@@ -1105,15 +1108,15 @@ defineExpose({
   }
 
   .delete-btn {
-    color: #c0c4cc;
+    color: var(--el-text-color-placeholder);
     cursor: pointer;
     border-radius: 4px;
     font-size: 14px;
     transition: all 0.2s ease;
 
     &:hover {
-      color: #f56c6c;
-      background: #fef2f2;
+      color: var(--el-color-danger);
+      background: var(--el-color-danger-light-9);
       transform: scale(1.1);
     }
   }
@@ -1123,11 +1126,11 @@ defineExpose({
 .empty-state {
   text-align: center;
   padding: 30px 20px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 
   .empty-icon {
     font-size: 48px;
-    color: #dcdfe6;
+    color: var(--el-border-color);
     margin-bottom: 12px;
   }
 
@@ -1177,7 +1180,7 @@ defineExpose({
     display: flex;
     justify-content: space-between;
     padding: 4px 0;
-    border-bottom: 1px solid #f0f2f5;
+    border-bottom: 1px solid var(--el-bg-color-page);
     font-size: 12px;
 
     &:last-child {
@@ -1185,13 +1188,13 @@ defineExpose({
     }
 
     .device-id {
-      color: #303133;
+      color: var(--el-text-color-primary);
       font-weight: 500;
       margin-right: 8px;
     }
 
     .error-msg {
-      color: #f56c6c;
+      color: var(--el-color-danger);
       flex: 1;
       text-align: right;
       word-break: break-all;

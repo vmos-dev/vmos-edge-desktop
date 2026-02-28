@@ -18,7 +18,7 @@
             effect="dark"
             style="margin-left: 4px; transform: scale(0.8); flex-shrink: 0"
           >
-            主控
+            {{ t('phone.master') }}
           </el-tag>
         </div>
         <p
@@ -44,10 +44,21 @@
         </p>
       </div>
       <div class="window-header-right">
-        <SvgIcon name="pinToTop" :size="14" @click="handleTop" :color="isTop ? '#409eff' : ''" />
-        <el-icon :size="14" @click="ipc.minimize()"><Minus /></el-icon>
-        <el-icon :size="14" @click="ipc.maximize()"><CopyDocument /></el-icon>
-        <el-icon :size="16" @click="handleClose"><Close /></el-icon>
+        <SvgIcon
+          name="pinToTop"
+          :size="14"
+          @click="handleTop"
+          :color="isTop ? 'var(--el-color-primary)' : ''"
+        />
+        <el-icon :size="14" @click="ipc.minimize()">
+          <Minus />
+        </el-icon>
+        <el-icon :size="14" @click="ipc.maximize()">
+          <CopyDocument />
+        </el-icon>
+        <el-icon :size="16" @click="handleClose">
+          <Close />
+        </el-icon>
       </div>
     </div>
 
@@ -74,7 +85,7 @@
                 style="margin-top: 20px"
               >
                 <el-button type="primary" :icon="VideoPlay" @click="handleStartDevice" round>
-                  立即开机
+                  {{ t('phone.powerOnNow') }}
                 </el-button>
               </div>
             </div>
@@ -84,7 +95,12 @@
 
       <div class="window-phone">
         <div class="window-phone-content">
-          <div class="window-phone-container" id="canvas-container">
+          <div
+            id="canvas-container"
+            class="window-phone-container"
+            tabindex="0"
+            style="outline: none"
+          >
             <!-- 屏幕区域 -->
           </div>
 
@@ -93,10 +109,16 @@
               v-for="item in displayToolbarItems"
               :key="item.action"
               class="window-phone-controls-item"
-              :class="{ active: activeTool === item.action, disabled: item.disabled || !client }"
+              :class="{
+                active: activeTool === item.action,
+                disabled: item.disabled || !isClientReady
+              }"
               @click="handleToolClick(item.action)"
             >
-              <el-icon :size="14"><component :is="item.icon" /></el-icon>
+              <el-icon :size="14">
+                <component :is="item.icon" v-if="item.icon" />
+                <SvgIcon :name="item.svgIcon" :width="19" :height="19" v-else />
+              </el-icon>
               <span>{{ item.label }}</span>
             </div>
           </div>
@@ -104,13 +126,19 @@
 
         <div class="window-phone-bottom">
           <div class="window-phone-bottom-item" @click="handleToolClick('back')">
-            <el-icon><ArrowLeft /></el-icon>
+            <el-icon>
+              <ArrowLeft />
+            </el-icon>
           </div>
           <div class="window-phone-bottom-item" @click="handleToolClick('home')">
-            <el-icon><HomeFilled /></el-icon>
+            <el-icon>
+              <HomeFilled />
+            </el-icon>
           </div>
           <div class="window-phone-bottom-item" @click="handleToolClick('menu')">
-            <el-icon><MenuIcon /></el-icon>
+            <el-icon>
+              <MenuIcon />
+            </el-icon>
           </div>
         </div>
       </div>
@@ -125,7 +153,7 @@
           v-show="activeTool === 'install'"
           :host="phoneDevice?.host_ip || ''"
           :device-id="deviceId"
-          title="应用上传"
+          :title="t('phone.appUpload')"
           :url="buildApiUrl(phoneDevice?.host_ip || '', API_CONFIG.PATHS.UPLOAD_BATCH)"
           :allowed-extensions="['apk', 'xapk']"
         />
@@ -134,7 +162,7 @@
           v-show="activeTool === 'import'"
           :host="phoneDevice?.host_ip || ''"
           :device-id="deviceId"
-          title="文件上传"
+          :title="t('phone.fileUpload')"
           :url="buildApiUrl(phoneDevice?.host_ip || '', API_CONFIG.PATHS.UPLOAD_SINGLE)"
         />
 
@@ -142,12 +170,14 @@
         <div v-show="activeTool === 'groupLog'" class="log-panel-content">
           <div class="log-header">
             <div class="title-area">
-              <span class="title">群控房间</span>
+              <span class="title">{{ t('phone.groupRoom') }}</span>
               <el-tag effect="plain" type="primary" round size="small" class="count-tag">
-                在线: {{ activeGroupDevices.size }}
+                {{ t('phone.online') }}: {{ activeGroupDevices.size }}
               </el-tag>
             </div>
-            <el-button link type="primary" size="small" @click="groupLogs = []">清空</el-button>
+            <el-button link type="primary" size="small" @click="groupLogs = []">{{
+              t('phone.clear')
+            }}</el-button>
           </div>
           <div class="log-list">
             <div v-for="(log, idx) in groupLogs" :key="idx" class="log-item">
@@ -163,16 +193,17 @@
                   effect="light"
                   class="log-tag"
                 >
-                  {{ log.type === 'join' ? '加入' : '离开' }}
+                  {{ log.type === 'join' ? t('phone.join') : t('phone.leave') }}
                 </el-tag>
               </div>
               <div v-if="log.type === 'leave' && log.reason" class="log-reason">
                 {{ log.reason }}
               </div>
             </div>
-            <div v-if="groupLogs.length === 0" class="empty-tip">暂无动态</div>
+            <div v-if="groupLogs.length === 0" class="empty-tip">{{ t('phone.noActivity') }}</div>
           </div>
         </div>
+        <simulation v-if="activeTool === 'simulation'"></simulation>
       </div>
     </div>
 
@@ -181,10 +212,13 @@
 </template>
 <script setup lang="ts">
 import { WINDOW_RESIZE, WINDOW_TOP } from '@renderer/core/ipc'
-import { onMounted, ref, onUnmounted, watch, computed, toRaw, reactive, nextTick } from 'vue'
+import { onMounted, ref, onUnmounted, watch, computed, toRaw, nextTick, provide } from 'vue'
 import { ElMessage, ElTag } from 'element-plus'
 import { MacvlanPortMap } from '@renderer/utils/constant'
 import { useRoute } from 'vue-router'
+import { buildDeviceApiUrl, API_CONTROL_CONFIG } from '@shared/api/controlConfig'
+
+import { request } from '@shared/api'
 import {
   Download,
   Upload,
@@ -221,13 +255,25 @@ import { API_CONFIG, buildApiUrl } from '@shared/api'
 import { ElMessageBox } from 'element-plus'
 import uploadFile from './modules/uploadFile.vue'
 import { DATA_EVENTS, Device, DeviceState, Host } from '@shared/ipc/data.types'
-import { DeviceStateMap } from '@renderer/utils/constant'
 import { copyToClipboard, getAndroidKeyCode, buildMetaState, formatTime } from '@renderer/utils'
 import { getErrorMessage } from '@shared/api'
 import newMachine from '@renderer/views/cloudPhone/modules/newMachine.vue'
+import simulation from './modules/simulation.vue'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
 import { logger } from '@renderer/utils/logger'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+const getDeviceStateLabel = (s?: string) => {
+  if (!s) return ''
+  // 尝试获取翻译，如果 key 不存在会直接返回 key，这里我们假设 key 是英文状态名
+  const label = t(`common.deviceStates.${s}`)
+  // 如果翻译结果包含了 'common.deviceStates' 说明没翻译到 (vue-i18n 的默认行为是返回 key path)
+  // 不过通常配置可能是返回 key。为了安全起见：
+  return label.includes('common.deviceStates') ? s : label
+}
 
 /* ---------------------
    基础参数
@@ -261,6 +307,10 @@ const newMachineRef = ref<InstanceType<typeof newMachine>>()
 const isFirstSizeChange = ref(true)
 let client: VmosEdgeClient | null = null
 
+// 提供设备信息给子组件
+provide('phoneDevice', phoneDevice)
+provide('deviceId', ref(deviceId))
+
 // 状态 UI 配置
 const stateConfig = computed(() => {
   const s = deviceState.value
@@ -269,11 +319,11 @@ const stateConfig = computed(() => {
   if (!s) {
     return {
       icon: Loading,
-      label: '连接中...',
-      desc: '正在建立连接，请稍候',
+      label: t('phone.connecting'),
+      desc: t('phone.connectingDesc'),
       spin: true,
-      color: '#409eff',
-      bgColor: '#ecf5ff'
+      color: 'var(--el-color-primary)',
+      bgColor: 'var(--el-color-primary-light-9)'
     }
   }
 
@@ -281,11 +331,11 @@ const stateConfig = computed(() => {
   if (clientError.value) {
     return {
       icon: CircleClose,
-      label: '画面连接失败',
+      label: t('phone.videoConnectFailed'),
       desc: clientError.value,
       spin: false,
-      color: '#f56c6c',
-      bgColor: '#fef0f0'
+      color: 'var(--el-color-danger)',
+      bgColor: 'var(--el-color-danger-light-9)'
     }
   }
 
@@ -295,17 +345,17 @@ const stateConfig = computed(() => {
     if (!isClientReady.value) {
       return {
         icon: Loading,
-        label: '正在连接画面...',
-        desc: '设备运行中，正在建立画面传输通道',
+        label: t('phone.connectingVideo'),
+        desc: t('phone.connectingVideoDesc'),
         spin: true,
-        color: '#409eff',
-        bgColor: '#ecf5ff'
+        color: 'var(--el-color-primary)',
+        bgColor: 'var(--el-color-primary-light-9)'
       }
     }
     return null
   }
 
-  const label = DeviceStateMap[s] || s
+  const label = getDeviceStateLabel(s) || s
 
   // 根据不同状态返回不同的 UI 配置
   switch (s) {
@@ -319,10 +369,10 @@ const stateConfig = computed(() => {
       return {
         icon: Loading,
         label,
-        desc: '正在处理中，请耐心等待...',
+        desc: t('common.processing'),
         spin: true,
-        color: '#409eff',
-        bgColor: '#ecf5ff'
+        color: 'var(--el-color-primary)',
+        bgColor: 'var(--el-color-primary-light-9)'
       }
 
     // 停止/删除类状态
@@ -331,10 +381,10 @@ const stateConfig = computed(() => {
       return {
         icon: Loading, // 或者使用 Delete/SwitchButton 但带旋转
         label,
-        desc: '正在停止服务...',
+        desc: t('phone.stopping'),
         spin: true,
-        color: '#f56c6c',
-        bgColor: '#fef0f0'
+        color: 'var(--el-color-danger)',
+        bgColor: 'var(--el-color-danger-light-9)'
       }
 
     // 静态状态 - 已停止
@@ -342,11 +392,11 @@ const stateConfig = computed(() => {
     case DeviceState.StateExited:
       return {
         icon: SwitchButton,
-        label: '已关机',
-        desc: '设备已停止运行',
+        label: t('phone.stopped'),
+        desc: t('phone.stoppedDesc'),
         spin: false,
-        color: '#909399',
-        bgColor: '#f4f4f5',
+        color: 'var(--el-text-color-secondary)',
+        bgColor: 'var(--el-fill-color-light)',
         showStartButton: true
       }
 
@@ -354,50 +404,50 @@ const stateConfig = computed(() => {
     case DeviceState.StatePaused:
       return {
         icon: VideoPause,
-        label: '已暂停',
-        desc: '设备已暂停运行',
+        label: t('phone.paused'),
+        desc: t('phone.pausedDesc'),
         spin: false,
-        color: '#e6a23c',
-        bgColor: '#fdf6ec'
+        color: 'var(--el-color-warning)',
+        bgColor: 'var(--el-color-warning-light-9)'
       }
 
     // 静态状态 - 离线
     case DeviceState.StateOffline:
       return {
         icon: Connection,
-        label: '设备离线',
-        desc: '无法连接到设备，请检查网络或服务',
+        label: t('phone.offline'),
+        desc: t('phone.offlineDesc'),
         spin: false,
-        color: '#909399',
-        bgColor: '#f4f4f5'
+        color: 'var(--el-text-color-secondary)',
+        bgColor: 'var(--el-fill-color-light)'
       }
 
     // 错误状态
     case DeviceState.StateFailed:
       return {
         icon: CircleClose,
-        label: '启动失败',
-        desc: '设备运行遇到错误，请尝试重启',
+        label: t('phone.startFailed'),
+        desc: t('phone.startFailedDesc'),
         spin: false,
-        color: '#f56c6c',
-        bgColor: '#fef0f0'
+        color: 'var(--el-color-danger)',
+        bgColor: 'var(--el-color-danger-light-9)'
       }
 
     default:
       return {
         icon: Warning,
         label,
-        desc: '状态待确认',
+        desc: t('phone.statusUnknown'),
         spin: false,
-        color: '#e6a23c',
-        bgColor: '#fdf6ec'
+        color: 'var(--el-color-warning)',
+        bgColor: 'var(--el-color-warning-light-9)'
       }
   }
 })
 
 const handleCopy = (text: string) => {
   if (!text) return
-  copyToClipboard(text, () => ElMessage.success('复制成功'))
+  copyToClipboard(text, () => ElMessage.success(t('phone.copySuccess')))
 }
 // 群控设备监听
 let groupControlListener: (() => void) | null = null
@@ -471,7 +521,7 @@ const getGroupControlDevices = (client: VmosEdgeClient) => {
           // 保存需要使用的名称，因为 activeGroupDevices 即将被清理
           const leavingNames = new Map<string, string>()
           leavingIds.forEach((id) => {
-            leavingNames.set(id, activeGroupDevices.value.get(id) || '未知设备')
+            leavingNames.set(id, activeGroupDevices.value.get(id) || t('phone.unknownDevice'))
             activeGroupDevices.value.delete(id)
           })
 
@@ -510,19 +560,19 @@ const getGroupControlDevices = (client: VmosEdgeClient) => {
 
             // 3. 生成日志 (在数据准备好后统一生成)
             leavingIds.forEach((id) => {
-              const name = leavingNames.get(id) || '未知设备'
-              let reason = '设备移除群控'
+              const name = leavingNames.get(id) || t('phone.unknownDevice')
+              let reason = t('phone.deviceRemoved')
 
               // 优先使用已知状态
               if (knownStoppedDevices.has(id)) {
                 const dev = knownStoppedDevices.get(id)!
-                reason = `设备已停止 (${DeviceStateMap[dev.state as DeviceState] || dev.state})`
+                reason = `${t('phone.deviceStopped')} (${getDeviceStateLabel(dev.state) || dev.state})`
               }
               // 其次使用远程查询到的状态
               else if (remoteDevicesMap.has(id)) {
                 const dev = remoteDevicesMap.get(id)!
                 if (dev.state !== DeviceState.StateRunning) {
-                  reason = `设备已停止 (${DeviceStateMap[dev.state as DeviceState] || dev.state})`
+                  reason = `${t('phone.deviceStopped')} (${getDeviceStateLabel(dev.state) || dev.state})`
                 }
               }
 
@@ -614,8 +664,6 @@ const startClient = () => {
           : phoneDevice.value?.tcp_control_port || 0
     }
   })
-  console.log('startClient videoCodecPreference', videoCodecPreference.value)
-  console.log('startClient renderPreference', renderPreference.value)
 
   if (VmosEdgeClient.isWebCodecsSupported()) {
     console.log('startClient isWebCodecsSupported')
@@ -649,8 +697,8 @@ const startClient = () => {
     isGroupControl: isMaster.value,
     retryCount: 10,
     retryInterval: 5000,
-    videoCodecPreference: videoCodecPreference.value,
-    renderPreference: renderPreference.value,
+    // videoCodecPreference: videoCodecPreference.value,
+    // renderPreference: renderPreference.value,
     scrollSpeedRatio: wheelSpeed.value,
     hoverMoveKeep: keepHoverMove.value,
     onInternalError: (error, info) => {
@@ -691,15 +739,15 @@ const startClient = () => {
     // 根据错误类型进行不同的处理
     if (error.type === VmosEdgeErrorType.VIDEO) {
       // 视频通道错误，停止客户端
-      clientError.value = `[${VmosEdgeErrorType.VIDEO}]${errorMessage || '视频通道连接失败'}`
+      clientError.value = `[${VmosEdgeErrorType.VIDEO}]${errorMessage || t('phone.videoChannelFailed')}`
       isClientReady.value = false
     } else if (error.type === VmosEdgeErrorType.TOUCH) {
       // 触控通道错误，不影响视频显示，只记录错误
-      clientError.value = `[${VmosEdgeErrorType.TOUCH}]${errorMessage || '触控通道连接失败'}`
+      clientError.value = `[${VmosEdgeErrorType.TOUCH}]${errorMessage || t('phone.touchChannelFailed')}`
       isClientReady.value = false
     } else {
       // 其他错误（连接、音频等），根据实际情况处理
-      clientError.value = `[${VmosEdgeErrorType.CONNECTION}]${errorMessage || '连接发生未知错误'}`
+      clientError.value = `[${VmosEdgeErrorType.CONNECTION}]${errorMessage || t('phone.connectionError')}`
       isClientReady.value = false
     }
   })
@@ -781,22 +829,65 @@ const initListener = () => {
 /* ---------------------
    工具栏配置
 ---------------------- */
-const toolbarItems = reactive([
-  { icon: Download, label: '应用', action: 'install', panelWidth: 550, disabled: false },
-  { icon: Upload, label: '导入', action: 'import', panelWidth: 550, disabled: false },
-  { icon: Plus, label: '音量+', action: 'volumeUp', panelWidth: 0, disabled: false },
-  { icon: Minus, label: '音量-', action: 'volumeDown', panelWidth: 0, disabled: false },
-  { icon: RefreshRight, label: '旋转', action: 'rotate', panelWidth: 0, disabled: false },
-  { icon: SwitchButton, label: '关机', action: 'shutDown', panelWidth: 0, disabled: false },
-  { icon: Picture, label: '截屏', action: 'screenshot', panelWidth: 0, disabled: false },
+const toolbarItems = computed(() => [
+  { icon: Download, label: t('phone.app'), action: 'install', panelWidth: 550, disabled: false },
+  { icon: Upload, label: t('phone.import'), action: 'import', panelWidth: 550, disabled: false },
+  { icon: Plus, label: t('phone.volumeUp'), action: 'volumeUp', panelWidth: 0, disabled: false },
+  {
+    icon: Minus,
+    label: t('phone.volumeDown'),
+    action: 'volumeDown',
+    panelWidth: 0,
+    disabled: false
+  },
+  {
+    icon: RefreshRight,
+    label: t('phone.rotate'),
+    action: 'rotate',
+    panelWidth: 0,
+    disabled: false
+  },
+  {
+    icon: SwitchButton,
+    label: t('phone.shutdown'),
+    action: 'shutDown',
+    panelWidth: 0,
+    disabled: false
+  },
+  {
+    icon: Picture,
+    label: t('phone.screenshot'),
+    action: 'screenshot',
+    panelWidth: 0,
+    disabled: false
+  },
   // { icon: FolderOpened, label: '截图目录', action: 'screenshotFolder', panelWidth: 300 },
-  { icon: Refresh, label: '重启', action: 'restart', panelWidth: 0, disabled: false },
-  { icon: Iphone, label: '一键新机', action: 'resetDevice', panelWidth: 300, disabled: false },
-  { icon: Notebook, label: '群控房间', action: 'groupLog', panelWidth: 300, disabled: false }
+  { icon: Refresh, label: t('phone.restart'), action: 'restart', panelWidth: 0, disabled: false },
+  {
+    icon: Iphone,
+    label: t('phone.resetDevice'),
+    action: 'resetDevice',
+    panelWidth: 300,
+    disabled: false
+  },
+  {
+    icon: Notebook,
+    label: t('phone.groupRoom'),
+    action: 'groupLog',
+    panelWidth: 300,
+    disabled: false
+  },
+  {
+    svgIcon: 'simulation',
+    label: t('phone.simulator'),
+    action: 'simulation',
+    panelWidth: 700,
+    disabled: false
+  }
 ])
 
 const displayToolbarItems = computed(() => {
-  return toolbarItems.filter((item) => {
+  return toolbarItems.value.filter((item) => {
     if (item.action === 'groupLog') return isMaster.value
     return true
   })
@@ -813,7 +904,7 @@ const toggleTool = (action: string) => {
 
 const getPanelWidth = (action: string | null) => {
   if (!action) return 0
-  const item = toolbarItems.find((i) => i.action === action)
+  const item = toolbarItems.value.find((i) => i.action === action)
   return item?.panelWidth ?? 0
 }
 
@@ -844,10 +935,10 @@ const setWindowSize = (width: number, height: number) => {
 ---------------------- */
 
 const handleToolClick = (action: string) => {
-  if (!client) return // 如果 client 未运行，禁用点击
+  if (!client || !isClientReady.value) return // 如果 client 未运行或未就绪，禁用点击
 
   console.log('Tool clicked:', action)
-  const item = toolbarItems.find((i) => i.action === action)
+  const item = toolbarItems.value.find((i) => i.action === action)
   if (item?.disabled) return
 
   switch (action) {
@@ -894,21 +985,49 @@ const handleToolClick = (action: string) => {
     case 'back':
       client.back()
       break
+    case 'simulation':
+      handleSimulation(action)
+      break
   }
 }
 
+const handleSimulation = async (action: string) => {
+  const url = buildDeviceApiUrl(
+    phoneDevice.value?.host_ip || '',
+    phoneDevice.value?.id || '',
+    API_CONTROL_CONFIG.PATHS.GET_API_VERSION
+  )
+  request
+    .get(url)
+    .then((res) => {
+      if (res?.data?.version_code >= 10400) {
+        toggleTool(action)
+      } else {
+        ElMessage.error(t('phone.simulatorNotSupported'))
+      }
+    })
+    .catch((error) => {
+      // 判断是否404
+      if (error?.code == 404) {
+        ElMessage.error(t('phone.simulatorNotSupported'))
+      } else {
+        ElMessage.error(getErrorMessage(error))
+      }
+    })
+}
+
 const handleRestartDevice = async () => {
-  ElMessageBox.confirm('确定要重启设备吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('phone.restartConfirm'), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   }).then(() => {
     // 重启设备
     ipc.invoke(DATA_EVENTS.DEVICE_RESTARTED, [toRaw(phoneDevice.value)]).then((res) => {
       if (res.success) {
-        ElMessage.success('操作成功')
+        ElMessage.success(t('common.operationSuccess'))
       } else {
-        ElMessage.error(getErrorMessage(res.error) || '重启设备失败')
+        ElMessage.error(getErrorMessage(res.error) || t('phone.restartFailed'))
       }
     })
   })
@@ -920,20 +1039,20 @@ const handleResetDevice = async () => {
     hostMap.set(host.data?.ip || '', host.data as Host)
     newMachineRef.value?.init([phoneDevice.value as Device], hostMap)
   } else {
-    ElMessage.error(getErrorMessage(host.error) || '获取主机信息失败')
+    ElMessage.error(getErrorMessage(host.error) || t('phone.getHostInfoFailed'))
   }
 }
 const handleShutDownDevice = async () => {
-  ElMessageBox.confirm('确定要关机吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('phone.shutdownConfirm'), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   }).then(() => {
     ipc.invoke(DATA_EVENTS.DEVICE_SHUTDOWNED, [toRaw(phoneDevice.value)]).then((res) => {
       if (res.success) {
-        ElMessage.success('操作成功')
+        ElMessage.success(t('common.operationSuccess'))
       } else {
-        ElMessage.error(getErrorMessage(res.error) || '关机失败')
+        ElMessage.error(getErrorMessage(res.error) || t('phone.shutdownFailed'))
       }
     })
   })
@@ -943,9 +1062,9 @@ const handleStartDevice = async () => {
   if (!phoneDevice.value) return
   ipc.invoke(DATA_EVENTS.DEVICE_STARTED, [toRaw(phoneDevice.value)]).then((res) => {
     if (res.success) {
-      ElMessage.success('开机指令已发送')
+      ElMessage.success(t('phone.powerOnSent'))
     } else {
-      ElMessage.error(getErrorMessage(res.error) || '开机失败')
+      ElMessage.error(getErrorMessage(res.error) || t('phone.powerOnFailed'))
     }
   })
 }
@@ -956,9 +1075,9 @@ const handleScreenshotDevice = async (item: any) => {
     const res = await ipc.invoke(DATA_EVENTS.DEVICE_SCREENSHOT, toRaw(phoneDevice.value))
 
     if (res.success) {
-      ElMessage.success('操作成功')
+      ElMessage.success(t('common.operationSuccess'))
     } else {
-      ElMessage.error(getErrorMessage(res.error) || '操作失败')
+      ElMessage.error(getErrorMessage(res.error) || t('common.operationFailed'))
     }
   } finally {
     item.disabled = false
@@ -972,9 +1091,9 @@ const handleTop = () => {
 const handleClose = async () => {
   if (isMaster.value) {
     try {
-      await ElMessageBox.confirm('关闭主控窗口将停止群控同步，是否继续？', '关闭确认', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(t('phone.closeMasterConfirm'), t('common.tips'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       })
 
@@ -1006,8 +1125,10 @@ const getDevice = async () => {
     deviceState.value = phoneDevice.value?.state
     nextTick(() => {
       document.title = phoneDevice.value?.user_name
-        ? `VMOS Edge - ${phoneDevice.value?.user_name}` + (isMaster.value ? ' (主控)' : '')
-        : 'VMOS Edge'
+        ? isMaster.value
+          ? t('phone.windowTitleMaster', { name: phoneDevice.value?.user_name })
+          : t('phone.windowTitle', { name: phoneDevice.value?.user_name })
+        : t('phone.appName')
     })
   }
 }
@@ -1025,20 +1146,20 @@ onMounted(async () => {
         MAX_DISPLAY_SIDE.value = side
       }
     }
-    const videoCodecRes = await ipc.invoke<string>(
-      CONFIG_EVENTS.GET_CONFIGS,
-      CONFIG_KEYS.VIDEO_CODEC_PREFERENCE
-    )
-    if (videoCodecRes.success && videoCodecRes.data) {
-      videoCodecPreference.value = videoCodecRes.data
-    }
-    const renderRes = await ipc.invoke<string>(
-      CONFIG_EVENTS.GET_CONFIGS,
-      CONFIG_KEYS.RENDER_PREFERENCE
-    )
-    if (renderRes.success && renderRes.data) {
-      renderPreference.value = renderRes.data
-    }
+    // const videoCodecRes = await ipc.invoke<string>(
+    //   CONFIG_EVENTS.GET_CONFIGS,
+    //   CONFIG_KEYS.VIDEO_CODEC_PREFERENCE
+    // )
+    // if (videoCodecRes.success && videoCodecRes.data) {
+    //   videoCodecPreference.value = videoCodecRes.data
+    // }
+    // const renderRes = await ipc.invoke<string>(
+    //   CONFIG_EVENTS.GET_CONFIGS,
+    //   CONFIG_KEYS.RENDER_PREFERENCE
+    // )
+    // if (renderRes.success && renderRes.data) {
+    //   renderPreference.value = renderRes.data
+    // }
 
     const wheelSpeedRes = await ipc.invoke<string>(
       CONFIG_EVENTS.GET_CONFIGS,
@@ -1089,9 +1210,18 @@ onUnmounted(() => {
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (!client) return
 
+  // 🚀 核心逻辑：只有当焦点在云机容器（或其内部）时，才拦截并发送快捷键给安卓
+  const canvasContainer = document.getElementById('canvas-container')
+  const activeElement = document.activeElement
+  const isCanvasFocused =
+    canvasContainer &&
+    (activeElement === canvasContainer || canvasContainer.contains(activeElement))
+
+  if (!isCanvasFocused) {
+    return // 焦点在别处（如输入框），不拦截，走浏览器默认行为
+  }
+
   // 只支持 Ctrl+A、Ctrl+C、Ctrl+Z、Ctrl+Y
-  // 支持 Windows/Linux: Ctrl 键
-  // 支持 Mac: Cmd 键 (metaKey) 和 Ctrl 键
   const isCtrlA = (e.ctrlKey || e.metaKey) && e.code === 'KeyA'
   const isCtrlC = (e.ctrlKey || e.metaKey) && e.code === 'KeyC'
   const isCtrlZ = (e.ctrlKey || e.metaKey) && e.code === 'KeyZ'
@@ -1129,7 +1259,7 @@ $controls-width: 42px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
 }
 
 .window-header {
@@ -1140,35 +1270,40 @@ $controls-width: 42px;
   justify-content: space-between;
   min-width: 0;
   width: 100%;
+
   @media (max-width: 200px) {
     justify-content: flex-end;
   }
-  background: #fff;
+
+  background: var(--el-bg-color);
   padding: 0 16px;
-  border-bottom: 1px solid #e4e7ed;
-  z-index: 200; /* 确保 header 在遮罩层之上(如果想要操作窗口) 或者之下(如果想要完全封锁)
+  border-bottom: 1px solid var(--el-border-color);
+  z-index: 200;
+  /* 确保 header 在遮罩层之上(如果想要操作窗口) 或者之下(如果想要完全封锁)
                    通常 Header 保留操作以便关闭窗口，所以 Z-index 要高 */
   position: relative;
 
   &-left {
     font-size: 12px;
     font-weight: 600;
-    color: #606266;
+    color: var(--el-text-color-regular);
     display: flex;
     flex-direction: column;
     flex: 1;
     justify-content: center;
     padding-right: 5px;
     min-width: 0; // 关键：允许 flex item 收缩到小于内容宽度，触发内部的 text-overflow
+
     @media (max-width: 200px) {
       display: none;
     }
+
     -webkit-app-region: drag;
 
     .device-name {
       font-size: 12px;
       font-weight: 600;
-      color: #606266;
+      color: var(--el-text-color-regular);
       // 超出三个点
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1177,9 +1312,10 @@ $controls-width: 42px;
       width: 100%; // 确保占满容器宽度
       -webkit-app-region: drag;
     }
+
     .device-ip {
       font-size: 10px;
-      color: #86909c;
+      color: var(--el-text-color-placeholder);
       width: fit-content;
       -webkit-app-region: no-drag;
       cursor: pointer;
@@ -1192,16 +1328,18 @@ $controls-width: 42px;
     cursor: pointer;
     transition: all 0.2s ease;
     flex-shrink: 0;
-    color: #606266;
+    color: var(--el-text-color-regular);
     gap: 15px;
     -webkit-app-region: no-drag;
+
     .el-icon {
       cursor: pointer;
       transition: all 0.2s ease;
-      color: #606266;
+      color: var(--el-text-color-regular);
+
       &:hover {
         opacity: 0.8;
-        color: #409eff;
+        color: var(--el-color-primary);
       }
     }
   }
@@ -1212,7 +1350,8 @@ $controls-width: 42px;
   min-height: 0;
   display: flex;
   overflow: hidden;
-  position: relative; /* 关键：作为绝对定位遮罩的容器 */
+  position: relative;
+  /* 关键：作为绝对定位遮罩的容器 */
 
   .window-phone {
     flex: 1;
@@ -1225,11 +1364,11 @@ $controls-width: 42px;
       flex: 1;
       min-height: 0;
       display: flex;
-      background: #f5f7fa;
+      background: var(--el-bg-color-page);
     }
 
     &-container {
-      background-color: #fff;
+      background-color: var(--el-bg-color);
       flex: 1;
       min-width: 0;
       display: flex;
@@ -1243,7 +1382,7 @@ $controls-width: 42px;
       position: relative;
       flex-shrink: 0;
       width: $controls-width;
-      background: #ffffff;
+      background: var(--el-bg-color);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1266,20 +1405,20 @@ $controls-width: 42px;
         user-select: none;
 
         &:hover {
-          background: #ecf5ff;
+          background: var(--el-color-primary-light-9);
 
           .el-icon {
-            color: #409eff;
+            color: var(--el-color-primary);
           }
 
           span {
-            color: #409eff;
+            color: var(--el-color-primary);
           }
         }
 
         &:active {
           transform: scale(0.96);
-          background: #e1f0ff;
+          background: var(--el-color-primary-light-8);
         }
 
         &.disabled {
@@ -1290,30 +1429,34 @@ $controls-width: 42px;
         }
 
         .el-icon {
-          color: #606266;
+          color: var(--el-text-color-regular);
           transition: color 0.2s ease;
         }
 
         span {
           font-size: 10px;
-          color: #606266;
+          color: var(--el-text-color-regular);
           text-align: center;
 
-          white-space: normal; /* ✅ 允许换行（或直接删掉这一行） */
-          word-break: break-word; /* ✅ 英文/长单词强制换行 */
-          overflow-wrap: anywhere; /* ✅ 超长字符串也能断 */
+          white-space: normal;
+          /* ✅ 允许换行（或直接删掉这一行） */
+          word-break: break-word;
+          /* ✅ 英文/长单词强制换行 */
+          overflow-wrap: anywhere;
+          /* ✅ 超长字符串也能断 */
 
           transition: color 0.2s ease;
           transform: scale(0.92);
         }
       }
+
       &-item.active {
-        background: #409eff22;
+        background: var(--el-color-primary-light-8);
         border-radius: 6px;
 
         .el-icon,
         span {
-          color: #409eff !important;
+          color: var(--el-color-primary) !important;
         }
       }
     }
@@ -1322,12 +1465,12 @@ $controls-width: 42px;
       box-sizing: border-box;
       flex-shrink: 0;
       height: $bottom-height;
-      background: #ffffff;
+      background: var(--el-bg-color);
       display: flex;
       align-items: center;
       justify-content: space-around;
       padding: 0 16px;
-      border-top: 1px solid #e4e7ed;
+      border-top: 1px solid var(--el-border-color);
 
       &-item {
         display: flex;
@@ -1344,14 +1487,14 @@ $controls-width: 42px;
         max-width: 100px;
 
         &:hover {
-          background: #ecf5ff;
+          background: var(--el-color-primary-light-9);
 
           .el-icon {
-            color: #409eff;
+            color: var(--el-color-primary);
           }
 
           span {
-            color: #409eff;
+            color: var(--el-color-primary);
           }
         }
 
@@ -1360,13 +1503,13 @@ $controls-width: 42px;
         }
 
         .el-icon {
-          color: #606266;
+          color: var(--el-text-color-regular);
           transition: color 0.2s ease;
         }
 
         span {
           font-size: 11px;
-          color: #606266;
+          color: var(--el-text-color-regular);
           transition: color 0.2s ease;
         }
       }
@@ -1376,8 +1519,8 @@ $controls-width: 42px;
   .window-panel {
     flex-shrink: 0;
     min-width: 0px;
-    background: #ffffff;
-    border-left: 1px solid #e4e7ed;
+    background: var(--el-bg-color);
+    border-left: 1px solid var(--el-border-color);
     overflow-y: auto;
     height: 100%;
   }
@@ -1390,7 +1533,7 @@ $controls-width: 42px;
 
     .log-header {
       padding: 8px 12px;
-      border-bottom: 1px solid #e4e7ed;
+      border-bottom: 1px solid var(--el-border-color);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1404,7 +1547,7 @@ $controls-width: 42px;
         .title {
           font-size: 13px;
           font-weight: 600;
-          color: #303133;
+          color: var(--el-text-color-primary);
         }
 
         .count-tag {
@@ -1423,7 +1566,7 @@ $controls-width: 42px;
 
       .log-item {
         padding: 6px 0;
-        border-bottom: 1px solid #f2f3f5;
+        border-bottom: 1px solid var(--el-border-color-light);
 
         &:last-child {
           border-bottom: none;
@@ -1434,11 +1577,12 @@ $controls-width: 42px;
           align-items: center;
           gap: 6px;
           margin-bottom: 2px;
-          height: 32px; /* 固定高度，确保对齐 */
+          height: 32px;
+          /* 固定高度，确保对齐 */
 
           .log-time {
             font-size: 11px;
-            color: #909399;
+            color: var(--el-text-color-secondary);
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             min-width: 50px;
             flex-shrink: 0;
@@ -1447,14 +1591,16 @@ $controls-width: 42px;
           .log-device-info {
             flex: 1;
             display: flex;
-            flex-direction: column; /* 垂直排列 */
+            flex-direction: column;
+            /* 垂直排列 */
             justify-content: center;
-            min-width: 0; /* 关键：允许 flex item 收缩 */
+            min-width: 0;
+            /* 关键：允许 flex item 收缩 */
             line-height: 1.2;
 
             .device-name {
               font-size: 12px;
-              color: #303133;
+              color: var(--el-text-color-primary);
               font-weight: 500;
               width: 100%;
               overflow: hidden;
@@ -1464,7 +1610,7 @@ $controls-width: 42px;
 
             .device-id {
               font-size: 10px;
-              color: #909399;
+              color: var(--el-text-color-secondary);
               width: 100%;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -1479,13 +1625,14 @@ $controls-width: 42px;
             font-size: 10px;
             line-height: 16px;
             border: none;
-            margin-left: auto; /* 靠右对齐 */
+            margin-left: auto;
+            /* 靠右对齐 */
           }
         }
 
         .log-reason {
           font-size: 11px;
-          color: #f56c6c;
+          color: var(--el-color-danger);
           padding-left: 56px;
           line-height: 1.2;
           word-break: break-all;
@@ -1497,7 +1644,7 @@ $controls-width: 42px;
 
       .empty-tip {
         text-align: center;
-        color: #c0c4cc;
+        color: var(--el-text-color-placeholder);
         padding-top: 60px;
         font-size: 13px;
       }
@@ -1512,13 +1659,14 @@ $controls-width: 42px;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--el-mask-color-extra-light);
   backdrop-filter: blur(10px);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
+  opacity: 1;
 
   .state-content {
     display: flex;
@@ -1534,7 +1682,8 @@ $controls-width: 42px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 12px
+        var(--app-shadow-base-color, var(--app-shadow-base-color, var(--el-box-shadow-lighter)));
       transition: all 0.3s ease;
     }
 
@@ -1551,14 +1700,14 @@ $controls-width: 42px;
 
       .state-text {
         font-size: 18px;
-        color: #303133;
+        color: var(--el-text-color-primary);
         font-weight: 600;
         letter-spacing: 0.5px;
       }
 
       .state-desc {
         font-size: 13px;
-        color: #909399;
+        color: var(--el-text-color-secondary);
       }
     }
   }

@@ -29,7 +29,7 @@ const cachedComponents = ref(['Cloud'])
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f5f5f5;
+  background: var(--el-bg-color-page);
 }
 
 .layout-body {
@@ -43,6 +43,6 @@ const cachedComponents = ref(['Cloud'])
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #fff;
+  background: var(--el-bg-color);
 }
 </style>

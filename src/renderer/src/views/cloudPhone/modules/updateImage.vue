@@ -1,7 +1,7 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    title="修改镜像"
+    :title="t('cloudPhone.updateImage')"
     width="500px"
     @closed="handleClose"
     class="update-edit-dialog"
@@ -9,23 +9,23 @@
     <div class="update-edit-content">
       <div class="info-section">
         <div class="info-item">
-          <span class="label">云机名称:</span>
+          <span class="label">{{ t('cloudPhone.deviceNameLabel') }}</span>
           <span class="value">{{ device?.user_name }}</span>
         </div>
         <div class="info-item">
-          <span class="label">云机ID:</span>
+          <span class="label">{{ t('cloudPhone.deviceIdLabel') }}</span>
           <span class="value">{{ device?.db_id }}</span>
         </div>
         <div class="info-item">
-          <span class="label">镜像版本:</span>
+          <span class="label">{{ t('cloudPhone.imageVersion') }}</span>
           <span class="value">{{ device?.image?.replace(/:latest$/, '') }}</span>
         </div>
         <div class="info-item">
-          <span class="label">Android版本:</span>
+          <span class="label">{{ t('cloudPhone.androidVersionLabel') }}</span>
           <span class="value">Android {{ device?.aosp_version }}</span>
         </div>
         <div class="info-item">
-          <span class="label">云机类型:</span>
+          <span class="label">{{ t('cloudPhone.deviceTypeLabel') }}</span>
           <span class="value">{{
             device?.device_type === DeviceType.VIRTUAL
               ? DeviceTypeMap[DeviceType.VIRTUAL]
@@ -47,7 +47,10 @@
         <el-form-item prop="image_repository" class="image-select-item">
           <template #label>
             <div class="label-row">
-              <div><span style="color: #f56c6c">*</span> 选择镜像</div>
+              <div>
+                <span style="color: var(--el-color-danger)">*</span>
+                {{ t('cloudPhone.selectImage') }}
+              </div>
             </div>
           </template>
           <ImageSelect
@@ -62,25 +65,25 @@
         </el-form-item>
 
         <template v-if="isNeedAdi">
-          <div class="section-title">机型设置</div>
+          <div class="section-title">{{ t('cloudPhone.machineSettings') }}</div>
           <el-form-item>
             <el-radio-group v-model="machineMode">
-              <el-radio label="random">随机</el-radio>
-              <el-radio label="custom">自定义</el-radio>
+              <el-radio label="random">{{ t('cloudPhone.random') }}</el-radio>
+              <el-radio label="custom">{{ t('cloudPhone.custom') }}</el-radio>
             </el-radio-group>
           </el-form-item>
 
           <template v-if="machineMode === 'custom'">
             <!-- Specify Model -->
-            <div class="section-title">指定机型</div>
+            <div class="section-title">{{ t('cloudPhone.specifyModel') }}</div>
             <el-row :gutter="20">
               <el-col :span="12">
-                <el-form-item label="品牌" prop="brand">
+                <el-form-item :label="t('cloudPhone.brand')" prop="brand">
                   <el-select
                     v-model="form.brand"
                     @change="handleBrandChange"
                     filterable
-                    placeholder="请选择品牌"
+                    :placeholder="t('cloudPhone.brandPlaceholder')"
                     style="width: 100%"
                   >
                     <el-option
@@ -93,17 +96,17 @@
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item label="机型" prop="adiID">
+                <el-form-item :label="t('cloudPhone.model')" prop="adiID">
                   <el-select
                     v-model="form.adiID"
                     filterable
-                    placeholder="请选择机型"
+                    :placeholder="t('cloudPhone.modelPlaceholder')"
                     style="width: 100%"
                   >
                     <el-option
                       v-for="item in modelOptions"
                       :key="item.id"
-                      :label="`${item.model_name}${item.isUploaded ? '(已上传)' : ''}`"
+                      :label="`${item.model_name}${item.isUploaded ? t('cloudPhone.uploaded') : ''}`"
                       :value="item.id"
                     />
                   </el-select>
@@ -118,18 +121,20 @@
       <div class="warning-box">
         <el-icon class="warning-icon"><Warning /></el-icon>
         <div class="warning-content">
-          <div class="warning-title">注意事项：</div>
+          <div class="warning-title">{{ t('cloudPhone.attention') }}</div>
           <div class="warning-list">
-            <div>1、升级到相同 Android 版本时，将保留现有数据。</div>
-            <div class="danger-text">2、升级到不同 Android 版本时，将清除所有数据。</div>
+            <div>{{ t('cloudPhone.updateImageWarning1') }}</div>
+            <div class="danger-text">{{ t('cloudPhone.updateImageWarning2') }}</div>
           </div>
         </div>
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="loading" @click="handleSubmit">确定</el-button>
+      <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="loading" @click="handleSubmit">{{
+        t('common.confirm')
+      }}</el-button>
     </template>
   </vmos-dialog>
 </template>
@@ -146,8 +151,22 @@ import { buildApiUrl, API_CONFIG } from '@shared/api/config'
 import { request } from '@shared/api/request'
 import { getErrorMessage } from '@shared/api'
 import { ElMessageBox } from 'element-plus'
-import { DeviceType, DeviceTypeMap } from '@renderer/utils/constant'
+import { DeviceType } from '@renderer/utils/constant'
+import { CONFIG_EVENTS } from '@shared/ipc/config.types'
+import { CONFIG_KEYS } from '@shared/constant'
+import { getDeviceTypeText } from '@renderer/utils/i18n-maps'
 import ImageSelect from '../components/ImageSelect.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+// 响应式的设备类型映射（根据当前语言动态生成）
+const DeviceTypeMap = computed(() => {
+  return {
+    [DeviceType.VIRTUAL]: getDeviceTypeText(DeviceType.VIRTUAL),
+    [DeviceType.REAL]: getDeviceTypeText(DeviceType.REAL)
+  }
+})
 
 const visible = ref(false)
 const loading = ref(false)
@@ -171,14 +190,14 @@ const machineMode = ref('random') // 'random' | 'custom'
 
 const rules = computed(() => {
   const baseRules = {
-    image_repository: [{ required: true, message: '请选择镜像', trigger: 'change' }]
+    image_repository: [{ required: true, message: t('cloudPhone.selectImage'), trigger: 'change' }]
   }
 
   if (isNeedAdi.value && machineMode.value === 'custom') {
     return {
       ...baseRules,
-      brand: [{ required: true, message: '请选择品牌', trigger: 'change' }],
-      adiID: [{ required: true, message: '请选择机型', trigger: 'change' }]
+      brand: [{ required: true, message: t('cloudPhone.selectBrand'), trigger: 'change' }],
+      adiID: [{ required: true, message: t('cloudPhone.selectModel'), trigger: 'change' }]
     }
   }
 
@@ -305,7 +324,7 @@ const getBrandOptions = async (asopVersion: string) => {
       }
     }
   } catch (error: any) {
-    ElMessage.error(getErrorMessage(error, '获取主机机型模板列表失败'))
+    ElMessage.error(getErrorMessage(error, t('cloudPhone.getHostModelTemplateListFailed')))
   }
 }
 
@@ -317,8 +336,8 @@ const createLoading = () => {
     loadingInstance = ElLoading.service({
       target,
       lock: true,
-      text: '处理中...',
-      background: 'rgba(255, 255, 255, 0.7)'
+      text: t('cloudPhone.processing'),
+      background: 'var(--el-mask-color-extra-light)'
     })
   }
 }
@@ -339,12 +358,12 @@ watch(
 )
 
 const handleUploadAdiProgress = (percent: number) => {
-  loadingInstance?.setText(`上传机型模板：${percent.toFixed(0)}%`)
+  loadingInstance?.setText(t('cloudPhone.uploadingModelTemplate', { percent: percent.toFixed(0) }))
 }
 const handleUploadImageProgress = (percent: number) => {
-  loadingInstance?.setText(`上传镜像：${percent.toFixed(0)}%`)
+  loadingInstance?.setText(t('cloudPhone.uploadingImage', { percent: percent.toFixed(0) }))
   if (percent == 100) {
-    loadingInstance?.setText('首次加载镜像约需 3–5 分钟…')
+    loadingInstance?.setText(t('cloudPhone.firstTimeLoading'))
   }
 }
 
@@ -369,7 +388,7 @@ const handleSubmit = async () => {
       if (isNeedAdi.value) {
         if (machineMode.value === 'random') {
           if (allAvailableModels.value.length === 0) {
-            throw new Error('当前镜像版本下暂无可用机型模板，无法随机')
+            throw new Error(t('cloudPhone.noAvailableModelTemplates'))
           }
           const idx = Math.floor(Math.random() * allAvailableModels.value.length)
           targetAdi = allAvailableModels.value[idx]
@@ -402,29 +421,41 @@ const handleSubmit = async () => {
 
       // Upload ADI
       if (uploads.adi) {
-        loadingInstance?.setText(`上传机型模板到主机中...`)
+        loadingInstance?.setText(t('cloudPhone.uploadingModelTemplateToHost'))
         const res = await ipc.invoke<Adi>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, {
           adi: toRaw(uploads.adi),
           host: toRaw(host.value)
         })
         if (!res.success) {
-          throw new Error(res.error || '上传机型模板到主机失败')
+          throw new Error(res.error || t('cloudPhone.uploadModelTemplateFailed'))
         }
       }
 
       // Upload Image
       if (uploads.image) {
-        loadingInstance?.setText(`上传镜像到主机中...`)
+        loadingInstance?.setText(t('cloudPhone.uploadingImageToHost'))
         const res = await ipc.invoke<Image>(IMAGES_EVENTS.UPLOAD_IMAGE_TO_HOST, {
           image: toRaw(uploads.image),
           host: toRaw(host.value)
         })
         if (!res.success) {
-          throw new Error(res.error || '上传镜像到主机失败')
+          throw new Error(res.error || t('cloudPhone.uploadImageFailed'))
         }
       }
 
-      loadingInstance?.setText(`正在修改镜像...`)
+      loadingInstance?.setText(t('cloudPhone.modifyingImage'))
+
+      // 获取推流设置并添加到 scdArgs（JSON 字符串）
+      const fpsRes = await ipc.invoke<string>(CONFIG_EVENTS.GET_CONFIGS, CONFIG_KEYS.STREAM_FPS)
+      const bitrateRes = await ipc.invoke<string>(
+        CONFIG_EVENTS.GET_CONFIGS,
+        CONFIG_KEYS.STREAM_BITRATE
+      )
+      const fps = fpsRes.success && fpsRes.data ? fpsRes.data : '30'
+      const bitrate = bitrateRes.success && bitrateRes.data ? bitrateRes.data : '2'
+      // 码率转换为字节，1MB = 1024 * 1024 字节
+      // 使用字符串形式避免 JSON.stringify 将大数字转换为科学计数法
+      const bitrateBytes = parseInt(bitrate) * 1024 * 1024
 
       // Call update API
       await request.post(
@@ -434,17 +465,21 @@ const handleSubmit = async () => {
           repository: form.image_repository,
           adiName: targetAdi?.name,
           adiPass: targetAdi?.pwd,
-          adiID: targetAdiID
+          adiID: targetAdiID,
+          scdArgs: JSON.stringify({
+            video_bit_rate: String(bitrateBytes),
+            max_fps: fps
+          })
         },
         {
           timeout: 60 * 1000
         }
       )
 
-      ElMessage.success('操作成功，请稍后查看结果')
+      ElMessage.success(t('common.operationSuccess'))
       visible.value = false
     } catch (error: any) {
-      ElMessage.error(getErrorMessage(error, '修改镜像失败'))
+      ElMessage.error(getErrorMessage(error, t('cloudPhone.modifyImageFailed')))
     } finally {
       loadingInstance?.close()
       loadingInstance = null
@@ -457,9 +492,9 @@ const handleSubmit = async () => {
   }
 
   if (currentAndroidVersion.value != deviceAndroidVersion.value) {
-    ElMessageBox.confirm('当前跨版本升级，将清除所有数据，是否继续操作？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    ElMessageBox.confirm(t('cloudPhone.crossVersionUpgradeWarning'), t('common.tips'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     }).then(() => {
       submit()
@@ -499,11 +534,11 @@ defineExpose({
 
   .label {
     width: 100px;
-    color: #606266;
+    color: var(--el-text-color-regular);
   }
 
   .value {
-    color: #606266;
+    color: var(--el-text-color-regular);
   }
 }
 
@@ -511,11 +546,11 @@ defineExpose({
   font-size: 14px;
   font-weight: bold;
   margin-bottom: 8px;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 
 .warning-box {
-  background-color: #fdf6ec;
+  background-color: var(--el-color-warning-light-9);
   padding: 8px 12px;
   border-radius: 4px;
   display: flex;
@@ -523,14 +558,14 @@ defineExpose({
   margin-top: 10px;
 
   .warning-icon {
-    color: #e6a23c;
+    color: var(--el-color-warning);
     font-size: 16px;
     margin-top: 2px;
   }
 
   .warning-content {
     font-size: 12px;
-    color: #e6a23c;
+    color: var(--el-color-warning);
 
     .warning-title {
       font-weight: bold;
@@ -538,7 +573,7 @@ defineExpose({
     }
 
     .danger-text {
-      color: #f56c6c;
+      color: var(--el-color-danger);
       font-weight: bold;
     }
   }

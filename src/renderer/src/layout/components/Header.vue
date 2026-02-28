@@ -13,20 +13,25 @@
     <!-- 右侧工具栏 -->
     <div class="header-right">
       <!-- 语言切换 -->
-      <!-- <el-dropdown @command="handleLanguageChange">
+      <el-dropdown @command="handleLanguageChange">
         <span class="header-tool-item">
-          {{ currentLanguage }}
+          {{ currentLanguageLabel }}
           <el-icon class="el-icon--right">
             <ArrowDown />
           </el-icon>
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="zh-CN">简体中文</el-dropdown-item>
-            <el-dropdown-item command="en-US">English</el-dropdown-item>
+            <el-dropdown-item
+              v-for="lang in languageList"
+              :key="lang.value"
+              :command="lang.value"
+            >
+              {{ lang.label }}
+            </el-dropdown-item>
           </el-dropdown-menu>
         </template>
-      </el-dropdown> -->
+      </el-dropdown>
 
       <!-- 设置 -->
 
@@ -50,7 +55,13 @@
       </el-dropdown>
 
       <!-- 版本号 -->
-      <span class="version">v{{ version }}</span>
+      <el-tooltip
+        :content="versionCode + '@' + versionHash"
+        :visible="showVersionTooltip"
+        placement="bottom"
+      >
+        <span class="version" @dblclick="handleVersionDblClick">v{{ version }}</span>
+      </el-tooltip>
 
       <!-- 窗口控制按钮 -->
       <div class="window-controls">
@@ -79,39 +90,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Setting, Minus, CopyDocument, Close } from '@element-plus/icons-vue'
+import { ref, computed } from 'vue'
+import { Setting, Minus, CopyDocument, Close, ArrowDown } from '@element-plus/icons-vue'
 import TabBar from './TabBar.vue'
 import { ipc, WINDOW_TOP } from '@renderer/core/ipc'
 import icon from '@renderer/assets/logo.png'
 import { useRouter } from 'vue-router'
+import { useLocale } from '@renderer/hooks/useLocale'
+import { useI18n } from 'vue-i18n'
 
 const version = __APP_VERSION__
+const versionCode = __APP_VERSION_CODE__
+const versionHash = __APP_VERSION_HASH__
+
+const showVersionTooltip = ref(false)
+const handleVersionDblClick = () => {
+  showVersionTooltip.value = true
+  setTimeout(() => {
+    showVersionTooltip.value = false
+  }, 2500)
+}
 
 const router = useRouter()
-
-// const currentLanguage = ref('简体中文')
+const { changeLocale, currentLanguageLabel, languageList } = useLocale()
+const { t } = useI18n()
 
 const isTop = ref(false)
 
-// const handleLanguageChange = (command: string) => {
-//   if (command === 'zh-CN') {
-//     currentLanguage.value = '简体中文'
-//   } else if (command === 'en-US') {
-//     currentLanguage.value = 'English'
-//   }
-// }
+const handleLanguageChange = (command: string) => {
+  changeLocale(command)
+}
 
-const settingsMenu: { label: string; command: string }[] = [
+const settingsMenu = computed(() => [
   {
-    label: '通用设置',
+    label: t('layout.header.generalSettings'),
     command: 'general-settings'
   },
   {
-    label: '机型设置',
+    label: t('layout.header.machineSettings'),
     command: 'machine-settings'
   }
-]
+])
 
 const handleSettings = (command: string) => {
   switch (command) {
@@ -153,8 +172,8 @@ const handleClose = () => {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-light);
   -webkit-app-region: drag;
   user-select: none;
 }
@@ -176,7 +195,7 @@ const handleClose = () => {
 }
 
 .is-top {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .logo-img {
   display: block; /* 防止图片底部留白 */
@@ -185,7 +204,7 @@ const handleClose = () => {
 .title {
   font-size: 18px;
   font-weight: bold;
-  color: #303133; /* 调整为更柔和的深色，避免纯黑过于突兀 */
+  color: var(--el-text-color-primary); /* 调整为更柔和的深色，避免纯黑过于突兀 */
   margin-left: 4px;
   line-height: 1; /* 避免行高导致文字垂直偏移 */
   position: relative;
@@ -206,16 +225,16 @@ const handleClose = () => {
   cursor: pointer;
   border-radius: 4px;
   transition: background-color 0.3s;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 
 .header-tool-item:hover {
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page);
 }
 
 .version {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 14px;
   padding: 0 3px;
 }
@@ -236,11 +255,11 @@ const handleClose = () => {
 }
 
 .control-btn:hover {
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page);
 }
 
 .control-btn.close:hover {
-  background-color: #f56c6c;
-  color: #fff;
+  background-color: var(--el-color-danger);
+  color: var(--el-bg-color);
 }
 </style>

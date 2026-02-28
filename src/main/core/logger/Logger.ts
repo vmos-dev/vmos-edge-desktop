@@ -66,16 +66,16 @@ class Logger {
         // 开发环境也输出到控制台
         ...(process.env.NODE_ENV === 'development'
           ? [
-              new winston.transports.Console({
-                format: winston.format.combine(
-                  winston.format.colorize(),
-                  winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : ''
-                    return `[v${appVersion}] [${timestamp}] [${level}] ${message} ${metaStr}`
-                  })
-                )
-              })
-            ]
+            new winston.transports.Console({
+              format: winston.format.combine(
+                winston.format.colorize(),
+                winston.format.printf(({ timestamp, level, message, ...meta }) => {
+                  const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : ''
+                  return `[v${appVersion}] [${timestamp}] [${level}] ${message} ${metaStr}`
+                })
+              )
+            })
+          ]
           : [])
       ],
       exceptionHandlers: [

@@ -1,7 +1,7 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    :title="`克隆云机 (不限创建总数)`"
+    :title="t('cloudPhone.cloneDevice')"
     width="500px"
     class="device-clone-dialog"
     append-to-body
@@ -9,9 +9,9 @@
   >
     <div class="info-content" v-if="device">
       <div class="host-info">
-        <span class="label">主机地址：</span>
+        <span class="label">{{ t('host.columnHostIp') }}：</span>
         <span class="value link">{{ device.host_ip }}</span>
-        <span class="sub-info">(同时运行上限 12 台)</span>
+        <span class="sub-info">({{ t('cloudPhone.maxRunningLimit') }})</span>
       </div>
 
       <el-form
@@ -22,18 +22,18 @@
         label-position="top"
         class="device-clone-form"
       >
-        <el-form-item label="基础信息：">
+        <el-form-item :label="t('cloudPhone.basicInfo')">
           <div class="base-info-row">
             <div class="info-item">
-              <span class="label">云机名称：</span>
+              <span class="label">{{ t('cloudPhone.deviceNameLabel') }}</span>
               <span class="value">{{ device.user_name || '-' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">镜像版本：</span>
+              <span class="label">{{ t('cloudPhone.imageVersion') }}</span>
               <span class="value">{{ device.image || '-' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">安卓版本：</span>
+              <span class="label">{{ t('cloudPhone.androidVersion') }}</span>
               <span class="value">{{
                 device.aosp_version ? `Android ${device.aosp_version}` : '-'
               }}</span>
@@ -41,24 +41,24 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="克隆名称前缀" prop="user_name">
+        <el-form-item :label="t('cloudPhone.cloneNamePrefix')" prop="user_name">
           <el-input
             v-model="form.user_name"
             minlength="2"
             maxlength="100"
             show-word-limit
-            placeholder="请输入克隆名称前缀"
+            :placeholder="t('cloudPhone.cloneNamePrefixPlaceholder')"
             clearable
           />
         </el-form-item>
 
-        <el-form-item label="云机数量">
+        <el-form-item :label="t('cloudPhone.deviceCount')">
           <div class="count-control">
             <el-input-number v-model="form.count" :min="1" :max="12" step-strictly />
-            <span class="tip-text">单次可克隆云机数量不超过 12 台</span>
+            <span class="tip-text">{{ t('cloudPhone.maxCloneCount') }}</span>
           </div>
           <div class="preview-text" v-if="form.user_name">
-            将按前缀自动编号生成 {{ form.count }} 个云机：
+            {{ t('cloudPhone.clonePreview', { count: form.count }) }}：
             <div class="name-preview-list">
               <span v-for="(name, index) in previewNames" :key="index" class="name-item">{{
                 name
@@ -67,15 +67,17 @@
           </div>
         </el-form-item>
         <div class="form-footer-switch">
-          <span>修改云机参数</span>
+          <span>{{ t('cloudPhone.modifyDeviceParams') }}</span>
           <el-switch v-model="form.update_prop" />
         </div>
       </el-form>
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="loading" @click="handleConfirm">确定</el-button>
+      <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="loading" @click="handleConfirm">{{
+        t('common.confirm')
+      }}</el-button>
     </template>
   </vmos-dialog>
 </template>
@@ -83,10 +85,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { Device, Host } from '@shared/ipc/data.types'
-import { ElMessage, FormInstance, FormRules } from 'element-plus'
+import { ElMessage, FormInstance } from 'element-plus'
 import { request, getErrorMessage } from '@shared/api'
 import { API_CONFIG, buildApiUrl } from '@shared/api/config'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const visible = ref(false)
 const loading = ref(false)
 const device = ref<Device>()
@@ -100,13 +104,18 @@ const form = reactive({
   update_prop: true
 })
 
-const rules: FormRules = {
+const rules = computed(() => ({
   user_name: [
-    { required: true, message: '请输入克隆名称前缀', trigger: 'blur' },
-    { min: 2, max: 100, message: '克隆名称前缀长度为2-100个字符', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9]+$/, message: '克隆名称前缀只能输入英文和数字', trigger: 'blur' }
+    { required: true, message: t('cloudPhone.cloneNamePrefixPlaceholder'), trigger: 'blur' },
+    { min: 2, max: 100, message: t('cloudPhone.cloneNamePrefixLength'), trigger: 'blur' },
+    {
+      // 允许字母（大小写）、数字、下划线、点、短横线和中文字符
+      pattern: /^[a-zA-Z0-9_.\-\u4e00-\u9fa5]+$/,
+      message: t('cloudPhone.cloneNamePrefixFormat'),
+      trigger: 'blur'
+    }
   ]
-}
+}))
 
 const init = (row: Device, hostData?: Host) => {
   form.db_id = row.db_id || ''
@@ -147,11 +156,11 @@ const handleConfirm = async () => {
         const baseUrl = buildApiUrl(device.value!.host_ip || '', API_CONFIG.PATHS.CLONE_DEVICE)
 
         await request.post(baseUrl, form)
-        ElMessage.success('操作成功，请稍后查看结果')
+        ElMessage.success(t('cloudPhone.cloneSuccess'))
         visible.value = false
         // 可能需要通知父组件刷新列表
       } catch (error: any) {
-        ElMessage.error(getErrorMessage(error) || '克隆失败')
+        ElMessage.error(getErrorMessage(error) || t('cloudPhone.cloneFailed'))
       } finally {
         // 等关闭弹窗动画完成后，再设置 loading 为 false
         setTimeout(() => {
@@ -176,8 +185,8 @@ defineExpose({
 .host-info {
   margin-bottom: 16px;
   font-size: 13px;
-  color: #606266;
-  background-color: #f5f7fa;
+  color: var(--el-text-color-regular);
+  background-color: var(--el-bg-color-page);
   padding: 8px 12px;
   border-radius: 4px;
   display: flex;
@@ -189,14 +198,14 @@ defineExpose({
   }
 
   .link {
-    color: #409eff;
+    color: var(--el-color-primary);
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     font-weight: 500;
     margin-right: 12px;
   }
 
   .sub-info {
-    color: #909399;
+    color: var(--el-text-color-secondary);
     font-size: 12px;
   }
 }
@@ -208,33 +217,38 @@ defineExpose({
 
   :deep(.el-form-item__label) {
     padding-bottom: 4px;
-    color: #606266;
+    color: var(--el-text-color-regular);
     line-height: 1.2;
   }
 }
 
 .base-info-row {
   display: flex;
-  flex-direction: column; /* 换行 */
+  flex-direction: column;
+  /* 换行 */
   align-items: flex-start;
-  gap: 8px; /* 行间距 */
+  gap: 8px;
+  /* 行间距 */
   font-size: 13px;
   line-height: 1.4;
-  color: #606266;
+  color: var(--el-text-color-regular);
   width: 100%;
 
   .info-item {
-    display: flex; /* 表格内容一行展示 */
+    display: flex;
+    /* 表格内容一行展示 */
     align-items: center;
     width: 100%;
 
     .label {
-      color: #909399;
-      width: 70px; /* 固定标签宽度，对齐 */
+      color: var(--el-text-color-secondary);
+      width: 70px;
+      /* 固定标签宽度，对齐 */
       flex-shrink: 0;
     }
+
     .value {
-      color: #303133;
+      color: var(--el-text-color-primary);
       font-weight: 500;
       flex: 1;
       overflow: hidden;
@@ -253,19 +267,21 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px; /* 增加与下方预览文本的间距 */
+  margin-bottom: 8px;
+  /* 增加与下方预览文本的间距 */
 
   .tip-text {
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
   }
 }
 
 .preview-text {
   /* margin-top: 8px;  移除顶部 margin，由上方元素控制间距 */
   font-size: 12px;
-  color: #606266;
-  line-height: 1.5; /* 增加行高 */
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
+  /* 增加行高 */
 
   .name-preview-list {
     margin-top: 4px;
@@ -281,9 +297,9 @@ defineExpose({
     white-space: normal;
     word-break: break-word;
     overflow-wrap: break-word;
-    color: #409eff;
+    color: var(--el-color-primary);
     font-family: monospace;
-    background-color: #ecf5ff;
+    background-color: var(--el-color-primary-light-9);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 12px;
@@ -296,12 +312,12 @@ defineExpose({
   justify-content: space-between;
   margin-top: 10px;
   padding-top: 16px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--el-border-color);
 
   span {
     font-size: 13px;
     font-weight: 500;
-    color: #303133;
+    color: var(--el-text-color-primary);
   }
 }
 </style>

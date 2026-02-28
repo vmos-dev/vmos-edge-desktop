@@ -1,12 +1,44 @@
 <template>
-  <el-config-provider :locale="zhCn">
+  <el-config-provider :locale="currentElLocale">
     <router-view />
   </el-config-provider>
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import { ElConfigProvider } from 'element-plus'
-import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { useLocale } from './hooks/useLocale'
+import { useTheme } from './hooks/useTheme'
+import { ipc, MEDIAMTX_LOG } from '@renderer/core/ipc'
+
+const { currentElLocale, setupStorageListener } = useLocale()
+const { initTheme, setupThemeListener } = useTheme()
+
+onMounted(() => {
+  initTheme()
+  const cleanupLocale = setupStorageListener()
+  const cleanupTheme = setupThemeListener()
+
+  const cleanupMediaMtxLog = ipc.on<{ type: 'stdout' | 'stderr'; message: string }>(
+    MEDIAMTX_LOG,
+    (data) => {
+      // @ts-ignore
+      if (window.isDebug) {
+        if (data.type === 'stderr') {
+          console.warn('[MediaMTX] stderr', data.message)
+        } else {
+          console.log('[MediaMTX] stdout', data.message)
+        }
+      }
+    }
+  )
+
+  onUnmounted(() => {
+    cleanupLocale()
+    cleanupTheme()
+    cleanupMediaMtxLog()
+  })
+})
 </script>
 <style>
 * {

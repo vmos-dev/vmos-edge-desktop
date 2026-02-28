@@ -10,51 +10,53 @@
         @submit.prevent
         @keyup.enter="handleSearch"
       >
-        <el-form-item label="主机ID、IP" prop="keyword" class="form-item">
+        <el-form-item :label="t('host.hostIdIp')" prop="keyword" class="form-item">
           <el-input
             v-model.trim="searchForm.keyword"
-            placeholder="输入主机ID、IP"
+            :placeholder="t('host.hostIdIpPlaceholder')"
             clearable
             class="search-input"
           />
         </el-form-item>
-        <el-form-item label="主机状态" prop="status" class="form-item">
+        <el-form-item :label="t('host.hostStatus')" prop="status" class="form-item">
           <el-select
             v-model="searchForm.status"
-            placeholder="请选择主机状态"
+            :placeholder="t('host.hostStatusPlaceholder')"
             clearable
             filterable
             class="search-select"
           >
-            <el-option label="在线" value="online" />
-            <el-option label="离线" value="offline" />
+            <el-option :label="t('common.online')" value="online" />
+            <el-option :label="t('common.offline')" value="offline" />
           </el-select>
         </el-form-item>
         <el-form-item class="form-item-actions">
           <el-button type="primary" @click="handleSearch">
             <el-icon class="el-icon--left"><Search /></el-icon>
-            查询
+            {{ t('host.query') }}
           </el-button>
           <el-button @click="handleReset">
             <el-icon class="el-icon--left"><Refresh /></el-icon>
-            重置
+            {{ t('common.reset') }}
           </el-button>
           <el-button @click="handleUpdate('kernel')">
-            <svg-icon name="kernel" />&nbsp; 升级内核
+            <svg-icon name="kernel" />&nbsp; {{ t('host.upgradeKernel') }}
           </el-button>
           <el-button @click="handleUpdate('cbs')" style="margin-right: 10px">
-            <svg-icon name="cbs" />&nbsp; 升级CBS
+            <svg-icon name="cbs" />&nbsp; {{ t('host.upgradeCbs') }}
           </el-button>
           <el-dropdown @command="handleBatchOperation">
             <el-button>
               <el-icon class="el-icon--left"><Operation /></el-icon>
-              批量操作
+              {{ t('host.batchOperation') }}
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="restart">重启</el-dropdown-item>
-                <el-dropdown-item command="reset">重置</el-dropdown-item>
-                <el-dropdown-item command="clean-image">清理镜像</el-dropdown-item>
+                <el-dropdown-item command="restart">{{ t('host.restart') }}</el-dropdown-item>
+                <el-dropdown-item command="reset">{{ t('host.resetHost') }}</el-dropdown-item>
+                <el-dropdown-item command="clean-image">{{
+                  t('host.cleanImage')
+                }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -83,7 +85,7 @@
 
 <script setup lang="tsx">
 defineOptions({ name: 'Host' })
-import { ref, reactive, onMounted, onUnmounted, toRaw } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, toRaw, computed } from 'vue'
 import {
   Search,
   Operation,
@@ -101,6 +103,9 @@ import { formatTime } from '@renderer/utils/index'
 import HostDetail from './components/detail.vue'
 import { CopyText } from '@renderer/components'
 import Update from './components/update.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const searchFormRef = ref<InstanceType<typeof ElForm>>()
 const updateRef = ref<InstanceType<typeof Update>>()
@@ -143,7 +148,9 @@ const handleUpdate = (type: 'cbs' | 'kernel') => {
   // 在线的主机
   const onlineHosts = selectedHosts.value.filter((host) => host.status === 'online')
   if (onlineHosts.length === 0) {
-    ElMessage.warning(`请选择要升级 ${type === 'cbs' ? 'CBS' : '内核'} 的在线主机`)
+    ElMessage.warning(
+      t('host.selectOnlineHosts', { type: type === 'cbs' ? 'CBS' : t('host.upgradeKernel') })
+    )
     return
   }
   updateRef.value?.init(onlineHosts, type)
@@ -154,11 +161,11 @@ const handleUpdate = (type: 'cbs' | 'kernel') => {
 // ==========================================
 
 // 表格列定义
-const columns = [
+const columns = computed(() => [
   {
     key: 'id',
     dataKey: 'id',
-    title: '主机ID',
+    title: t('host.columnHostId'),
     width: 150,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => <CopyText text={cellData} />
@@ -166,7 +173,7 @@ const columns = [
   {
     key: 'ip',
     dataKey: 'ip',
-    title: '主机IP',
+    title: t('host.columnHostIp'),
     width: 150,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => (
@@ -178,13 +185,13 @@ const columns = [
   {
     key: 'status',
     dataKey: 'status',
-    title: '状态',
+    title: t('host.columnStatus'),
     width: 80,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => {
       const statusMap = {
-        online: { text: '在线', type: 'success' },
-        offline: { text: '离线', type: 'danger' }
+        online: { text: t('common.online'), type: 'success' },
+        offline: { text: t('common.offline'), type: 'danger' }
       }
       const status = statusMap[cellData as keyof typeof statusMap]
       return <ElTag type={status.type}>{status.text}</ElTag>
@@ -193,7 +200,7 @@ const columns = [
   {
     key: 'deviceCount',
     dataKey: 'deviceCount',
-    title: '实例数',
+    title: t('host.columnInstanceCount'),
     width: 100,
     flexGrow: 1,
     align: 'center' as const
@@ -201,19 +208,19 @@ const columns = [
   {
     key: 'lastActiveTime',
     dataKey: 'lastActiveTime',
-    title: '更新时间',
+    title: t('host.columnUpdateTime'),
     width: 180,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => {
-      return <span style="color: #606266;">{formatTime(cellData)}</span>
+      return <span style="color: var(--el-text-color-regular);">{formatTime(cellData)}</span>
     }
   },
   {
     key: 'action',
-    title: '操作',
+    title: t('host.columnAction'),
     fixed: TableV2FixedDir.RIGHT,
     align: 'left' as const,
-    width: 480,
+    width: 520,
     flexGrow: 1,
     cellRenderer: ({ rowData }) => {
       return (
@@ -226,7 +233,7 @@ const columns = [
             link
             onClick={() => handleDetail(rowData)}
           >
-            详情
+            {t('common.detail')}
           </ElButton>
           <ElButton
             type="primary"
@@ -235,7 +242,7 @@ const columns = [
             icon={Document}
             onClick={() => handleOpenHostApi(rowData.ip)}
           >
-            API文档
+            {t('host.apiDoc')}
           </ElButton>
           <ElButton
             type="warning"
@@ -246,7 +253,7 @@ const columns = [
             link
             onClick={() => handleRestart(rowData)}
           >
-            重启
+            {t('host.restart')}
           </ElButton>
           <ElButton
             type="warning"
@@ -257,7 +264,7 @@ const columns = [
             link
             onClick={() => handleResetHost(rowData)}
           >
-            重置
+            {t('host.resetHost')}
           </ElButton>
           <ElButton
             type="danger"
@@ -268,7 +275,7 @@ const columns = [
             link
             onClick={() => handleCleanImage(rowData)}
           >
-            清理镜像
+            {t('host.cleanImage')}
           </ElButton>
           {rowData.status === 'offline' && (
             <ElButton
@@ -280,14 +287,14 @@ const columns = [
               link
               onClick={() => handleDeleteHost(rowData)}
             >
-              删除
+              {t('common.delete')}
             </ElButton>
           )}
         </div>
       )
     }
   }
-]
+])
 
 // ==========================================
 // 方法
@@ -341,7 +348,7 @@ const loadHosts = async () => {
     if (res.success && res.data) {
       hostList.value = res.data as unknown as Host[]
     } else {
-      ElMessage.error(res.error || '加载主机列表失败')
+      ElMessage.error(res.error || t('host.loadFailed'))
       hostList.value = []
     }
   } catch (error: any) {
@@ -352,7 +359,7 @@ const loadHosts = async () => {
     }
 
     // 这是最后一次请求，处理错误
-    ElMessage.error(error?.message || '加载主机列表失败')
+    ElMessage.error(error?.message || t('host.loadFailed'))
     hostList.value = []
   } finally {
     // 只有当前请求是最后一次时才更新 loading 状态
@@ -403,25 +410,26 @@ const handleBatchOperation = async (command: string) => {
   // 没有可操作主机
   if (!onlineHosts.length) {
     if (loadingHosts.length > 0) {
-      ElMessage.warning(
-        `选中的主机中有 ${loadingHosts.length} 个正在执行操作，已自动排除，请选择其他在线主机`
-      )
+      ElMessage.warning(t('host.selectOperatingHosts', { count: loadingHosts.length }))
     } else {
-      ElMessage.warning('请选择要操作的在线主机')
+      ElMessage.warning(t('host.selectOnlineHostsToOperate'))
     }
     return
   }
 
   // 批量上限校验
   if (onlineHosts.length > 50) {
-    ElMessage.warning('批量操作最多支持 50 个主机')
+    ElMessage.warning(t('host.maxBatchOperation'))
     return
   }
 
   // 有部分被排除时，给一次合并提示
   if (loadingHosts.length) {
     ElMessage.warning(
-      `选中的主机中有 ${loadingHosts.length} 个正在执行操作，已自动排除，将对剩余 ${onlineHosts.length} 个主机进行操作`
+      t('host.excludedOperatingHosts', {
+        excludedCount: loadingHosts.length,
+        remainingCount: onlineHosts.length
+      })
     )
   }
 
@@ -434,18 +442,21 @@ const handleBatchOperation = async (command: string) => {
 
   // 映射操作名称
   const operationNameMap: Record<string, string> = {
-    restart: '重启',
-    reset: '重置',
-    'clean-image': '清理镜像'
+    restart: t('host.restart'),
+    reset: t('host.resetHost'),
+    'clean-image': t('host.cleanImage')
   }
 
   try {
     await ElMessageBox.confirm(
-      `确定要${operationNameMap[command]}选中的 ${onlineHosts.length} 个主机吗？`,
-      '提示',
+      t('host.confirmOperation', {
+        operation: operationNameMap[command],
+        count: onlineHosts.length
+      }),
+      t('common.tips'),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
@@ -473,7 +484,11 @@ const handleBatchOperation = async (command: string) => {
       { successCount: 0, errorCount: 0 }
     )
     ElMessage.success(
-      `${operationNameMap[command]}指令已下发，成功 ${successCount} 个，失败 ${errorCount} 个`
+      t('host.operationSent', {
+        operation: operationNameMap[command],
+        success: successCount,
+        fail: errorCount
+      })
     )
     loadHosts()
   } catch (error) {
@@ -493,11 +508,11 @@ const handleBatchOperation = async (command: string) => {
  */
 const handleDeleteHost = async (row: Host) => {
   await ElMessageBox.confirm(
-    `确定要删除主机 "${row.ip}" 吗？删除后该主机及其关联的所有设备数据将被永久移除。注意：此操作仅适用于永久离线或IP已变更的主机，若主机重新上线，系统会自动重新发现并添加。`,
-    '操作确认',
+    t('host.deleteHostConfirm', { ip: row.ip }),
+    t('host.operationConfirm'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     }
   )
@@ -508,14 +523,14 @@ const handleDeleteHost = async (row: Host) => {
   try {
     const res = await ipc.invoke(DATA_EVENTS.HOST_DELETED, toRaw(row))
     if (res.success) {
-      ElMessage.success('操作成功')
+      ElMessage.success(t('common.operationSuccess'))
       loadHosts()
     } else {
-      ElMessage.error(res.error || '删除失败')
+      ElMessage.error(res.error || t('host.deleteFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error?.message || '操作失败')
+      ElMessage.error(error?.message || t('common.operationFailed'))
     }
   } finally {
     setOperationLoading(row.id, false)
@@ -536,23 +551,23 @@ const handleRestart = async (row: Host) => {
   if (getOperationLoading(row.id)) {
     return
   }
-  await ElMessageBox.confirm(`确定要重启主机 "${row.ip}" 吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  await ElMessageBox.confirm(t('host.restartHostConfirm', { ip: row.ip }), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
   setOperationLoading(row.id, true)
   try {
     const res = await ipc.invoke(DATA_EVENTS.RESTART_HOST, toRaw(row))
     if (res.success) {
-      ElMessage.success('重启指令已下发，请稍后查看结果')
+      ElMessage.success(t('host.restartSent'))
       loadHosts()
     } else {
-      ElMessage.error(res.error || '操作失败')
+      ElMessage.error(res.error || t('common.operationFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error?.message || '操作失败')
+      ElMessage.error(error?.message || t('common.operationFailed'))
     }
   } finally {
     setOperationLoading(row.id, false)
@@ -566,23 +581,23 @@ const handleResetHost = async (row: Host) => {
   if (getOperationLoading(row.id)) {
     return
   }
-  await ElMessageBox.confirm(`确定要重置主机 "${row.ip}" 吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  await ElMessageBox.confirm(t('host.resetHostConfirm', { ip: row.ip }), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
   setOperationLoading(row.id, true)
   try {
     const res = await ipc.invoke(DATA_EVENTS.RESET_HOST, toRaw(row))
     if (res.success) {
-      ElMessage.success('重置指令已下发，请稍后查看结果')
+      ElMessage.success(t('host.resetSent'))
       loadHosts()
     } else {
-      ElMessage.error(res.error || '操作失败')
+      ElMessage.error(res.error || t('common.operationFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error?.message || '操作失败')
+      ElMessage.error(error?.message || t('common.operationFailed'))
     }
   } finally {
     setOperationLoading(row.id, false)
@@ -596,22 +611,22 @@ const handleCleanImage = async (row: Host) => {
   if (getOperationLoading(row.id)) {
     return
   }
-  await ElMessageBox.confirm(`确定要清理主机  "${row.ip}" 的镜像吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  await ElMessageBox.confirm(t('host.cleanImageConfirm', { ip: row.ip }), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
   setOperationLoading(row.id, true)
   try {
     const res = await ipc.invoke(DATA_EVENTS.CLEAN_HOST_IMAGE, toRaw(row))
     if (res.success) {
-      ElMessage.success('清理指令已下发，请稍后查看结果')
+      ElMessage.success(t('host.cleanImageSent'))
     } else {
-      ElMessage.error(res.error || '操作失败')
+      ElMessage.error(res.error || t('common.operationFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error?.message || '操作失败')
+      ElMessage.error(error?.message || t('common.operationFailed'))
     }
   } finally {
     setOperationLoading(row.id, false)
@@ -637,7 +652,7 @@ onUnmounted(() => {
 .host-manage-container {
   height: 100%;
   padding: 20px;
-  background-color: #fff;
+  background-color: var(--el-bg-color);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -645,11 +660,11 @@ onUnmounted(() => {
 }
 
 .search-form-container {
-  background: #fff;
+  background: var(--el-bg-color);
   padding: 16px 20px;
   border-radius: 6px;
   margin-bottom: 16px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   flex-shrink: 0;
 
   .search-form {
@@ -664,7 +679,7 @@ onUnmounted(() => {
 
       :deep(.el-form-item__label) {
         font-weight: normal;
-        color: #606266;
+        color: var(--el-text-color-regular);
         font-size: 14px;
         padding-right: 8px;
         width: auto;
@@ -705,9 +720,9 @@ onUnmounted(() => {
 .table-container {
   flex: 1;
   min-height: 0;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color);
   overflow: hidden;
   display: flex;
   flex-direction: column;

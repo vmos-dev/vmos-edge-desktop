@@ -1,4 +1,4 @@
-import { handle } from '../IpcBus'
+import { handle, broadcast } from '../IpcBus'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { configManager } from '../../store/managers'
 import { trayManager } from '../../window/TrayManager'
@@ -57,6 +57,9 @@ export function registerConfigHandlers() {
     try {
       configManager.setValue(key, value)
 
+      // 广播配置更新
+      broadcast(CONFIG_EVENTS.CONFIG_UPDATED, { key, value })
+
       // 如果修改了最小化到托盘配置，更新托盘显示
       if (key === CONFIG_KEYS.MINIMIZE_TO_TRAY) {
         trayManager.update()
@@ -64,6 +67,26 @@ export function registerConfigHandlers() {
 
       const duration = Date.now() - startTime
       logger.info(`[ConfigHandler] SET_CONFIG success: key=${key}, duration=${duration}ms`)
+      return {
+        success: true,
+        data: undefined
+      }
+    } catch (error) {
+      return handleError(error)
+    }
+  })
+
+  handle<string, void>(CONFIG_EVENTS.DELETE_CONFIG, async (key) => {
+    const startTime = Date.now()
+    logger.info(`[ConfigHandler] DELETE_CONFIG request: key=${key}`)
+    try {
+      configManager.deleteValue(key)
+
+      // 广播配置更新
+      broadcast(CONFIG_EVENTS.CONFIG_UPDATED, { key, value: undefined })
+
+      const duration = Date.now() - startTime
+      logger.info(`[ConfigHandler] DELETE_CONFIG success: key=${key}, duration=${duration}ms`)
       return {
         success: true,
         data: undefined

@@ -3,7 +3,7 @@
     <el-select
       v-model="modelValue"
       filterable
-      placeholder="请选择镜像"
+      :placeholder="t('cloudPhone.selectImage')"
       style="width: 100%"
       @change="handleChange"
       :loading="loading"
@@ -11,7 +11,7 @@
       <el-option
         v-for="item in imageOptions"
         :key="item.version"
-        :label="`${item.version} ${item.isUploaded ? '(已上传)' : ''}`"
+        :label="`${item.version} ${item.isUploaded ? t('cloudPhone.uploaded') : ''}`"
         :value="item.version"
       />
     </el-select>
@@ -39,7 +39,9 @@ import { buildApiUrl, API_CONFIG } from '@shared/api/config'
 import { request } from '@shared/api/request'
 import { ElMessage } from 'element-plus'
 import { getErrorMessage } from '@shared/api'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 // const imageSupportVersionTime = __IMAGE_SUPPORT_VERSION_TIME__
 
 // 使用 defineModel
@@ -86,7 +88,7 @@ const getImageOptions = async () => {
     // 1. 获取本地镜像列表
     const res = await ipc.invoke<Image[]>(IMAGES_EVENTS.QUERY_IMAGES)
     if (!res.success) {
-      throw new Error(res.error || '获取本地镜像列表失败')
+      throw new Error(res.error || t('common.loadFailed'))
     }
 
     const localImages =
@@ -113,7 +115,7 @@ const getImageOptions = async () => {
           createTime: 0
         })) || []
     } catch (error) {
-      console.error('获取远端镜像列表失败，仅显示本地镜像', error)
+      console.error('Failed to get remote image list, showing local images only', error)
     }
 
     // 3. 合并逻辑
@@ -164,7 +166,7 @@ const getImageOptions = async () => {
       }
     }
   } catch (error: any) {
-    ElMessage.error(getErrorMessage(error, '获取镜像列表失败'))
+    ElMessage.error(getErrorMessage(error, t('cloudPhone.getImageListFailed')))
   } finally {
     loading.value = false
   }
@@ -202,10 +204,10 @@ defineExpose({
 <style scoped lang="scss">
 .image-select-tip {
   font-size: 12px;
-  color: #f56c6c;
+  color: var(--el-color-danger);
   margin-top: 5px;
   .primary-link {
-    color: #409eff;
+    color: var(--el-color-primary);
     text-decoration: none;
     cursor: pointer;
   }

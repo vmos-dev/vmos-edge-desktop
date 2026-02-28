@@ -2,6 +2,9 @@ appId: com.vmos.edge.desktop
 productName: VMOS Edge 2.0
 asar: true
 compression: maximum
+# 将 @vmosedge/proxy-sdk 整个包从 asar 中排除，因为包含可执行文件无法在 asar 中运行
+asarUnpack:
+  - '**/node_modules/@vmosedge/proxy-sdk/**'
 directories:
   buildResources: build
 files:
@@ -13,6 +16,7 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!scripts/*'
   - '!resources/*' # resources 目录我们通过 extraFiles/extraResources 处理，不需要进 asar
+  - '!**/node_modules/@vmosedge/proxy-sdk/bin/**/*' # 彻底从 asar 中排除 bin 目录，避免 SDK 误判路径
 
 extraResources:
   - from: resources/adi
@@ -25,10 +29,12 @@ extraResources:
 win:
   icon: build/icon.ico
   executableName: vmos-edge-2.0
- 
-  extraFiles:
+  extraResources:
     - from: resources/win
-      to: .
+      to: win
+    # Windows 平台：只复制 win32-x64 的二进制文件
+    - from: 'node_modules/@vmosedge/proxy-sdk/bin/win32-x64'
+      to: 'vmosedge-proxy-sdk/bin/win32-x64'
 
 nsis:
   oneClick: false
@@ -51,10 +57,14 @@ mac:
   icon: build/icon.icns
   hardenedRuntime: true
   notarize: false
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  extraFiles:
+  extraResources:
     - from: resources/mac-${arch}
-      to: .
+      to: mac-${arch}
+    # Mac 平台：根据架构复制对应的 darwin 二进制文件
+    - from: 'node_modules/@vmosedge/proxy-sdk/bin/darwin-${arch}'
+      to: 'vmosedge-proxy-sdk/bin/darwin-${arch}'
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
@@ -64,9 +74,12 @@ dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   icon: build/icon-linux.png
-  extraFiles:
+  extraResources:
     - from: resources/linux
-      to: .
+      to: linux
+    # Linux 平台：只复制 linux-x64 的二进制文件
+    - from: 'node_modules/@vmosedge/proxy-sdk/bin/linux-x64'
+      to: 'vmosedge-proxy-sdk/bin/linux-x64'
   target:
     - AppImage
     - snap

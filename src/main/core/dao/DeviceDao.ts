@@ -56,6 +56,16 @@ export class DeviceDao extends BaseDao<Device> {
   }
 
   /**
+   * 根据主机 ID 查询设备
+   */
+  public getByHostId(hostId: string): Device[] {
+    const rows = this.dbInstance.db
+      .prepare(`SELECT * FROM ${this.tableName} WHERE hostId = ?`)
+      .all(hostId)
+    return rows.map((row) => this.deserialize(row))
+  }
+
+  /**
    * 批量标记主机下的所有设备为离线
    */
   public markAllOfflineByHost(hostIp: string): void {
@@ -63,6 +73,7 @@ export class DeviceDao extends BaseDao<Device> {
       .prepare(`UPDATE ${this.tableName} SET state = 'offline' WHERE host_ip = ?`)
       .run(hostIp)
   }
+
 
   /**
    * 标记不在列表中的设备为离线
@@ -86,6 +97,20 @@ export class DeviceDao extends BaseDao<Device> {
    */
   public deleteByHostIp(hostIp: string): void {
     this.dbInstance.db.prepare(`DELETE FROM ${this.tableName} WHERE host_ip = ?`).run(hostIp)
+  }
+
+  /**
+   * 根据主机 ID 删除设备
+   */
+  public deleteByHostId(hostId: string): void {
+    this.dbInstance.db.prepare(`DELETE FROM ${this.tableName} WHERE hostId = ?`).run(hostId)
+  }
+
+  public getByGroupId(groupId: string): Device[] {
+    const rows = this.dbInstance.db
+      .prepare(`SELECT * FROM ${this.tableName} WHERE groupId = ?`)
+      .all(groupId)
+    return rows.map((row) => this.deserialize(row))
   }
 
   /**

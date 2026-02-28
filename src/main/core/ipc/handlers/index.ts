@@ -1,5 +1,5 @@
 /**
- * 处理器统一注册入口
+ * IPC handler registration entry.
  */
 
 import { registerWindowHandlers } from './window.handler'
@@ -14,12 +14,10 @@ import { registerImageHandlers } from './image.handler'
 import { registerAdiHandlers } from './adi.handler'
 import { registerProxyHandlers } from './proxy.handler'
 import { registerGroupControlHandlers } from './groupControl.handler'
+import { registerMediaMtxHandlers } from './mediaMtx.handler'
 
-/**
- * 注册所有 IPC 事件处理器
- */
 export function registerAllHandlers(): void {
-  logger.info('[IPC Handlers] 开始注册所有处理器...')
+  logger.info('[IPC Handlers] Starting registration...')
 
   registerWindowHandlers()
   registerCloudHandlers()
@@ -32,5 +30,7 @@ export function registerAllHandlers(): void {
   registerAdiHandlers()
   registerProxyHandlers()
   registerGroupControlHandlers()
-  logger.info('[IPC Handlers] ✅ 所有处理器注册完成')
+  registerMediaMtxHandlers()
+
+  logger.info('[IPC Handlers] All handlers registered')
 }

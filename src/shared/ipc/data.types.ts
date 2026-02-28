@@ -1,6 +1,7 @@
 export interface Group {
   id: string
   name: string
+  type?: 'host' | 'device' // 分组类型
   sortIndex: number
   createTime: number
   lastActiveTime?: number
@@ -64,6 +65,7 @@ export interface Device {
   image?: string
   image_id?: string
   ip?: string
+  groupId?: string // 设备独立分组ID
   is_macvlan?: boolean // 布尔值 (0/1)
   is_symlink?: boolean // 布尔值 (0/1)
   locale?: string
@@ -85,6 +87,7 @@ export interface Device {
   user_name?: string
   width?: string
   host_ip?: string
+  hostId?: string // 关联的主机ID
   lastActiveTime: number
 }
 
@@ -162,6 +165,7 @@ export const DATA_EVENTS = {
   DEVICE_SHUTDOWNED: 'DATA:DEVICE_SHUTDOWNED',
   DEVICE_STARTED: 'DATA:DEVICE_STARTED',
   DEVICE_SCREENSHOT: 'DATA:DEVICE_SCREENSHOT',
+  DEVICES_MOVED: 'DATA:DEVICES_MOVED', // 批量移动云机
 
   // CRUD Actions (Requests)
   ADD_GROUP: 'DATA:ADD_GROUP',
@@ -171,6 +175,7 @@ export const DATA_EVENTS = {
   UPDATE_HOST: 'DATA:UPDATE_HOST',
   MOVE_HOST: 'DATA:MOVE_HOST', // 单个移动
   MOVE_HOSTS: 'DATA:MOVE_HOSTS', // 批量移动
+  MOVE_DEVICES: 'DATA:MOVE_DEVICES', // 批量移动云机
   UPDATE_DEVICE: 'DATA:UPDATE_DEVICE',
   RENEW_DEVICE: 'DATA:RENEW_DEVICE',
   RESET_DEVICE: 'DATA:RESET_DEVICE',
@@ -178,6 +183,7 @@ export const DATA_EVENTS = {
   GET_DEVICE_BY_ID: 'DATA:GET_DEVICE_BY_ID',
   GET_DEVICES_BY_IDS: 'DATA:GET_DEVICES_BY_IDS',
   GET_HOST_BY_IP: 'DATA:GET_HOST_BY_IP',
+  RESOLVE_DOMAIN: 'DATA:RESOLVE_DOMAIN',
 
   // Group Control Events
   GET_GROUP_CONTROL_DEVICES: 'DATA:GET_GROUP_CONTROL_DEVICES',

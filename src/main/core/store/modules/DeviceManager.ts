@@ -20,6 +20,22 @@ export class DeviceManager extends BaseManager {
     this.deviceDao = new DeviceDao(this.dbInstance)
   }
 
+  /**
+   * 获取推流设置的 scdArgs 参数
+   * @returns scdArgs JSON 字符串，包含 video_bit_rate 和 max_fps
+   */
+  private getScdArgs(): string {
+    const fps = this.configManager.getValue(CONFIG_KEYS.STREAM_FPS) || '30'
+    const bitrate = this.configManager.getValue(CONFIG_KEYS.STREAM_BITRATE) || '2'
+    // 码率转换为字节，1MB = 1024 * 1024 字节
+    // 使用字符串形式避免 JSON.stringify 将大数字转换为科学计数法
+    const bitrateBytes = parseInt(bitrate) * 1024 * 1024
+    return JSON.stringify({
+      video_bit_rate: String(bitrateBytes),
+      max_fps: fps
+    })
+  }
+
   public getDevices(): Device[] {
     const startTime = Date.now()
     logger.debug('[DeviceManager] getDevices called')
@@ -121,7 +137,8 @@ export class DeviceManager extends BaseManager {
           const url = buildApiUrl(hostIp, API_CONFIG.PATHS.RESTART_DEVICE_BATCH)
           logger.debug(`[DeviceManager] restartDevice: calling API ${url}`)
           const { data } = await request.post<any>(url, {
-            db_ids: hostDeviceIds
+            db_ids: hostDeviceIds,
+            scdArgs: this.getScdArgs()
           })
 
           if (data?.list && Array.isArray(data.list) && data.list.length > 0) {
@@ -187,9 +204,9 @@ export class DeviceManager extends BaseManager {
    * - 接口有，本地有 → 更新
    * - 本地有，接口没有 → 删除
    */
-  public async syncHostDevices(ip: string): Promise<void> {
+  public async syncHostDevices(ip: string, hostId?: string): Promise<void> {
     const startTime = Date.now()
-    logger.info(`[DeviceManager] syncHostDevices called: hostIp=${ip}`)
+    logger.info(`[DeviceManager] syncHostDevices called: hostIp=${ip}, hostId=${hostId}`)
 
     try {
       // 1️⃣ 请求 Host 侧设备数据
@@ -242,6 +259,7 @@ export class DeviceManager extends BaseManager {
             ...rd,
             id: deviceId,
             host_ip: ip,
+            hostId: hostId, // 写入 hostId
             lastActiveTime: Date.now()
           }
 
@@ -330,37 +348,65 @@ export class DeviceManager extends BaseManager {
     }
   }
 
-  public deleteByHostIp(ip: string): Device[] {
+  public deleteByHostIp(ip: string, hostId?: string): Device[] {
     const startTime = Date.now()
-    logger.info(`[DeviceManager] deleteByHostIp called: hostIp=${ip}`)
+    logger.info(`[DeviceManager] deleteByHostIp called: hostIp=${ip}, hostId=${hostId}`)
     try {
       // 输入验证
-      if (!ip) {
-        logger.warn('[DeviceManager] deleteByHostIp: invalid ip, skipping')
+      if (!ip && !hostId) {
+        logger.warn('[DeviceManager] deleteByHostIp: invalid ip and hostId, skipping')
         return []
       }
 
-      // 先获取要删除的设备列表，用于通知前端
-      const devicesToDelete = this.deviceDao.getByHostIp(ip)
+      // 1. 优先通过 hostId 删除（如果提供了 hostId）
+      if (hostId) {
+        logger.debug(`[DeviceManager] deleteByHostIp: deleting by hostId=${hostId}`)
+        const devicesByHostId = this.deviceDao.getByHostId(hostId)
+        if (devicesByHostId.length > 0) {
+          this.deviceDao.deleteByHostId(hostId)
+          const duration = Date.now() - startTime
+          logger.info(
+            `[DeviceManager] deleteByHostIp success: deleted ${devicesByHostId.length} devices by hostId=${hostId}, duration=${duration}ms`
+          )
+          // 通知前端删除的设备
+          this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, devicesByHostId)
+          return devicesByHostId
+        } else {
+          logger.debug(
+            `[DeviceManager] deleteByHostIp: no devices found by hostId=${hostId}, will try by ip`
+          )
+        }
+      }
 
-      this.deviceDao.deleteByHostIp(ip)
+      // 2. 如果通过 hostId 删除失败（没找到设备），则通过 ip 删除（如果提供了 ip）
+      if (ip) {
+        logger.debug(`[DeviceManager] deleteByHostIp: deleting by hostIp=${ip}`)
+        const devicesByHostIp = this.deviceDao.getByHostIp(ip)
+        if (devicesByHostIp.length > 0) {
+          this.deviceDao.deleteByHostIp(ip)
+          const duration = Date.now() - startTime
+          logger.info(
+            `[DeviceManager] deleteByHostIp success: deleted ${devicesByHostIp.length} devices by hostIp=${ip}, duration=${duration}ms`
+          )
+          // 通知前端删除的设备
+          this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, devicesByHostIp)
+          return devicesByHostIp
+        } else {
+          logger.debug(`[DeviceManager] deleteByHostIp: no devices found by hostIp=${ip}`)
+        }
+      }
 
       const duration = Date.now() - startTime
       logger.info(
-        `[DeviceManager] deleteByHostIp success: hostIp=${ip}, deletedCount=${devicesToDelete.length}, duration=${duration}ms`
+        `[DeviceManager] deleteByHostIp: no devices found, hostIp=${ip}, hostId=${hostId}, duration=${duration}ms`
       )
-
-      // 通知前端删除的设备
-      if (devicesToDelete.length > 0) {
-        this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, devicesToDelete)
-      }
-
-      return devicesToDelete
+      return []
     } catch (error) {
       logger.error('[DeviceManager] deleteByHostIp failed:', {
         error,
         stack: error instanceof Error ? error.stack : undefined,
-        hostIp: ip
+        hostIp: ip,
+        hostId
       })
       throw error
     }
@@ -568,7 +614,8 @@ export class DeviceManager extends BaseManager {
           const url = buildApiUrl(hostIp, API_CONFIG.PATHS.RESET_DEVICE_BATCH)
           logger.debug(`[DeviceManager] resetDevice: calling API ${url}`)
           const { data } = await request.post<any>(url, {
-            db_ids: hostDeviceIds
+            db_ids: hostDeviceIds,
+            scdArgs: this.getScdArgs()
           })
 
           if (data?.list && Array.isArray(data.list) && data.list.length > 0) {
@@ -677,7 +724,8 @@ export class DeviceManager extends BaseManager {
 
           const params: any = {
             db_ids: hostDeviceIds,
-            wipeData: options.wipeData
+            wipeData: options.wipeData,
+            scdArgs: this.getScdArgs()
           }
           if (options.adiID) {
             params.adiID = options.adiID
@@ -897,7 +945,8 @@ export class DeviceManager extends BaseManager {
           const url = buildApiUrl(hostIp, API_CONFIG.PATHS.START_DEVICE_BATCH)
           logger.debug(`[DeviceManager] startDevice: calling API ${url}`)
           const { data } = await request.post<any>(url, {
-            db_ids: hostDeviceIds
+            db_ids: hostDeviceIds,
+            scdArgs: this.getScdArgs()
           })
 
           if (data?.list && Array.isArray(data.list) && data.list.length > 0) {
@@ -1039,6 +1088,29 @@ export class DeviceManager extends BaseManager {
     } catch (error) {
       logger.error(
         `[DeviceManager] screenshotDevice failed: options=${JSON.stringify(device)}`,
+        error
+      )
+      throw error
+    }
+  }
+
+  public getDevicesByGroupId(groupId: string): Device[] {
+    return this.deviceDao.getByGroupId(groupId)
+  }
+
+  public moveDevices(ids: string[], groupId: string): void {
+    try {
+      if (ids.length === 0) return
+      logger.info(`[DeviceManager] moveDevices: count=${ids.length} to groupId=${groupId}`)
+      this.dbInstance.transaction(() => {
+        ids.forEach((id) => {
+          this.deviceDao.update(id, { groupId })
+        })
+      })
+      this.notifyFrontend(DATA_EVENTS.DEVICES_MOVED, { deviceIds: ids, groupId })
+    } catch (error) {
+      logger.error(
+        `[DeviceManager] moveDevices failed: ids=${ids.join(',')}, groupId=${groupId}`,
         error
       )
       throw error

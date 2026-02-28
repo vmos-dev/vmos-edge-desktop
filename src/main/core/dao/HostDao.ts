@@ -82,6 +82,13 @@ export class HostDao extends BaseDao<Host> {
 
     const rows = this.dbInstance.db.prepare(sql).all(...params)
 
-    return rows.map((row) => this.deserialize(row))
+    // 使用 JS 进行自然排序 (因为 SQLite 默认字符串排序 10 < 2)
+    return rows
+      .map((row) => this.deserialize(row))
+      .sort((a, b) => {
+        const ipA = a.ip || ''
+        const ipB = b.ip || ''
+        return ipA.localeCompare(ipB, undefined, { numeric: true, sensitivity: 'base' })
+      })
   }
 }

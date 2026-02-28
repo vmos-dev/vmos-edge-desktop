@@ -13,9 +13,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { SvgIcon } from '@renderer/components'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Tab {
   key: string
@@ -27,12 +30,12 @@ interface Tab {
 const router = useRouter()
 
 const route = useRoute()
-const tabs: Tab[] = [
-  { key: 'cloud', label: '云机', icon: 'phone', path: '/cloud' },
-  { key: 'host', label: '主机', icon: 'host', path: '/host' },
-  { key: 'image', label: '镜像', icon: 'image', path: '/image' },
-  { key: 'proxy', label: '代理', icon: 'proxy', path: '/proxy' }
-]
+const tabs = computed<Tab[]>(() => [
+  { key: 'cloud', label: t('layout.cloud'), icon: 'phone', path: '/cloud' },
+  { key: 'host', label: t('layout.host'), icon: 'host', path: '/host' },
+  { key: 'image', label: t('layout.image'), icon: 'image', path: '/image' },
+  { key: 'proxy', label: t('layout.proxy'), icon: 'proxy', path: '/proxy' }
+])
 
 const activeTab = ref('cloud')
 
@@ -40,7 +43,7 @@ const activeTab = ref('cloud')
 watch(
   () => route.path,
   (newPath: string) => {
-    const tab = tabs.find((t) => t.path === newPath)
+    const tab = tabs.value.find((t) => t.path === newPath)
     if (tab) {
       activeTab.value = tab.key
     } else {
@@ -50,7 +53,7 @@ watch(
 )
 
 const handleTabClick = (key: string) => {
-  const tab = tabs.find((t) => t.key === key)
+  const tab = tabs.value.find((t) => t.key === key)
   if (tab) {
     router.push(tab.path)
   }
@@ -72,18 +75,18 @@ const handleTabClick = (key: string) => {
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.3s;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 14px;
   position: relative;
 }
 
 .tab-item:hover {
-  background-color: #f5f7fa;
-  color: #409eff;
+  background-color: var(--el-bg-color-page);
+  color: var(--el-color-primary);
 }
 
 .tab-item.active {
-  color: #409eff;
+  color: var(--el-color-primary);
   font-weight: 500;
 }
 
@@ -94,7 +97,7 @@ const handleTabClick = (key: string) => {
   left: 20%;
   right: 20%;
   height: 2px;
-  background-color: #409eff;
+  background-color: var(--el-color-primary);
   border-radius: 2px 2px 0 0;
 }
 

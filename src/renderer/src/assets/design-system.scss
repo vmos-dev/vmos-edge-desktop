@@ -1,0 +1,81 @@
+/**
+ * VMOS Edge Design System
+ * 统一维护的主题变量与排版规范
+ */
+
+:root {
+  /* --- 布局间距 --- */
+  --app-padding-base: 16px;
+  --app-padding-small: 12px;
+  --app-radius-base: 8px;
+  --app-radius-small: 4px;
+
+  /* --- 阴影规范 --- */
+  --app-shadow-base: 0 1px 4px rgba(0, 0, 0, 0.05);
+  --app-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  /* --- 排版规范 --- */
+  --app-font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* 标题层级 */
+  --app-text-h1-size: 22px;
+  --app-text-h1-weight: 600;
+  --app-text-h2-size: 18px;
+  --app-text-h2-weight: 600;
+  --app-text-h3-size: 16px;
+  --app-text-h3-weight: 600;
+
+  /* 正文层级 */
+  --app-text-body-size: 14px;
+  --app-text-body-weight: 400;
+  --app-text-small-size: 12px;
+  --app-text-small-weight: 400;
+
+  /* --- 遮罩颜色 --- */
+  --el-mask-color-extra-light: rgba(255, 255, 255, 0.7);
+}
+
+/* 全局工具类 (直接映射到官方变量) */
+.app-h1 {
+  font-size: var(--app-text-h1-size);
+  font-weight: var(--app-text-h1-weight);
+  color: var(--el-text-color-primary);
+}
+.app-h2 {
+  font-size: var(--app-text-h2-size);
+  font-weight: var(--app-text-h2-weight);
+  color: var(--el-text-color-primary);
+}
+.app-h3 {
+  font-size: var(--app-text-h3-size);
+  font-weight: var(--app-text-h3-weight);
+  color: var(--el-text-color-primary);
+}
+.app-body {
+  font-size: var(--app-text-body-size);
+  color: var(--el-text-color-regular);
+}
+.app-small {
+  font-size: var(--app-text-small-size);
+  color: var(--el-text-color-secondary);
+}
+
+.app-card {
+  background: var(--el-bg-color);
+  border-radius: var(--app-radius-base);
+  border: 1px solid var(--el-border-color-light);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+html.dark .app-card {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  }
+}

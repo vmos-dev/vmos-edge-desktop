@@ -8,10 +8,29 @@ import { IPC_SEND, IPC_INVOKE, IPC_PUSH, WindowId, IpcResponse } from '@shared/i
 
 /** 获取当前窗口信息 */
 function getWindowInfo(): WindowId {
+  // 1. 同时解析 search (?xxx) 和 hash (#/xxx?yyy) 中的参数
   // @ts-ignore
-  const params = new URLSearchParams(location.search)
-  const deviceId = params.get('deviceId')
-  return deviceId ? { type: 'cloud', deviceId } : { type: 'main' }
+  const searchParams = new URLSearchParams(location.search)
+  // @ts-ignore
+  const hashPart = location.hash?.split('?')?.[1]
+  // @ts-ignore
+  const hashParams = new URLSearchParams(hashPart || '')
+
+  // 2. 优先级从高到低：winType > deviceId
+  const winType = searchParams.get('winType') || hashParams.get('winType')
+  const deviceId = searchParams.get('deviceId') || hashParams.get('deviceId')
+
+  if (winType === 'main') return { type: 'main' }
+  if (deviceId) return { type: 'cloud', deviceId }
+
+  // 3. 严格判定：如果既没有 main 标识也没有 deviceId，且路径包含 /phone，判定为云机
+  // @ts-ignore
+  if (location.hash?.includes('/phone')) {
+    return { type: 'cloud', deviceId: 'unknown' }
+  }
+
+  // 只有真正不带任何特征的才判定为主窗口
+  return { type: 'main' }
 }
 
 /** 当前窗口信息 */

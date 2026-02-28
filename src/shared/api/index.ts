@@ -1,3 +1,5 @@
 export * from './config'
 export * from './request'
 export * from './utils'
+export * from './controlConfig'
+export * from './types'

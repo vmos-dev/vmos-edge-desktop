@@ -4,9 +4,13 @@
 </template>
 
 <script setup lang="tsx">
+import { computed } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
 import { ElTag, ElButton, TableV2FixedDir } from 'element-plus'
 import { CopyText } from '@renderer/components'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export interface ImageItem {
   id: string
@@ -25,11 +29,11 @@ const emit = defineEmits<{
   (e: 'delete', row: ImageItem): void
 }>()
 
-const columns = [
+const columns = computed(() => [
   {
     key: 'name',
     dataKey: 'name',
-    title: '镜像名称',
+    title: t('image.imageName'),
     width: 200,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => <CopyText text={cellData} />
@@ -37,7 +41,7 @@ const columns = [
   {
     key: 'version',
     dataKey: 'version',
-    title: '镜像版本',
+    title: t('image.imageVersion'),
     width: 220,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => <CopyText text={cellData} />
@@ -45,7 +49,7 @@ const columns = [
   {
     key: 'androidVersion',
     dataKey: 'androidVersion',
-    title: 'Android版本',
+    title: t('image.androidVersion'),
     width: 120,
     cellRenderer: ({ cellData }) => (
       <ElTag effect="light" round>
@@ -56,18 +60,18 @@ const columns = [
   {
     key: 'size',
     dataKey: 'size',
-    title: '文件大小',
+    title: t('image.fileSize'),
     width: 120
   },
   {
     key: 'importTime',
     dataKey: 'importTime',
-    title: '导入时间',
+    title: t('image.importTime'),
     width: 180
   },
   {
     key: 'action',
-    title: '操作',
+    title: t('common.action'),
     width: 100,
     fixed: TableV2FixedDir.RIGHT,
     align: 'center' as const,
@@ -79,9 +83,9 @@ const columns = [
         plain
         onClick={() => emit('delete', rowData)}
       >
-        删除
+        {t('common.delete')}
       </ElButton>
     )
   }
-]
+])
 </script>

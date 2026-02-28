@@ -10,8 +10,11 @@
 import { copyToClipboard } from '@renderer/utils/index'
 import { ElMessage } from 'element-plus'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 defineOptions({ name: 'CopyText' })
+
+const { t } = useI18n()
 
 const props = defineProps<{
   text?: string
@@ -26,6 +29,6 @@ const styles = computed(() => {
 
 const handleCopy = () => {
   if (!props.text) return
-  copyToClipboard(props.text, () => ElMessage.success('复制成功'))
+  copyToClipboard(props.text, () => ElMessage.success(t('common.copySuccess')))
 }
 </script>

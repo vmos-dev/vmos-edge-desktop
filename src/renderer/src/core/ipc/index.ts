@@ -24,7 +24,13 @@ export {
   // 桥接事件
   BRIDGE_MAIN_TO_CLOUD,
   BRIDGE_CLOUD_TO_MAIN,
-  BRIDGE_BROADCAST
+  BRIDGE_BROADCAST,
+  // MediaMTX 事件
+  MEDIAMTX_START,
+  MEDIAMTX_STOP,
+  MEDIAMTX_GET_STATUS,
+  MEDIAMTX_STATUS_CHANGE,
+  MEDIAMTX_LOG
 } from '@shared/ipc'
 
 // 重新导出类型
@@ -33,7 +39,10 @@ export type {
   CreateCloudParams,
   CloudStatusData,
   WindowResizeParams,
-  DevicePorts
+  DevicePorts,
+  StartMediaServerOptions,
+  StartMediaServerResult,
+  MediaServerStatus
 } from '@shared/ipc'
 
 // ==================== IPC 函数 ====================

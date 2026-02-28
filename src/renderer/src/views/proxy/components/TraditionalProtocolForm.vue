@@ -1,35 +1,35 @@
 <template>
   <div class="traditional-protocol-form">
-    <el-form-item label="地址" prop="host">
+    <el-form-item :label="t('proxy.address')" prop="host">
       <el-input
         v-model.trim="modelValue.host"
         maxlength="200"
         show-word-limit
-        placeholder="请输入地址"
+        :placeholder="t('proxy.addressPlaceholder')"
       />
     </el-form-item>
-    <el-form-item label="端口" prop="port">
+    <el-form-item :label="t('proxy.port')" prop="port">
       <el-input-number
         v-model="modelValue.port"
         :min="1"
         :max="65535"
-        placeholder="请输入端口"
+        :placeholder="t('proxy.portPlaceholder')"
         style="width: 100%"
       />
     </el-form-item>
-    <el-form-item label="用户名" prop="username">
+    <el-form-item :label="t('proxy.username')" prop="username">
       <el-input
         v-model.trim="modelValue.username"
         maxlength="200"
         show-word-limit
-        placeholder="请输入用户名（可选）"
+        :placeholder="t('proxy.usernamePlaceholder')"
       />
     </el-form-item>
-    <el-form-item label="密码" prop="password">
+    <el-form-item :label="t('proxy.password')" prop="password">
       <el-input
         v-model.trim="modelValue.password"
         type="password"
-        placeholder="请输入密码（可选）"
+        :placeholder="t('proxy.passwordOptional')"
         show-password
         maxlength="200"
         show-word-limit
@@ -41,6 +41,9 @@
 <script setup lang="ts">
 import parseUri from '@renderer/utils/uri-parser'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 const modelValue = defineModel<any>({ required: true })
 
 /**

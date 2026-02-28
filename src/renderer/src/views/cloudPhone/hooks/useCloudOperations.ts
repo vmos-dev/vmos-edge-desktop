@@ -1,11 +1,13 @@
-import { toRaw } from 'vue'
+import { toRaw, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ipc, CLOUD_CREATE, CLOUD_CLOSE, CLOUD_ARRANGE } from '@renderer/core/ipc'
 import { DATA_EVENTS, type Device, DeviceState, type Host } from '@shared/ipc/data.types'
 import type { TreeNode } from './useCloudTree'
-import { DeviceStateMap, DeviceType } from '@renderer/utils/constant'
+import { DeviceType } from '@renderer/utils/constant'
+import { getDeviceStateText } from '@renderer/utils/i18n-maps'
 import { request, getErrorMessage } from '@shared/api'
 import { buildApiUrl, API_CONFIG } from '@shared/api'
+import { useI18n } from 'vue-i18n'
 
 // 接口定义操作所需的 Refs
 export interface OperationRefs {
@@ -19,7 +21,14 @@ export interface OperationRefs {
   execCommandRef: any
   batchInstallRef: any
   modifyPositionRef: any
+  modifySystemPropertiesRef: any
   // 其他弹窗 Ref 可以根据需要添加
+}
+
+export interface CloudContext {
+  hostIpMap: Map<string, TreeNode>
+  allHostsMap: Map<string, Host>
+  getRunningCountByHostIp: (ip: string) => number
 }
 
 // const parseImageDate = (version: string): number => {
@@ -28,24 +37,26 @@ export interface OperationRefs {
 // }
 
 // const imageSupportVersionTime = __IMAGE_SUPPORT_VERSION_TIME__
-export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: OperationRefs) {
+export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
+  const { t } = useI18n()
+  const { hostIpMap, allHostsMap, getRunningCountByHostIp } = context
   console.log('useCloudOperations initialized with refs:', refs, 'keys:', Object.keys(refs))
-  const deviceMenuList: { label: string; command: string; divided?: boolean }[] = [
-    { label: '启动云机', command: 'start' },
-    { label: '重启云机', command: 'restart' },
-    { label: '关闭云机', command: 'shutdown' },
-    { label: '云机详情', command: 'cloud-details', divided: true },
-    { label: '修改名称', command: 'rename' },
-    { label: 'API接口', command: 'api-interface' },
-    { label: '修改镜像', command: 'modify-config', divided: true },
-    { label: '设置代理', command: 'set-proxy' },
-    { label: '关闭代理', command: 'close-proxy' },
-    { label: '语言时区', command: 'set-timezone-language' },
-    { label: '一键新机', command: 'renew', divided: true },
-    { label: '重置云机', command: 'reset' },
-    { label: '克隆云机', command: 'clone' },
-    { label: '删除云机', command: 'delete', divided: true }
-  ]
+  const deviceMenuList = computed<{ label: string; command: string; divided?: boolean }[]>(() => [
+    { label: t('cloudPhone.startDevice'), command: 'start' },
+    { label: t('cloudPhone.restartDevice'), command: 'restart' },
+    { label: t('cloudPhone.shutdownDevice'), command: 'shutdown' },
+    { label: t('cloudPhone.deviceDetails'), command: 'cloud-details', divided: true },
+    { label: t('cloudPhone.rename'), command: 'rename' },
+    { label: t('cloudPhone.apiInterface'), command: 'api-interface' },
+    { label: t('cloudPhone.modifyImage'), command: 'modify-config', divided: true },
+    { label: t('cloudPhone.setProxy'), command: 'set-proxy' },
+    { label: t('cloudPhone.closeProxy'), command: 'close-proxy' },
+    { label: t('cloudPhone.setTimezoneLanguage'), command: 'set-timezone-language' },
+    { label: t('cloudPhone.renewDevice'), command: 'renew', divided: true },
+    { label: t('cloudPhone.resetDevice'), command: 'reset' },
+    { label: t('cloudPhone.cloneDevice'), command: 'clone' },
+    { label: t('cloudPhone.deleteDevice'), command: 'delete', divided: true }
+  ])
 
   const getDeviceMenuItems = (device: Device) => {
     if (!device) return []
@@ -65,35 +76,46 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
         //  'renew',
         'api-interface'
       ]
-      return deviceMenuList.filter((item) => allowedCommands.includes(item.command))
+      return deviceMenuList.value.filter((item) => allowedCommands.includes(item.command))
     }
 
-    return deviceMenuList.filter((item) => item.command !== 'start')
+    if (state === DeviceState.StateFailed) {
+      const allowedCommands = ['start']
+      return deviceMenuList.value.filter((item) => allowedCommands.includes(item.command))
+    }
+
+    return deviceMenuList.value.filter((item) => item.command !== 'start')
   }
 
-  const getBatchOperationItems = (_rows: Device[]) => {
+  const batchOperationItems = computed(() => {
     return [
       // 启动/重启/关闭相关
-      { label: '启动云机', command: 'start' },
-      { label: '重启云机', command: 'restart' },
-      { label: '关闭云机', command: 'shutdown' },
+      { label: t('cloudPhone.startDevice'), command: 'start' },
+      { label: t('cloudPhone.restartDevice'), command: 'restart' },
+      { label: t('cloudPhone.shutdownDevice'), command: 'shutdown' },
 
       // 镜像与系统操作
-      { label: '一键新机', command: 'renew', divided: true },
-      { label: '重置云机', command: 'reset' },
-      { label: '删除云机', command: 'delete' },
+      { label: t('cloudPhone.renewDevice'), command: 'renew', divided: true },
+      { label: t('cloudPhone.resetDevice'), command: 'reset' },
+      { label: t('cloudPhone.deleteDevice'), command: 'delete' },
 
       // 工具和功能操作
-      { label: '执行命令', command: 'execute-command', divided: true },
-      { label: '批量安装', command: 'batch-install' },
-      { label: '批量上传', command: 'batch-upload' },
-      { label: '修改位置', command: 'modify-location' },
+      { label: t('cloudPhone.executeCommand'), command: 'execute-command', divided: true },
+      { label: t('cloudPhone.batchInstall'), command: 'batch-install' },
+      { label: t('cloudPhone.batchUpload'), command: 'batch-upload' },
+      { label: t('cloudPhone.modifyLocation'), command: 'modify-location' },
+      { label: t('cloudPhone.modifySystemProperties'), command: 'modify-system-properties' },
 
       // 其它便利功能
-      { label: '一键投屏', command: 'cast', divided: true },
-      { label: '一键排序', command: 'sort' },
-      { label: '一键关闭', command: 'close-window' }
+      { label: t('cloudPhone.cast'), command: 'cast', divided: true },
+      { label: t('cloudPhone.sort'), command: 'sort' },
+      { label: t('cloudPhone.closeWindow'), command: 'close-window' }
     ]
+  })
+
+  const getBatchOperationItems = (_rows?: Device[]) => {
+    // 参数保留以保持兼容性，但实际上不使用
+    return batchOperationItems.value
   }
 
   const handleOpenWindow = (row: Device) => {
@@ -116,10 +138,10 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
           `${API_CONFIG.PATHS.CLOSE_PROXY}/${devices[0].db_id || ''}`
         )
       )
-      ElMessage.success('操作成功')
+      ElMessage.success(t('common.operationSuccess'))
     } catch (error) {
       const errorMsg = getErrorMessage(error)
-      ElMessage.error(errorMsg || '代理关闭失败')
+      ElMessage.error(errorMsg || t('cloudPhone.proxyCloseFailed'))
     }
   }
   // --- Validators ---
@@ -130,9 +152,9 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     devices.some((d) => d.state === state) ? msg : undefined
 
   const requireSingle =
-    (msg: string = '该操作只能针对单个云机') =>
-    (devices: Device[]) =>
-      devices.length !== 1 ? msg : undefined
+    (msg: string = t('cloudPhone.singleDeviceOnly')) =>
+      (devices: Device[]) =>
+        devices.length !== 1 ? msg : undefined
 
   /**
    * 获取设备的实际类型
@@ -161,45 +183,85 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     action: string | ((devices: Device[]) => void | Promise<any>)
   }
 
-  const commandConfigs: Record<string, CommandConfig> = {
+  const commandConfigs = computed<Record<string, CommandConfig>>(() => ({
     reset: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要重置的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.reset') })
         return requireState(
           DeviceState.StateRunning,
-          `仅支持重置处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningState', { action: t('cloudPhone.reset'), state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          `确定要重置${devices.length > 1 ? `选中的 ${devices.length} 台` : ''}云机吗？此操作将清除所有数据且不可恢复，请谨慎操作。`,
+          t('cloudPhone.resetConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
         type: 'warning'
       },
-      action: DATA_EVENTS.DEVICE_RESETED
+      action: async (devices) => {
+        const res = await ipc.invoke<{ resetDevices: Device[]; failedDevices: Device[] }>(
+          DATA_EVENTS.DEVICE_RESETED,
+          devices.map((d) => toRaw(d))
+        )
+        if (res.success && res.data) {
+          const { resetDevices, failedDevices } = res.data
+          if (failedDevices.length > 0) {
+            ElMessage.warning(
+              t('cloudPhone.operationCompleted', { success: resetDevices.length, fail: failedDevices.length })
+            )
+          } else {
+            ElMessage.success(t('cloudPhone.resetSuccess', { count: resetDevices.length }))
+          }
+        } else {
+          ElMessage.error(res.error || t('cloudPhone.resetFailed'))
+        }
+      }
     },
     shutdown: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要关闭的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.shutdown') })
         return requireState(
           DeviceState.StateRunning,
-          `仅支持关闭处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningState', { action: t('cloudPhone.shutdown'), state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          `确定要关闭${devices.length > 1 ? `选中的 ${devices.length} 台` : ''}云机吗？`,
+          t('cloudPhone.shutdownConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
         type: 'warning'
       },
-      action: DATA_EVENTS.DEVICE_SHUTDOWNED
+      action: async (devices) => {
+        const res = await ipc.invoke<{ shutdownDevices: Device[]; failedDevices: Device[] }>(
+          DATA_EVENTS.DEVICE_SHUTDOWNED,
+          devices.map((d) => toRaw(d))
+        )
+        if (res.success && res.data) {
+          const { shutdownDevices, failedDevices } = res.data
+          if (failedDevices.length > 0) {
+            ElMessage.warning(
+              t('cloudPhone.operationCompleted', { success: shutdownDevices.length, fail: failedDevices.length })
+            )
+          } else {
+            ElMessage.success(t('cloudPhone.shutdownSuccess', { count: shutdownDevices.length }))
+          }
+        } else {
+          ElMessage.error(res.error || t('cloudPhone.shutdownFailed'))
+        }
+      }
     },
     start: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要启动的云机'
-        const stateError = requireState(
-          DeviceState.StateStopped,
-          `仅支持启动处于${DeviceStateMap[DeviceState.StateStopped]}状态的云机`
-        )(devices)
-        if (stateError) return stateError
+        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.start') })
+
+        const invalidDevice = devices.find(
+          (d) => d.state !== DeviceState.StateStopped && d.state !== DeviceState.StateFailed
+        )
+
+        if (invalidDevice) {
+          return t('cloudPhone.onlyStoppedOrFailedForStart', {
+            state1: getDeviceStateText(DeviceState.StateStopped),
+            state2: getDeviceStateText(DeviceState.StateFailed)
+          })
+        }
 
         const LIMIT_PER_HOST = 12
         const hostGroups = new Map<string, number>()
@@ -212,93 +274,129 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
         })
 
         for (const [ip, countToStart] of hostGroups) {
-          const hostNode = hostIpMap.get(ip)
-          if (!hostNode || !hostNode.children) continue
-
-          const currentRunningCount = hostNode.children.filter((childNode) => {
-            const device = childNode.originalData as Device
-            return (
-              device.state !== DeviceState.StateStopped && device.state !== DeviceState.StateFailed
-            )
-          }).length
+          const currentRunningCount = getRunningCountByHostIp(ip)
 
           if (currentRunningCount + countToStart > LIMIT_PER_HOST) {
-            return `主机 ${ip} 资源不足（上限 ${LIMIT_PER_HOST} 台），当前已运行 ${currentRunningCount} 台，无法再启动 ${countToStart} 台`
+            return t('cloudPhone.hostResourceInsufficient', { ip, limit: LIMIT_PER_HOST, current: currentRunningCount, count: countToStart })
           }
         }
         return undefined
       },
-      confirm: {
-        message: (devices) =>
-          `确定要启动${devices.length > 1 ? `选中的 ${devices.length} 台` : ''}云机吗？`,
-        type: 'warning'
-      },
-      action: DATA_EVENTS.DEVICE_STARTED
+      // confirm: {
+      //   message: (devices) =>
+      //     t('cloudPhone.startConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
+      //   type: 'warning'
+      // },
+      action: async (devices) => {
+        const res = await ipc.invoke<{ startedDevices: Device[]; failedDevices: Device[] }>(
+          DATA_EVENTS.DEVICE_STARTED,
+          devices.map((d) => toRaw(d))
+        )
+        if (res.success && res.data) {
+          const { startedDevices, failedDevices } = res.data
+          if (failedDevices.length > 0) {
+            ElMessage.warning(
+              t('cloudPhone.operationCompleted', { success: startedDevices.length, fail: failedDevices.length })
+            )
+          } else {
+            ElMessage.success(t('cloudPhone.startSuccess', { count: startedDevices.length }))
+          }
+        } else {
+          ElMessage.error(res.error || t('cloudPhone.startFailed'))
+        }
+      }
     },
     delete: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要删除的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('common.delete') })
         return requireNotState(
           DeviceState.StateDeleting,
-          '部分选中的云机正在删除中，请勿重复操作'
+          t('cloudPhone.operationException')
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          `确定要删除${devices.length > 1 ? `选中的 ${devices.length} 台` : ''}云机吗？删除后数据无法恢复。`,
+          t('cloudPhone.deleteConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
         type: 'warning'
       },
-      action: DATA_EVENTS.DEVICE_DELETED
+      action: async (devices) => {
+        const res = await ipc.invoke<{ deletedDevices: Device[]; failedDevices: Device[] }>(
+          DATA_EVENTS.DEVICE_DELETED,
+          devices.map((d) => toRaw(d))
+        )
+        if (res.success && res.data) {
+          const { deletedDevices, failedDevices } = res.data
+          if (failedDevices.length > 0) {
+            ElMessage.warning(
+              t('cloudPhone.operationCompleted', { success: deletedDevices.length, fail: failedDevices.length })
+            )
+          } else {
+            ElMessage.success(t('cloudPhone.deleteSuccess', { count: deletedDevices.length }))
+          }
+        } else {
+          ElMessage.error(res.error || t('common.deleteFailed'))
+        }
+      }
     },
     restart: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要重启的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.restart') })
         return requireState(
           DeviceState.StateRunning,
-          `仅支持重启处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningState', { action: t('cloudPhone.restart'), state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          `确定要重启${devices.length > 1 ? `选中的 ${devices.length} 台` : ''}云机吗？运行中的任务将会中断。`,
+          t('cloudPhone.restartConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
         type: 'warning'
       },
-      action: DATA_EVENTS.DEVICE_RESTARTED
+      action: async (devices) => {
+        const res = await ipc.invoke<{ restartedDevices: Device[]; failedDevices: Device[] }>(
+          DATA_EVENTS.DEVICE_RESTARTED,
+          devices.map((d) => toRaw(d))
+        )
+        if (res.success && res.data) {
+          const { restartedDevices, failedDevices } = res.data
+          if (failedDevices.length > 0) {
+            ElMessage.warning(
+              t('cloudPhone.operationCompleted', { success: restartedDevices.length, fail: failedDevices.length })
+            )
+          } else {
+            ElMessage.success(t('cloudPhone.restartSuccess', { count: restartedDevices.length }))
+          }
+        } else {
+          ElMessage.error(res.error || t('cloudPhone.restartFailed'))
+        }
+      }
     },
     rename: {
       validator: (devices) => {
-        if (devices.length === 0) return '请选择需要修改名称的云机'
-        return requireSingle('请选择单台云机进行名称修改')(devices)
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.rename') })
+        return requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.rename') }))(devices)
       },
       action: (devices) => refs.updateDeviceNameRef.value?.init(devices[0])
     },
     'modify-config': {
       validator: (devices) => {
-        if (devices.length === 0) return '请选择需要修改镜像的云机'
-        return requireSingle('请选择单台云机修改镜像')(devices)
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifyImage') })
+        return requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.modifyImage') }))(devices)
       },
       action: (devices) => {
         const device = devices[0]
         const hostIp = device.host_ip || ''
+        // 优先从 hostIpMap 获取 (Host模式)，降级从 allHostsMap 获取 (Device模式)
         const hostNode = hostIpMap.get(hostIp)
-        // hostNode.originalData is used in index.vue, but check TreeNode definition
-        // In index.vue: data.originalData as Host.
-        // Let's assume TreeNode has originalData or data.
-        // In read_file of index.vue: data.originalData.
-        // In useCloudTree.ts (not read fully), but let's check generic TreeNode usage.
-        // We'll try accessing data or originalData.
-        // Actually, if I look at index.vue, it accesses `data.originalData`.
-        // So I will use `(hostNode as any)?.originalData`.
-        const host = (hostNode as any)?.originalData
+        const host = (hostNode as any)?.originalData || allHostsMap.get(hostIp)
         refs.updateImageRef.value?.init(device, host)
       }
     },
     'set-proxy': {
       validator: (devices) => {
-        if (devices.length === 0) return '请选择需要设置代理的云机'
-        const singleError = requireSingle('请选择单台云机设置代理')(devices)
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.setProxy') })
+        const singleError = requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.setProxy') }))(devices)
         if (singleError) return singleError
-        return requireState(DeviceState.StateRunning, `仅支持为运行中的云机设置代理`)(devices)
+        return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForProxy'))(devices)
       },
       action: (devices) => {
         if (refs.setProxyRef && refs.setProxyRef.value) {
@@ -308,10 +406,10 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     },
     'close-proxy': {
       validator: (devices) => {
-        if (devices.length === 0) return '请选择需要关闭代理的云机'
-        const singleError = requireSingle('请选择单台云机关闭代理')(devices)
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeProxy') })
+        const singleError = requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.closeProxy') }))(devices)
         if (singleError) return singleError
-        return requireState(DeviceState.StateRunning, `仅支持为运行中的云机关闭代理`)(devices)
+        return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForCloseProxy'))(devices)
       },
       action: (devices) => {
         handleCloseProxy(devices)
@@ -319,10 +417,10 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     },
     'set-timezone-language': {
       validator: (devices) => {
-        if (devices.length === 0) return '请选择需要设置语言时区的云机'
-        const singleError = requireSingle('请选择单台云机设置语言时区')(devices)
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.setTimezoneLanguage') })
+        const singleError = requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.setTimezoneLanguage') }))(devices)
         if (singleError) return singleError
-        return requireState(DeviceState.StateRunning, `仅支持为运行中的云机设置语言时区`)(devices)
+        return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForTimezone'))(devices)
       },
       action: (devices) => {
         if (refs.setTimeZoneLanguageRef && refs.setTimeZoneLanguageRef.value) {
@@ -332,12 +430,12 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     },
     renew: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要一键新机的云机'
+        if (devices.length === 0) return t('cloudPhone.selectRenewDevices')
 
         // 状态必须是运行中
         const stateError = requireState(
           DeviceState.StateRunning,
-          `仅支持一键新机处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningForRenew', { state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
         if (stateError) return stateError
 
@@ -351,7 +449,7 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
           )
 
           if (hasDifferentType) {
-            return `批量一键新机时，所有云机类型必须一致。当前选中了不同类型的云机。`
+            return t('cloudPhone.sameDeviceTypeRequired')
           }
         }
 
@@ -362,24 +460,26 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
         devices.forEach((d) => {
           const hostIp = d.host_ip || ''
           const hostNode = hostIpMap.get(hostIp)
-          const host = (hostNode as any)?.originalData as Host
+          const host = ((hostNode as any)?.originalData as Host) || allHostsMap.get(hostIp)
           if (host) {
             hosts.set(hostIp, host)
           }
         })
-        refs.newMachineRef.value?.init(devices, hosts)
+        if (refs.newMachineRef && refs.newMachineRef.value) {
+          refs.newMachineRef.value.init(devices, hosts)
+        }
       }
     },
     'api-interface': {
-      validator: requireSingle('请选择单台云机查看API接口'),
+      validator: requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.apiInterface') })),
       action: DATA_EVENTS.HOST_OPEN_API_DETAIL
     },
     'execute-command': {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.executeCommand') })
         return requireState(
           DeviceState.StateRunning,
-          `仅支持为处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机执行命令`
+          t('cloudPhone.onlyRunningForCommand', { state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       action: (devices) => {
@@ -389,7 +489,7 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
       }
     },
     'cloud-details': {
-      validator: requireSingle('请选择单台云机查看详情'),
+      validator: requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.deviceDetails') })),
       action: (devices) => {
         console.log('cloud-details action triggered', devices, refs.deviceInfoRef)
         if (refs.deviceInfoRef && refs.deviceInfoRef.value) {
@@ -402,14 +502,16 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     clone: {
       validator: requireState(
         DeviceState.StateStopped,
-        `仅支持克隆处于${DeviceStateMap[DeviceState.StateStopped]}状态的云机`
+        t('cloudPhone.onlyStoppedForClone', { state: getDeviceStateText(DeviceState.StateStopped) })
       ),
       action: (devices) => {
         if (refs.deviceCloneRef && refs.deviceCloneRef.value) {
           // 需要获取 host 数据，这里暂时只传 device
           // 如果需要 host，可以从 hostIpMap 获取
           const device = devices[0]
-          const host = hostIpMap.get(device.host_ip || '')
+          const hostIp = device.host_ip || ''
+          const hostNode = hostIpMap.get(hostIp)
+          const host = (hostNode as any)?.originalData || allHostsMap.get(hostIp)
           refs.deviceCloneRef.value.init(device, host)
         }
       }
@@ -419,17 +521,17 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
         devices.some(
           (d) => d.state === DeviceState.StateUpgrading || d.state === DeviceState.StateDeleting
         )
-          ? '部分选中的云机正在升级或删除中，暂时无法执行升级操作'
+          ? t('cloudPhone.operationException')
           : undefined,
       action: () => console.log('升级云机')
     },
     cast: {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要投屏的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.cast') })
 
         const stateError = requireState(
           DeviceState.StateRunning,
-          `仅支持投屏处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningForCast', { state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
         if (stateError) return stateError
 
@@ -463,10 +565,10 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     },
     'batch-install': {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要批量安装的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.batchInstall') })
         return requireState(
           DeviceState.StateRunning,
-          `仅支持批量安装处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningForInstall', { state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       action: (devices) => {
@@ -475,10 +577,10 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     },
     'batch-upload': {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要批量上传的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevicesForBatchUpload')
         return requireState(
           DeviceState.StateRunning,
-          `仅支持批量上传处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.batchUploadOnlyRunning', { state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       action: (devices) => {
@@ -487,17 +589,37 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
     },
     'modify-location': {
       validator: (devices) => {
-        if (devices.length === 0) return '请先选择需要修改位置的云机'
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifyLocation') })
         return requireState(
           DeviceState.StateRunning,
-          `仅支持修改位置处于${DeviceStateMap[DeviceState.StateRunning]}状态的云机`
+          t('cloudPhone.onlyRunningForLocation', { state: getDeviceStateText(DeviceState.StateRunning) })
         )(devices)
       },
       action: (devices) => {
         refs.modifyPositionRef.value?.init(devices)
       }
+    },
+    'modify-system-properties': {
+      validator: (devices) => {
+        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifySystemProperties') })
+
+        const invalidDevice = devices.find(
+          (d) => d.state !== DeviceState.StateRunning && d.state !== DeviceState.StateStopped
+        )
+
+        if (invalidDevice) {
+          return t('cloudPhone.onlyRunningOrStoppedForProperties', {
+            state1: getDeviceStateText(DeviceState.StateRunning),
+            state2: getDeviceStateText(DeviceState.StateStopped)
+          })
+        }
+        return undefined
+      },
+      action: (devices) => {
+        refs.modifySystemPropertiesRef.value?.init(devices)
+      }
     }
-  }
+  }))
 
   /**
    * 统一执行命令
@@ -512,12 +634,12 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
       const originalCount = devices.length
       devices = devices.filter((d) => d.state !== DeviceState.StateOffline)
       if (devices.length === 0 && originalCount > 0) {
-        ElMessage.warning('没有可操作的设备')
+        ElMessage.warning(t('common.noData'))
         return
       }
     }
 
-    const config = commandConfigs[command]
+    const config = commandConfigs.value[command]
     if (!config) return
 
     // 1. 执行前校验 (Validator)
@@ -537,9 +659,9 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
           : config.confirm.message
 
       try {
-        await ElMessageBox.confirm(message, config.confirm.title || '操作确认', {
-          confirmButtonText: '确认',
-          cancelButtonText: '取消',
+        await ElMessageBox.confirm(message, config.confirm.title || t('common.tips'), {
+          confirmButtonText: t('common.confirm'),
+          cancelButtonText: t('common.cancel'),
           type: config.confirm.type
         })
       } catch {
@@ -557,9 +679,9 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
           devices.map((d) => toRaw(d))
         )
         if (res.success) {
-          ElMessage.success('操作成功')
+          ElMessage.success(t('common.operationSuccess'))
         } else {
-          ElMessage.error(res.error || '操作失败')
+          ElMessage.error(res.error || t('common.operationFailed'))
         }
       } else {
         // 函数形式：直接执行回调
@@ -567,7 +689,7 @@ export function useCloudOperations(hostIpMap: Map<string, TreeNode>, refs: Opera
       }
     } catch (e) {
       console.error(e)
-      ElMessage.error('操作异常')
+      ElMessage.error(t('cloudPhone.operationException'))
     }
   }
 

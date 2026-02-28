@@ -92,6 +92,21 @@ export function registerProxyHandlers() {
     }
   )
 
+  // 批量添加代理
+  handle<Omit<Proxy, 'id' | 'createTime' | 'lastCheckStatus'>[], { success: number; failed: number; errors: string[] }>(
+    PROXY_EVENTS.BATCH_ADD_PROXY,
+    async (proxies) => {
+      logger.info(`[ProxyHandler] BATCH_ADD_PROXY request: count=${proxies.length}`)
+      try {
+        const result = await proxyManager.batchAddProxies(proxies)
+        logger.info(`[ProxyHandler] BATCH_ADD_PROXY success`)
+        return { success: true, data: result }
+      } catch (error) {
+        return handleError(error)
+      }
+    }
+  )
+
   // 更新代理
   handle<
     {
@@ -124,21 +139,26 @@ export function registerProxyHandlers() {
   })
 
   // 检查代理有效性
-  handle<Proxy, { success: boolean; error?: string }>(PROXY_EVENTS.CHECK_PROXY, async (proxy) => {
-    logger.info(
-      `[ProxyHandler] CHECK_PROXY request: ${proxy.protocol}://${proxy.host}:${proxy.port}`
-    )
-    try {
-      const result = await proxyManager.checkProxy(proxy)
-      logger.info(`[ProxyHandler] CHECK_PROXY success: success=${result.success}`)
-      return {
-        success: true,
-        data: result
+  handle<Proxy | Proxy[], { success: boolean; error?: string }>(
+    PROXY_EVENTS.CHECK_PROXY,
+    async (proxy) => {
+      const isArray = Array.isArray(proxy)
+      const firstProxy = isArray ? proxy[0] : proxy
+      logger.info(
+        `[ProxyHandler] CHECK_PROXY request: ${firstProxy.protocol}://${firstProxy.host}:${firstProxy.port}${isArray ? ` (Total: ${proxy.length})` : ''}`
+      )
+      try {
+        const result = await proxyManager.checkProxy(proxy)
+        logger.info(`[ProxyHandler] CHECK_PROXY success: success=${result.success}`)
+        return {
+          success: true,
+          data: result
+        }
+      } catch (error) {
+        return handleError(error)
       }
-    } catch (error) {
-      return handleError(error)
     }
-  })
+  )
 
   logger.info('[ProxyHandler] ✅ 代理处理器已注册')
 }

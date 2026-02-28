@@ -1,84 +1,41 @@
 <template>
-  <vmos-dialog
-    v-model="visible"
-    title="修改位置"
-    :show-close="!isProcessing"
-    width="75%"
-    class="update-edit-dialog"
-    @closed="handleClose"
-  >
+  <vmos-dialog v-model="visible" :title="t('cloudPhone.modifyPosition')" :show-close="!isProcessing" width="75%"
+    class="update-edit-dialog" @closed="handleClose">
     <div class="modify-position-content">
       <div class="header-control">
-        <el-form
-          ref="formRef"
-          :model="locationForm"
-          :rules="formRules"
-          label-width="auto"
-          :inline="false"
-          class="location-form"
-        >
-          <el-form-item label="经纬度">
-            <el-input
-              v-model="coordinate"
-              placeholder="请选择或输入经纬度"
-              style="width: 200px"
-              clearable
-            />
+        <el-form ref="formRef" :model="locationForm" :rules="formRules" label-width="auto" :inline="false"
+          class="location-form">
+          <el-form-item :label="t('cloudPhone.coordinate')">
+            <el-input v-model="coordinate" :placeholder="t('cloudPhone.coordinatePlaceholder')" style="width: 200px"
+              clearable />
           </el-form-item>
-          <el-form-item label="海拔(米)" prop="altitude">
-            <el-input-number
-              v-model="locationForm.altitude"
-              placeholder="海拔"
-              :precision="2"
-              :step="0.1"
-              style="width: 150px"
-              clearable
-            />
+          <el-form-item :label="t('cloudPhone.altitude')" prop="altitude">
+            <el-input-number v-model="locationForm.altitude" :placeholder="t('cloudPhone.altitudePlaceholder')"
+              :precision="2" :step="0.1" style="width: 150px" clearable />
           </el-form-item>
-          <el-form-item label="速度(米/秒)" prop="speed">
-            <el-input-number
-              v-model="locationForm.speed"
-              placeholder="速度"
-              :min="0"
-              :precision="2"
-              :step="0.1"
-              style="width: 150px"
-              clearable
-            />
+          <el-form-item :label="t('cloudPhone.speed')" prop="speed">
+            <el-input-number v-model="locationForm.speed" :placeholder="t('cloudPhone.speedPlaceholder')" :min="0"
+              :precision="2" :step="0.1" style="width: 150px" clearable />
           </el-form-item>
-          <el-form-item label="方位角(度)" prop="bearing">
-            <el-input-number
-              v-model="locationForm.bearing"
-              placeholder="方位角"
-              :min="0"
-              :max="360"
-              :precision="2"
-              :step="0.1"
-              style="width: 150px"
-              clearable
-            />
+          <el-form-item :label="t('cloudPhone.bearing')" prop="bearing">
+            <el-input-number v-model="locationForm.bearing" :placeholder="t('cloudPhone.bearingPlaceholder')" :min="0"
+              :max="360" :precision="2" :step="0.1" style="width: 150px" clearable />
           </el-form-item>
-          <el-form-item label="精度(米)" prop="horizontalAccuracyMeters">
-            <el-input-number
-              v-model="locationForm.horizontalAccuracyMeters"
-              placeholder="精度"
-              :min="0"
-              :precision="2"
-              :step="0.1"
-              style="width: 150px"
-              clearable
-            />
+          <el-form-item :label="t('cloudPhone.accuracy')" prop="horizontalAccuracyMeters">
+            <el-input-number v-model="locationForm.horizontalAccuracyMeters"
+              :placeholder="t('cloudPhone.accuracyPlaceholder')" :min="0" :precision="2" :step="0.1"
+              style="width: 150px" clearable />
           </el-form-item>
         </el-form>
       </div>
 
       <div class="map-selector-content">
-        <span>以下内容来自第三方公开网站，本页面仅提供网页浏览能力，不对内容和服务负责。</span>
+        <span>{{ t('cloudPhone.thirdPartyTip') }}</span>
         <div class="map-selector">
-          <label>第三方地图网站：</label>
+          <label>{{ t('cloudPhone.thirdPartyMap') }}</label>
           <el-radio-group v-model="activeMap" size="default">
-            <el-radio-button label="baidu">百度地图</el-radio-button>
-            <el-radio-button label="amap">高德地图</el-radio-button>
+            <el-radio-button label="baidu">{{ t('cloudPhone.baiduMap') }}</el-radio-button>
+            <el-radio-button label="amap">{{ t('cloudPhone.amap') }}</el-radio-button>
             <el-radio-button label="google">Google Maps</el-radio-button>
           </el-radio-group>
         </div>
@@ -87,31 +44,20 @@
       <div class="browser-container">
         <div class="url-bar-wrapper">
           <div class="url-bar">
-            <el-input
-              v-model="webviewUrl"
-              placeholder="请输入网址或使用默认地图"
-              clearable
-              @keyup.enter="handleNavigate"
-            >
+            <el-input v-model="webviewUrl" :placeholder="t('cloudPhone.urlPlaceholder')" clearable
+              @keyup.enter="handleNavigate">
               <template #append>
-                <el-button @click="handleNavigate">跳转</el-button>
+                <el-button @click="handleNavigate">{{ t('cloudPhone.navigate') }}</el-button>
               </template>
             </el-input>
           </div>
         </div>
 
         <div class="map-container">
-          <webview
-            v-if="visible"
-            ref="webviewRef"
-            :src="webviewUrl"
-            class="map-webview"
-            allowpopups
-            @dom-ready="handleDomReady"
-            @did-finish-load="handleDidFinishLoad"
-            @did-navigate="handleDidNavigate"
-            @console-message="handleConsoleMessage"
-          ></webview>
+          <webview v-if="visible" ref="webviewRef" :src="webviewUrl" class="map-webview" allowpopups
+            @dom-ready="handleDomReady" @did-finish-load="handleDidFinishLoad" @did-navigate="handleDidNavigate"
+            @console-message="handleConsoleMessage">
+          </webview>
         </div>
       </div>
     </div>
@@ -121,31 +67,31 @@
         <div class="queue-status" v-if="isProcessing || taskList.length > 0">
           <div class="status-item processing">
             <span class="dot"></span>
-            <span class="label">进行中</span>
+            <span class="label">{{ t('common.processing') }}</span>
             <span class="count">{{
               taskList.filter((t) => t.status === 'processing').length
-            }}</span>
+              }}</span>
           </div>
           <div class="status-item success">
             <span class="dot"></span>
-            <span class="label">成功</span>
-            <span class="count">{{ taskList.filter((t) => t.status === 'success').length }}</span>
+            <span class="label">{{ t('common.success') }}</span>
+            <span class="count">{{taskList.filter((t) => t.status === 'success').length}}</span>
           </div>
           <div class="status-item error">
             <span class="dot"></span>
-            <span class="label">失败</span>
-            <span class="count">{{ taskList.filter((t) => t.status === 'error').length }}</span>
+            <span class="label">{{ t('common.failed') }}</span>
+            <span class="count">{{taskList.filter((t) => t.status === 'error').length}}</span>
           </div>
           <div class="status-item waiting">
             <span class="dot"></span>
-            <span class="label">等待</span>
-            <span class="count">{{ taskList.filter((t) => t.status === 'waiting').length }}</span>
+            <span class="label">{{ t('cloudPhone.waitingStatus') }}</span>
+            <span class="count">{{taskList.filter((t) => t.status === 'waiting').length}}</span>
           </div>
         </div>
         <div class="dialog-actions">
-          <el-button v-if="!isProcessing" @click="visible = false">关闭</el-button>
+          <el-button v-if="!isProcessing" @click="visible = false">{{ t('cloudPhone.close') }}</el-button>
           <el-button type="primary" :loading="isProcessing" @click="handleConfirm">
-            {{ isProcessing ? '修改中...' : '确定修改' }}
+            {{ isProcessing ? t('cloudPhone.modifying') : t('cloudPhone.confirmModify') }}
           </el-button>
         </div>
       </div>
@@ -158,10 +104,14 @@ import { ElMessage, FormInstance, FormRules } from 'element-plus'
 import { buildApiUrl, API_CONFIG } from '@shared/api/config'
 import { RequestQueue, type RequestTask } from '@renderer/utils/requestQueue'
 import { parseCoordinate } from '@renderer/utils'
+import { useI18n } from 'vue-i18n'
+import { useLocale } from '@renderer/hooks/useLocale'
+const { locale } = useLocale()
 
+const { t } = useI18n()
 const visible = ref(false)
 const devices = ref<any>([])
-const activeMap = ref('baidu')
+const activeMap = ref(locale.value?.indexOf('CN') !== -1 ? 'baidu' : 'google')
 const coordinate = ref('')
 const webviewRef = ref()
 const webviewUrl = ref('')
@@ -183,7 +133,7 @@ const formRules: FormRules = {
         if (value !== undefined && value !== null) {
           const num = Number(value)
           if (isNaN(num)) {
-            callback(new Error('请输入有效的海拔高度'))
+            callback(new Error(t('cloudPhone.enterValidAltitude')))
           } else {
             callback()
           }
@@ -200,7 +150,7 @@ const formRules: FormRules = {
         if (value !== undefined && value !== null) {
           const num = Number(value)
           if (isNaN(num) || num < 0) {
-            callback(new Error('速度必须大于等于 0'))
+            callback(new Error(t('cloudPhone.speedMustPositive')))
           } else {
             callback()
           }
@@ -217,7 +167,7 @@ const formRules: FormRules = {
         if (value !== undefined && value !== null) {
           const num = Number(value)
           if (isNaN(num) || num < 0 || num > 360) {
-            callback(new Error('方位角范围应在 0 到 360 之间'))
+            callback(new Error(t('cloudPhone.bearingRange')))
           } else {
             callback()
           }
@@ -234,7 +184,7 @@ const formRules: FormRules = {
         if (value !== undefined && value !== null) {
           const num = Number(value)
           if (isNaN(num) || num < 0) {
-            callback(new Error('水平定位精度必须大于等于 0'))
+            callback(new Error(t('cloudPhone.accuracyMustPositive')))
           } else {
             callback()
           }
@@ -263,9 +213,9 @@ queue.on('finish', () => {
     const failCount = taskList.value.filter((t) => t.status === 'error').length
 
     if (failCount > 0) {
-      ElMessage.warning(`处理完成：成功 ${successCount} 个，失败 ${failCount} 个`)
+      ElMessage.warning(t('cloudPhone.processingComplete', { success: successCount, fail: failCount }))
     } else {
-      ElMessage.success(`批量修改位置完成，成功 ${successCount} 个`)
+      ElMessage.success(t('cloudPhone.modifyPositionComplete', { success: successCount }))
     }
     isProcessing.value = false
     visible.value = false
@@ -291,11 +241,18 @@ const mapUrls = {
   google: 'https://www.google.com/maps'
 }
 
-const currentMapUrl = computed(() => mapUrls[activeMap.value])
+const currentMapUrl = computed(() => {
+  let url = mapUrls[activeMap.value]
+  if (activeMap.value === 'google') {
+    const lang = locale.value === 'zh-CN' ? 'zh-CN' : 'en'
+    url = `${url}?hl=${lang}`
+  }
+  return url
+})
 
 // 监听地图类型切换，更新地址栏和 webview
-watch(activeMap, (newMap) => {
-  const newUrl = mapUrls[newMap as keyof typeof mapUrls]
+watch(activeMap, () => {
+  const newUrl = currentMapUrl.value
   webviewUrl.value = newUrl
   coordinate.value = ''
   // 更新 webview 地址
@@ -308,6 +265,9 @@ watch(activeMap, (newMap) => {
 
 const init = (targetDevices: any[]) => {
   devices.value = targetDevices
+
+  // 每次打开时根据当前语言重置地图选择
+  activeMap.value = locale.value?.toLowerCase() === 'zh-cn' ? 'baidu' : 'google'
 
   // 初始化地址栏为当前选中的地图 URL
   webviewUrl.value = currentMapUrl.value
@@ -326,14 +286,14 @@ const init = (targetDevices: any[]) => {
 
 const handleNavigate = () => {
   if (!webviewUrl.value) {
-    ElMessage.warning('请输入网址')
+    ElMessage.warning(t('cloudPhone.urlPlaceholder'))
     return
   }
   // 验证 URL 格式
   try {
     new URL(webviewUrl.value)
   } catch {
-    ElMessage.warning('请输入正确的网址格式（如：https://example.com）')
+    ElMessage.warning(t('cloudPhone.urlFormatError'))
     return
   }
   // 更新 webview 地址
@@ -588,7 +548,7 @@ const handleConfirm = async () => {
 
   // 验证经纬度输入
   if (!coordinate.value) {
-    ElMessage.warning('请选择或输入经纬度')
+    ElMessage.warning(t('cloudPhone.selectOrEnterLatLng'))
     return
   }
 
@@ -597,7 +557,7 @@ const handleConfirm = async () => {
     try {
       await formRef.value.validate()
     } catch (e) {
-      ElMessage.warning('请检查表单输入')
+      ElMessage.warning(t('cloudPhone.checkFormInput'))
       return
     }
   }
@@ -606,11 +566,11 @@ const handleConfirm = async () => {
   let longitude: number
   let latitude: number
   try {
-    const parsed = parseCoordinate(coordinate.value)
+    const parsed = parseCoordinate(coordinate.value, activeMap.value === 'google' ? 'latlng' : 'lnglat')
     longitude = parsed.longitude
     latitude = parsed.latitude
   } catch (e: any) {
-    ElMessage.warning(e.message || '请输入正确的经纬度格式（经度,纬度）')
+    ElMessage.warning(e.message || t('cloudPhone.latLngFormatError'))
     return
   }
 
@@ -788,24 +748,31 @@ defineExpose({
 
     &.processing {
       color: var(--el-color-primary);
+
       .dot {
         background-color: var(--el-color-primary);
       }
     }
+
     &.success {
       color: var(--el-color-success);
+
       .dot {
         background-color: var(--el-color-success);
       }
     }
+
     &.error {
       color: var(--el-color-danger);
+
       .dot {
         background-color: var(--el-color-danger);
       }
     }
+
     &.waiting {
       color: var(--el-text-color-secondary);
+
       .dot {
         background-color: var(--el-text-color-secondary);
       }
@@ -821,12 +788,14 @@ defineExpose({
   background-color: #f1f1f1;
   padding: 8px;
   border-radius: 4px;
+
   .map-selector {
     display: flex;
     align-items: center;
     flex-shrink: 0;
   }
 }
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

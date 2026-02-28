@@ -33,3 +33,12 @@ export const CLOUD_ARRANGE = 'cloud:arrange'
 export const BRIDGE_MAIN_TO_CLOUD = 'bridge:mainToCloud'
 export const BRIDGE_CLOUD_TO_MAIN = 'bridge:cloudToMain'
 export const BRIDGE_BROADCAST = 'bridge:broadcast'
+
+// ==================== MediaMTX 事件 ====================
+
+export const MEDIAMTX_START = 'mediamtx:start'
+export const MEDIAMTX_STOP = 'mediamtx:stop'
+export const MEDIAMTX_GET_STATUS = 'mediamtx:getStatus'
+export const MEDIAMTX_STATUS_CHANGE = 'mediamtx:statusChange'
+export const MEDIAMTX_LOG = 'mediamtx:log'
+

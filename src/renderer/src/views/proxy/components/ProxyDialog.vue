@@ -1,7 +1,7 @@
 <template>
   <VmosDialog
     v-model="visible"
-    :title="operationType === 'edit' ? '编辑代理' : '添加代理'"
+    :title="operationType === 'edit' ? t('proxy.editProxy') : t('proxy.addProxy')"
     width="650px"
     :show-close="!saving && !checking"
     :close-on-click-modal="false"
@@ -11,15 +11,15 @@
       <!-- 一键解析区域 -->
       <div class="parse-section">
         <div class="parse-header">
-          <span class="parse-title">自动解析</span>
+          <span class="parse-title">{{ t('proxy.autoParse') }}</span>
           <el-button text type="primary" size="small" @click="showParseHelp = !showParseHelp">
-            <el-icon size="16"><InfoFilled /></el-icon>&nbsp; 格式说明
+            <el-icon size="16"> <InfoFilled /> </el-icon>&nbsp; {{ t('proxy.formatHelp') }}
           </el-button>
         </div>
         <div class="parse-input-group">
           <el-input
             v-model.trim="parseInput"
-            placeholder="粘贴代理字符串，支持多种格式"
+            :placeholder="t('proxy.parsePlaceholder')"
             clearable
             @blur="handleParse"
             @keyup.enter="handleParse"
@@ -28,7 +28,7 @@
         </div>
         <el-collapse-transition>
           <div v-show="showParseHelp" class="parse-help">
-            <div class="help-title">支持的格式：</div>
+            <div class="help-title">{{ t('proxy.supportedFormats') }}</div>
             <div class="help-examples">
               <div class="help-category">
                 <div class="category-title">HTTP / HTTPS：</div>
@@ -42,9 +42,7 @@
                   <code>https://username:password@host:port</code>
                 </div>
                 <div class="help-note" style="padding-left: 12px; margin-top: 4px">
-                  必须使用标准 URL 格式，用户信息位于 @ 之前。
-                  <br />
-                  支持查询参数：tls、fingerprint、skip-cert-verify、ip-version (ipv4/ipv6/dual)
+                  {{ t('proxy.httpHttpsNote') }}
                 </div>
               </div>
               <div class="help-category">
@@ -56,9 +54,7 @@
                   <code>socks5://host:port</code>
                 </div>
                 <div class="help-note" style="padding-left: 12px; margin-top: 4px">
-                  必须使用标准 URL 格式，用户信息位于 @ 之前。
-                  <br />
-                  支持查询参数：tls、fingerprint、skip-cert-verify、udp、ip-version (ipv4/ipv6/dual)
+                  {{ t('proxy.socks5Note') }}
                 </div>
               </div>
               <div class="help-category">
@@ -70,7 +66,7 @@
                   <code>ss://base64(method:password@host:port)[?plugin=...][#remarks]</code>
                 </div>
                 <div class="help-note" style="padding-left: 12px; margin-top: 4px">
-                  支持 SIP002、Legacy 格式，插件参数（plugin、v2ray-plugin），查询参数（uot、tfo）
+                  {{ t('proxy.ssNote') }}
                 </div>
               </div>
               <div class="help-category">
@@ -79,7 +75,7 @@
                   <code>ssr://base64(host:port:protocol:method:obfs:password/...)</code>
                 </div>
                 <div class="help-note" style="padding-left: 12px; margin-top: 4px">
-                  base64 编码格式，支持查询参数：remarks、protoparam、obfsparam
+                  {{ t('proxy.ssrNote') }}
                 </div>
               </div>
               <div class="help-category">
@@ -91,8 +87,7 @@
                   <code>vmess://base64?params</code>
                 </div>
                 <div class="help-note" style="padding-left: 12px; margin-top: 4px">
-                  支持 V2rayN JSON 格式、Shadowrocket 格式 (remarks, obfs, path, tls 等)、Quantumult
-                  格式
+                  {{ t('proxy.vmessNote') }}
                 </div>
               </div>
               <div class="help-category">
@@ -101,7 +96,7 @@
                   <code>vless://uuid@host:port?params#remarks</code>
                 </div>
                 <div class="help-note" style="padding-left: 12px; margin-top: 4px">
-                  支持参数：security, sni, flow, type, serviceName, headerType, host, path, fp,
+                  {{ t('proxy.vlessNote') }}
                   alpn, pbk, sid
                 </div>
               </div>
@@ -118,28 +113,28 @@
         @submit.prevent
       >
         <!-- 共享字段：名称和协议 -->
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('proxy.name')" prop="name">
           <el-input
             v-model.trim="formData.name"
             maxlength="200"
             show-word-limit
-            placeholder="请输入名称"
+            :placeholder="t('proxy.namePlaceholder')"
           />
         </el-form-item>
-        <el-form-item label="代理协议" prop="protocol">
+        <el-form-item :label="t('proxy.protocolLabel')" prop="protocol">
           <el-select
             v-model="formData.protocol"
-            placeholder="请选择代理协议"
+            :placeholder="t('proxy.protocolPlaceholder')"
             style="width: 100%"
             @change="handleProtocolChange"
           >
-            <el-option label="HTTP" value="http" />
-            <!-- <el-option label="HTTPS" value="https" /> -->
-            <el-option label="SOCKS5" value="socks5" />
-            <el-option label="VMess" value="vmess" />
-            <el-option label="VLESS" value="vless" />
-            <el-option label="Shadowsocks (SS)" value="ss" />
-            <el-option label="ShadowsocksR (SSR)" value="ssr" />
+            <el-option :label="t('proxy.protocolHttp')" value="http" />
+            <!-- <el-option :label="t('proxy.protocolHttps')" value="https" /> -->
+            <el-option :label="t('proxy.protocolSocks5')" value="socks5" />
+            <el-option :label="t('proxy.protocolVmess')" value="vmess" />
+            <el-option :label="t('proxy.protocolVless')" value="vless" />
+            <el-option :label="t('proxy.protocolSs')" value="ss" />
+            <el-option :label="t('proxy.protocolSsr')" value="ssr" />
           </el-select>
         </el-form-item>
 
@@ -177,15 +172,17 @@
             :class="['test-result', testResult?.success ? 'test-success' : 'test-failure']"
             v-if="testResult?.success"
           >
-            <el-icon><Check /></el-icon>
+            <el-icon>
+              <Check />
+            </el-icon>
 
             <span
-              >检测通过。
+              >{{ t('proxy.testPassed') }}
               <template v-if="testResult?.data?.providerType !== 'default'">
-                IP: {{ testResult?.data?.ip || '-' }}，地区:
-                {{ testResult?.data?.country || '-' }}，时区：{{
+                {{ t('proxy.ip') }}: {{ testResult?.data?.ip || '-' }}，{{ t('proxy.country') }}:
+                {{ testResult?.data?.country || '-' }}，{{ t('proxy.timezone') }}：{{
                   testResult?.data?.timezone || '-'
-                }}，经纬度: {{ testResult?.data?.loc || '-' }}
+                }}，{{ t('proxy.loc') }}: {{ testResult?.data?.loc || '-' }}
               </template></span
             >
           </div>
@@ -193,8 +190,10 @@
             :class="['test-result', testResult?.success ? 'test-success' : 'test-failure']"
             v-else
           >
-            <el-icon><Close /></el-icon>
-            <span>检测失败! {{ testResult?.error || '' }}</span>
+            <el-icon>
+              <Close />
+            </el-icon>
+            <span>{{ t('proxy.testFailed') }} {{ testResult?.error || '' }}</span>
           </div>
         </template>
       </el-form>
@@ -202,21 +201,22 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <div
-          class="check-strategy-wrapper"
-          v-if="['http', 'https', 'socks5'].includes(formData.protocol)"
-        >
+        <div class="check-strategy-wrapper">
           <div class="check-strategy-group">
-            <span class="check-strategy-label">检测策略：</span>
+            <span class="check-strategy-label">{{ t('proxy.testStrategy') }}</span>
             <el-select
               v-model="checkStrategy"
-              placeholder="请选择"
+              :placeholder="t('proxy.testStrategyPlaceholder')"
               size="small"
               @change="handleCheckStrategyChange"
               style="width: 150px"
             >
-              <el-option label="默认(不支持获取出口信息)" value="default" />
-              <el-option label="IPinfo" value="ipinfo" />
+              <el-option
+                :label="item.label"
+                :value="item.value"
+                v-for="item in ProxyCheckStrategyList"
+                :key="item.value"
+              />
             </el-select>
           </div>
           <el-button
@@ -226,15 +226,16 @@
             plain
             type="primary"
           >
-            <el-icon class="el-icon--left"><Connection /></el-icon>
-            代理检测
+            <el-icon class="el-icon--left">
+              <Connection />
+            </el-icon>
+            {{ t('proxy.testProxy') }}
           </el-button>
         </div>
 
-        <span class="check-strategy-info" v-else> 代理检测功能仅支持 HTTP/HTTPS/SOCKS5 协议 </span>
         <div class="dialog-actions">
           <el-button @click="visible = false" :disabled="saving || checking" size="default">
-            取消
+            {{ t('common.cancel') }}
           </el-button>
           <el-button
             type="primary"
@@ -242,7 +243,7 @@
             @click="handleSave"
             :disabled="saving || checking"
             size="default"
-            >保存</el-button
+            >{{ t('common.save') }}</el-button
           >
         </div>
       </div>
@@ -264,6 +265,10 @@ import SsProtocolForm from './SsProtocolForm.vue'
 import SsrProtocolForm from './SsrProtocolForm.vue'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
+import { ProxyCheckStrategyList } from '@renderer/utils/constant'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const visible = ref(false)
 const saving = ref(false)
@@ -272,6 +277,9 @@ const testResult = ref<{ success: boolean; data?: any; error?: string } | null>(
 const parseInput = ref('')
 const showParseHelp = ref(false)
 const parsedInfo = ref<any>(null)
+// 上次检测完成时间，用于前端节流
+let lastCheckTime = 0
+const CHECK_THROTTLE_MS = 500
 const emit = defineEmits<{
   success: []
 }>()
@@ -365,22 +373,22 @@ const isTraditionalProtocol = computed(() => {
 // 端口验证器
 const portValidator = (_rule: any, value: any, callback: any) => {
   if (value === undefined || value === null || value === '') {
-    callback(new Error('请输入端口'))
+    callback(new Error(t('proxy.portRequired')))
   } else if (typeof value === 'number') {
     if (value < 1 || value > 65535) {
-      callback(new Error('端口范围：1-65535'))
+      callback(new Error(t('proxy.portRange')))
     } else {
       callback()
     }
   } else {
-    callback(new Error('端口必须是数字'))
+    callback(new Error(t('proxy.portMustNumber')))
   }
 }
 
 const formRules = computed(() => {
   const baseRules: any = {
-    name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
-    protocol: [{ required: true, message: '请选择代理协议', trigger: 'change' }]
+    name: [{ required: true, message: t('proxy.namePlaceholder'), trigger: 'blur' }],
+    protocol: [{ required: true, message: t('proxy.protocolPlaceholder'), trigger: 'change' }]
   }
 
   const protocol = formData.value.protocol
@@ -388,23 +396,31 @@ const formRules = computed(() => {
   // 根据协议类型添加地址和端口的必填验证
   if (['http', 'https', 'socks5'].includes(protocol)) {
     // 传统协议
-    baseRules.host = [{ required: true, message: '请输入地址', trigger: 'blur' }]
+    baseRules.host = [{ required: true, message: t('proxy.hostPlaceholder'), trigger: 'blur' }]
     baseRules.port = [{ validator: portValidator, trigger: ['blur', 'change'] }]
   } else if (protocol === 'vmess') {
     // VMess 协议
-    baseRules['vmess.server'] = [{ required: true, message: '请输入服务器地址', trigger: 'blur' }]
+    baseRules['vmess.server'] = [
+      { required: true, message: t('proxy.serverAddressRequired'), trigger: 'blur' }
+    ]
     baseRules['vmess.port'] = [{ validator: portValidator, trigger: ['blur', 'change'] }]
   } else if (protocol === 'vless') {
     // VLESS 协议
-    baseRules['vless.server'] = [{ required: true, message: '请输入服务器地址', trigger: 'blur' }]
+    baseRules['vless.server'] = [
+      { required: true, message: t('proxy.serverAddressRequired'), trigger: 'blur' }
+    ]
     baseRules['vless.port'] = [{ validator: portValidator, trigger: ['blur', 'change'] }]
   } else if (protocol === 'ss') {
     // SS 协议
-    baseRules['ss.server'] = [{ required: true, message: '请输入服务器地址', trigger: 'blur' }]
+    baseRules['ss.server'] = [
+      { required: true, message: t('proxy.serverAddressRequired'), trigger: 'blur' }
+    ]
     baseRules['ss.port'] = [{ validator: portValidator, trigger: ['blur', 'change'] }]
   } else if (protocol === 'ssr') {
     // SSR 协议
-    baseRules['ssr.server'] = [{ required: true, message: '请输入服务器地址', trigger: 'blur' }]
+    baseRules['ssr.server'] = [
+      { required: true, message: t('proxy.serverAddressRequired'), trigger: 'blur' }
+    ]
     baseRules['ssr.port'] = [{ validator: portValidator, trigger: ['blur', 'change'] }]
   }
 
@@ -458,24 +474,18 @@ const resetForm = () => {
 const handleCheckProxy = async () => {
   if (checking.value || saving.value) return
 
-  // VMESS, VLESS, SS, SSR 协议不支持检测
-  if (
-    formData.value.protocol === 'vmess' ||
-    formData.value.protocol === 'vless' ||
-    formData.value.protocol === 'ss' ||
-    formData.value.protocol === 'ssr'
-  ) {
-    ElMessage.warning(`${formData.value.protocol.toUpperCase()} 协议不支持代理检测功能`)
+  // 前端节流：防止快速连续点击
+  const now = Date.now()
+  if (now - lastCheckTime < CHECK_THROTTLE_MS) {
+    console.log('[ProxyDialog] Check throttled, please wait...')
     return
   }
 
   // 先验证必填字段
   try {
-    await formRef.value?.validateField('protocol')
-    await formRef.value?.validateField('host')
-    await formRef.value?.validateField('port')
+    await formRef.value?.validate()
   } catch {
-    ElMessage.warning('请先填写必填字段')
+    ElMessage.warning(t('proxy.fillRequiredFields'))
     return
   }
 
@@ -483,20 +493,23 @@ const handleCheckProxy = async () => {
   testResult.value = null
 
   try {
+    const updateData = buildUpdateData()
     const res = await ipc.invoke<any>(PROXY_EVENTS.CHECK_PROXY, {
-      protocol: formData.value.protocol,
-      host: formData.value.host,
-      port: formData.value.port,
-      username: formData.value.username || undefined,
-      password: formData.value.password || undefined
+      protocol: updateData.protocol,
+      host: updateData.host,
+      port: updateData.port,
+      username: updateData.username || undefined,
+      password: updateData.password || undefined,
+      rawLink: updateData.rawLink || undefined
     })
     if (res.success) {
       testResult.value = { success: true, data: res?.data?.data || {} }
     } else {
-      testResult.value = { success: false, error: res.error || '检测代理失败' }
+      testResult.value = { success: false, error: res.error || t('proxy.testProxyFailed') }
     }
   } finally {
     checking.value = false
+    lastCheckTime = Date.now()
   }
 }
 const buildUpdateData = () => {
@@ -557,14 +570,14 @@ const handleSave = async () => {
         : await ipc.invoke(PROXY_EVENTS.ADD_PROXY, updateData)
 
     if (res.success) {
-      ElMessage.success('操作成功')
+      ElMessage.success(t('common.operationSuccess'))
       visible.value = false
       emit('success')
     } else {
-      ElMessage.error(res.error || '操作失败')
+      ElMessage.error(res.error || t('common.operationFailed'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '操作失败')
+    ElMessage.error(error?.message || t('common.operationFailed'))
   } finally {
     // 等关闭弹窗动画完成后，再设置 loading 为 false
     setTimeout(() => {
@@ -578,7 +591,7 @@ const parseAndMerge = <T extends object>(target: T, rawLink?: string, errorMsg?:
     const config = JSON.parse(rawLink)
     Object.assign(target, config)
   } catch {
-    throw new Error(errorMsg || '解析失败')
+    throw new Error(errorMsg || t('proxy.parseFailed'))
   }
 }
 
@@ -632,10 +645,10 @@ const init = (proxy?: Proxy | null, type: 'add' | 'edit' = 'add') => {
 
   // ③ 协议 map（重点）
   const protocolMap: Record<string, { target: any; error: string }> = {
-    vmess: { target: formData.value.vmess, error: '解析 VMESS 链接失败' },
-    vless: { target: formData.value.vless, error: '解析 VLESS 链接失败' },
-    ss: { target: formData.value.ss, error: '解析 SS 链接失败' },
-    ssr: { target: formData.value.ssr, error: '解析 SSR 链接失败' }
+    vmess: { target: formData.value.vmess, error: t('proxy.parseVmessFailed') },
+    vless: { target: formData.value.vless, error: t('proxy.parseVlessFailed') },
+    ss: { target: formData.value.ss, error: t('proxy.parseSsFailed') },
+    ssr: { target: formData.value.ssr, error: t('proxy.parseSsrFailed') }
   }
 
   const entry = protocolMap[protocol]
@@ -756,6 +769,7 @@ const handleParse = () => {
   max-height: 500px;
   overflow-y: auto;
 }
+
 .test-result {
   padding: 12px 16px;
   border-radius: 4px;
@@ -769,15 +783,15 @@ const handleParse = () => {
   }
 
   &.test-success {
-    background-color: #f0f9ff;
-    color: #67c23a;
+    background-color: var(--el-color-primary-light-9);
+    color: var(--el-color-success);
     border: 1px solid #b3e19d;
   }
 
   &.test-failure {
-    background-color: #fef0f0;
-    color: #f56c6c;
-    border: 1px solid #fbc4c4;
+    background-color: var(--el-color-danger-light-9);
+    color: var(--el-color-danger);
+    border: 1px solid var(--el-color-danger-light-7);
   }
 }
 
@@ -796,8 +810,10 @@ const handleParse = () => {
 
   .check-strategy-info {
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
+    text-align: left;
   }
+
   .check-strategy-group {
     display: flex;
     align-items: center;
@@ -805,7 +821,7 @@ const handleParse = () => {
 
     .check-strategy-label {
       font-size: 13px;
-      color: #606266;
+      color: var(--el-text-color-regular);
       white-space: nowrap;
       font-weight: normal;
     }
@@ -822,9 +838,9 @@ const handleParse = () => {
 .parse-section {
   margin-bottom: 15px;
   padding: 10px;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page);
   border-radius: 4px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--el-border-color);
 }
 
 .parse-header {
@@ -837,7 +853,7 @@ const handleParse = () => {
 .parse-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 .parse-input-group {
@@ -847,15 +863,15 @@ const handleParse = () => {
 .parse-help {
   margin-top: 12px;
   padding: 12px;
-  background-color: #fff;
+  background-color: var(--el-bg-color);
   border-radius: 4px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--el-border-color);
 }
 
 .help-title {
   font-size: 13px;
   font-weight: 500;
-  color: #606266;
+  color: var(--el-text-color-regular);
   margin-bottom: 8px;
 }
 
@@ -874,13 +890,13 @@ const handleParse = () => {
 .category-title {
   font-size: 12px;
   font-weight: 500;
-  color: #409eff;
+  color: var(--el-color-primary);
   margin-bottom: 4px;
 }
 
 .help-item {
   font-size: 12px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -888,24 +904,24 @@ const handleParse = () => {
 
   code {
     padding: 2px 6px;
-    background-color: #f5f7fa;
-    border: 1px solid #e4e7ed;
+    background-color: var(--el-bg-color-page);
+    border: 1px solid var(--el-border-color);
     border-radius: 3px;
     font-family: 'Courier New', monospace;
-    color: #409eff;
+    color: var(--el-color-primary);
     font-size: 12px;
   }
 }
 
 .help-note {
   font-size: 11px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-style: italic;
 }
 
 .form-tip {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   margin-top: 4px;
   line-height: 1.5;
 }

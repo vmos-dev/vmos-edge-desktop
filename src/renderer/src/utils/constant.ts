@@ -1,19 +1,20 @@
-// 设备状态中文映射
+// 设备状态映射 - 已迁移到 i18n-maps.ts
+// 为了向后兼容，这里保留一个简单的映射，但建议使用 getDeviceStateText() 函数
 export const DeviceStateMap = {
-  running: '运行中',
-  stopped: '已关机',
-  creating: '创建中',
-  starting: '启动中',
-  paused: '已暂停',
-  exited: '已退出',
-  stopping: '关机中',
-  rebooting: '重启中',
-  upgrading: '升级中',
-  renewing: '一键新机中',
-  rebuilding: '重置中',
-  deleting: '删除中',
-  failed: '失败',
-  offline: '离线'
+  running: 'running',
+  stopped: 'stopped',
+  creating: 'creating',
+  starting: 'starting',
+  paused: 'paused',
+  exited: 'exited',
+  stopping: 'stopping',
+  rebooting: 'rebooting',
+  upgrading: 'upgrading',
+  renewing: 'renewing',
+  rebuilding: 'rebuilding',
+  deleting: 'deleting',
+  failed: 'failed',
+  offline: 'offline'
 } as const
 
 export const DeviceType = {
@@ -21,9 +22,11 @@ export const DeviceType = {
   REAL: 'real'
 } as const
 
+// 设备类型映射 - 已迁移到 i18n-maps.ts
+// 为了向后兼容，这里保留一个简单的映射，但建议使用 getDeviceTypeText() 函数
 export const DeviceTypeMap = {
-  [DeviceType.VIRTUAL]: '虚拟机',
-  [DeviceType.REAL]: '云真机'
+  [DeviceType.VIRTUAL]: DeviceType.VIRTUAL,
+  [DeviceType.REAL]: DeviceType.REAL
 } as const
 
 // 设备状态颜色
@@ -62,3 +65,20 @@ export const MacvlanPortMap = {
   touch: 9997,
   adb: 5555
 } as const
+
+
+// 代理检测策略 数组
+export const ProxyCheckStrategyList = [
+  {
+    label: 'IPMap',
+    value: 'ipmap'
+  },
+  {
+    label: 'IPinfo',
+    value: 'ipinfo'
+  },
+  {
+    label: 'Default (No exit info support)',
+    value: 'default'
+  },
+]

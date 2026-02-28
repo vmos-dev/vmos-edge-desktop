@@ -1,6 +1,8 @@
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+// import { useI18n } from 'vue-i18n'
 import { debounce } from 'lodash-es'
 import { ipc } from '@renderer/core/ipc'
+import store from 'store'
 import {
   DATA_EVENTS,
   type Group,
@@ -25,17 +27,30 @@ export const defaultProps = {
 }
 
 export function useCloudTree(onDataChanged?: () => void) {
+  // const { t } = useI18n()
   const treeRef = ref()
   const treeData = ref<TreeNode[]>([])
   const isTreeDataLoaded = ref(false)
   const expandedKeys = ref<string[]>([])
   const searchText = ref('')
+  const groupingMode = ref<'host' | 'device'>(store.get('groupingMode') || 'host')
+
+  watch(
+    () => groupingMode.value,
+    (newVal) => {
+      store.set('groupingMode', newVal)
+    }
+  )
 
   // 使用 Map 替代递归查找 (O(1) 访问)
   // nodeMap: 存储所有节点的引用 (GroupId -> Node, HostId -> Node, DeviceId -> Node)
   const nodeMap = new Map<string, TreeNode>()
   // hostIpMap: 存储 Host IP 到 Host 节点的映射，用于设备上报 IP 时快速找到父节点
   const hostIpMap = new Map<string, TreeNode>()
+  // hostIdMap: 存储 Host ID 到 Host 节点的映射
+  const hostIdMap = new Map<string, TreeNode>()
+  // allHostsMap: 存储所有 Host 数据，用于 device 模式下查找 Group
+  const allHostsMap = new Map<string, Host>()
 
   /**
    * 获取节点状态对应的样式类名
@@ -64,7 +79,13 @@ export function useCloudTree(onDataChanged?: () => void) {
    */
   const formatTreeLabel = (node: TreeNode) => {
     const labelMapp = {
-      group: () => (node.originalData as Group).name || '',
+      group: () => {
+        const group = node.originalData as Group
+        // if (group.id === 'default' || group.id === 'device_default') {
+        //   return t('cloudPhone.defaultGroup')
+        // }
+        return group.name || ''
+      },
       host: () => (node.originalData as Host).ip || '',
       device: () => (node.originalData as Device).user_name || ''
     }
@@ -73,7 +94,7 @@ export function useCloudTree(onDataChanged?: () => void) {
 
   // 搜索与筛选
   const onQueryChanged = (query: string) => {
-    treeRef.value!.filter(query)
+    treeRef.value?.filter?.(query)
   }
 
   /**
@@ -102,13 +123,67 @@ export function useCloudTree(onDataChanged?: () => void) {
   const rebuildMaps = (nodes: TreeNode[]) => {
     for (const node of nodes) {
       nodeMap.set(node.id, node)
-      if (node.type === 'host' && (node.originalData as Host).ip) {
-        hostIpMap.set((node.originalData as Host).ip, node)
+      if (node.type === 'host') {
+        const host = node.originalData as Host
+        // 建立双重索引
+        if (host.id) hostIdMap.set(host.id, node)
+        if (host.ip) hostIpMap.set(host.ip, node)
       }
       if (node.children && node.children.length > 0) {
         rebuildMaps(node.children)
       }
     }
+  }
+
+  /**
+   * 辅助函数：对节点列表按IP排序 (仅处理 Host 节点)
+   * 优化说明：
+   * 1. 预处理 IP 为数字元组，避免每次比较都 parse
+   * 2. 缓存转换结果，O(N) 转换 + O(N log N) 排序
+   */
+  const sortHostNodes = (nodes: TreeNode[]) => {
+    // 如果节点数少于 50，直接用 localeCompare 即可，无需优化
+    if (nodes.length < 50) {
+      nodes.sort((a, b) => {
+        if (a.type === 'host' && b.type === 'host') {
+          const ipA = (a.originalData as Host).ip || ''
+          const ipB = (b.originalData as Host).ip || ''
+          return ipA.localeCompare(ipB, undefined, { numeric: true, sensitivity: 'base' })
+        }
+        return 0
+      })
+      return
+    }
+
+    // 大数据量排序优化
+    const ipCache = new Map<string, number[]>()
+
+    // IP 转数字数组辅助函数 (缓存版)
+    const getIpParts = (ip: string): number[] => {
+      if (ipCache.has(ip)) return ipCache.get(ip)!
+      const parts = ip.split('.').map((p) => parseInt(p, 10) || 0)
+      // 补齐 4 位，非标准 IP 也尽量处理
+      while (parts.length < 4) parts.push(0)
+      ipCache.set(ip, parts)
+      return parts
+    }
+
+    nodes.sort((a, b) => {
+      if (a.type !== 'host' || b.type !== 'host') return 0
+
+      const ipA = (a.originalData as Host).ip || ''
+      const ipB = (b.originalData as Host).ip || ''
+
+      const partsA = getIpParts(ipA)
+      const partsB = getIpParts(ipB)
+
+      for (let i = 0; i < 4; i++) {
+        if (partsA[i] !== partsB[i]) {
+          return partsA[i] - partsB[i]
+        }
+      }
+      return 0
+    })
   }
 
   /**
@@ -129,25 +204,43 @@ export function useCloudTree(onDataChanged?: () => void) {
   }
 
   /**
-   * 将后端扁平数据转换为树形结构
-   * 层级：Group -> Host -> Device
+   * 按主机分组构建树 (Group -> Host -> Device)
    */
-  const buildTreeFromFlatData = (flatData: FlatData): TreeNode[] => {
+  const buildHostTree = (flatData: FlatData): TreeNode[] => {
     const { groups, hosts, devices } = flatData
+
+    // 过滤出主机分组 (type 为空或 host)
+    const hostGroups = groups.filter((g) => !g.type || g.type === 'host')
+    const hostGroupIds = new Set(hostGroups.map((g) => g.id))
 
     // 1. 按 GroupId 分组 Host
     const hostsByGroup = new Map<string, Host[]>()
+
     hosts.forEach((host) => {
       const groupId = host.groupId || 'default'
-      if (!hostsByGroup.has(groupId)) {
-        hostsByGroup.set(groupId, [])
+      if (hostGroupIds.has(groupId)) {
+        if (!hostsByGroup.has(groupId)) {
+          hostsByGroup.set(groupId, [])
+        }
+        hostsByGroup.get(groupId)!.push(host)
       }
-      hostsByGroup.get(groupId)!.push(host)
     })
 
-    // 2. 按 HostIp 分组 Device
+    // 2. 按 HostIp/HostId 分组 Device
+    const devicesByHostId = new Map<string, Device[]>()
     const devicesByHostIp = new Map<string, Device[]>()
+
     devices.forEach((device) => {
+      // 优先使用 hostId
+      if (device.hostId) {
+        if (!devicesByHostId.has(device.hostId)) {
+          devicesByHostId.set(device.hostId, [])
+        }
+        devicesByHostId.get(device.hostId)!.push(device)
+        return
+      }
+
+      // 降级使用 host_ip
       const hostIp = device.host_ip || ''
       if (!hostIp) return
       if (!devicesByHostIp.has(hostIp)) {
@@ -157,7 +250,7 @@ export function useCloudTree(onDataChanged?: () => void) {
     })
 
     // 3. 递归构建树
-    return groups.map((group) => {
+    const nodes = hostGroups.map((group) => {
       const groupNode: TreeNode = {
         id: group.id,
         type: 'group' as const,
@@ -176,7 +269,10 @@ export function useCloudTree(onDataChanged?: () => void) {
           parent: groupNode
         }
 
-        const hostDevices = devicesByHostIp.get(host.ip || '') || []
+        // 合并 ID 匹配和 IP 匹配的设备
+        const byId = devicesByHostId.get(host.id) || []
+        const byIp = devicesByHostIp.get(host.ip || '') || []
+        const hostDevices = [...byId, ...byIp]
 
         const deviceNodes: TreeNode[] = hostDevices.map((device) => {
           return {
@@ -187,16 +283,100 @@ export function useCloudTree(onDataChanged?: () => void) {
           }
         })
 
-        // 对设备节点按名称排序
         sortDeviceNodes(deviceNodes)
 
         hostNode.children = deviceNodes
         return hostNode
       })
 
+      // 对 Host 节点进行排序
+      sortHostNodes(hostNodes)
+
       groupNode.children = hostNodes
       return groupNode
     })
+
+    return nodes
+  }
+
+  /**
+   * 按设备分组构建树 (Group -> Device)
+   * 忽略 Host 层级，直接将设备展示在分组下
+   */
+  const buildDeviceTree = (flatData: FlatData): TreeNode[] => {
+    const { groups, devices, hosts } = flatData
+
+    // 0. 准备主机查找表 (用于过滤孤儿设备)
+    const validHostIds = new Set(hosts.map((h) => h.id))
+    const validHostIps = new Set(hosts.map((h) => h.ip).filter((ip) => !!ip))
+
+    // 1. 过滤出设备分组 (type === 'device')
+    const deviceGroups = groups.filter((g) => g.type === 'device')
+    const deviceGroupIds = new Set(deviceGroups.map((g) => g.id))
+
+    // 2. 按 GroupId 分组 Device
+    const devicesByGroup = new Map<string, Device[]>()
+    const defaultGroupId = 'device_default'
+
+    devices.forEach((device) => {
+      // 过滤逻辑：如果设备离线 且 找不到对应主机，则视为脏数据隐藏
+      if (device.state === DeviceState.StateOffline) {
+        const hasValidHost =
+          (device.hostId && validHostIds.has(device.hostId)) ||
+          (device.host_ip && validHostIps.has(device.host_ip))
+
+        if (!hasValidHost) {
+          return
+        }
+      }
+
+      // 优先使用设备分组ID，若为空则归入默认设备分组
+      const groupId = device.groupId || defaultGroupId
+
+      if (deviceGroupIds.has(groupId)) {
+        if (!devicesByGroup.has(groupId)) {
+          devicesByGroup.set(groupId, [])
+        }
+        devicesByGroup.get(groupId)!.push(device)
+      }
+    })
+
+    // 3. 构建树
+    const nodes = deviceGroups.map((group) => {
+      const groupNode: TreeNode = {
+        id: group.id,
+        type: 'group' as const,
+        originalData: group,
+        children: []
+      }
+
+      const groupDevices = devicesByGroup.get(group.id) || []
+
+      const deviceNodes: TreeNode[] = groupDevices.map((device) => {
+        return {
+          id: device.id,
+          type: 'device',
+          originalData: device,
+          parent: groupNode
+        }
+      })
+
+      sortDeviceNodes(deviceNodes)
+      groupNode.children = deviceNodes
+      return groupNode
+    })
+
+    return nodes
+  }
+
+  /**
+   * 将后端扁平数据转换为树形结构
+   */
+  const buildTreeFromFlatData = (flatData: FlatData): TreeNode[] => {
+    if (groupingMode.value === 'device') {
+      return buildDeviceTree(flatData)
+    }
+    return buildHostTree(flatData)
   }
 
   /**
@@ -207,12 +387,20 @@ export function useCloudTree(onDataChanged?: () => void) {
       const res = await ipc.invoke(DATA_EVENTS.GET_FLAT_DATA)
       if (res.success && res.data) {
         const flatData = res.data as FlatData
+
+        // 缓存所有 Host 数据，用于 device 模式查找
+        allHostsMap.clear()
+        flatData.hosts.forEach((host) => {
+          if (host.ip) allHostsMap.set(host.ip, host)
+        })
+
         const newTreeData = buildTreeFromFlatData(flatData)
         treeData.value = newTreeData
 
         // 重建映射表
         nodeMap.clear()
         hostIpMap.clear()
+        hostIdMap.clear()
         rebuildMaps(treeData.value)
 
         // 默认展开所有分组和主机
@@ -245,8 +433,10 @@ export function useCloudTree(onDataChanged?: () => void) {
       // 递归清理 Map 防止内存泄漏
       const cleanupMap = (n: TreeNode) => {
         nodeMap.delete(n.id)
-        if (n.type === 'host' && (n.originalData as Host).ip) {
-          hostIpMap.delete((n.originalData as Host).ip)
+        if (n.type === 'host') {
+          const host = n.originalData as Host
+          if (host.ip) hostIpMap.delete(host.ip)
+          if (host.id) hostIdMap.delete(host.id)
         }
         if (n.children) {
           n.children.forEach(cleanupMap)
@@ -307,6 +497,29 @@ export function useCloudTree(onDataChanged?: () => void) {
 
     // --- Host Events (主机) ---
     sub(DATA_EVENTS.HOST_ADDED, (host: Host) => {
+      // 更新缓存
+      if (host.ip) allHostsMap.set(host.ip, host)
+
+      if (groupingMode.value === 'device') {
+        // device 模式下，主机新增可能不直接影响树（除非有设备关联），但为了一致性，或者如果设备随后到来
+        // 这里暂时不刷新，因为没有设备。等到 DEVICE_ADDED 时会查找 allHostsMap
+        return
+      }
+
+      // 防重检查：如果节点已存在，则转为更新操作
+      if (nodeMap.has(host.id)) {
+        const existingNode = nodeMap.get(host.id)
+        if (existingNode && existingNode.originalData) {
+          const oldIp = (existingNode.originalData as Host).ip
+          if (oldIp && host.ip && oldIp !== host.ip) {
+            hostIpMap.delete(oldIp)
+          }
+          Object.assign(existingNode.originalData, host)
+          if (host.ip) hostIpMap.set(host.ip, existingNode)
+        }
+        return
+      }
+
       const groupNode = nodeMap.get(host.groupId)
       if (groupNode && groupNode.children) {
         const newNode: TreeNode = {
@@ -321,20 +534,75 @@ export function useCloudTree(onDataChanged?: () => void) {
         const reactiveNode = groupNode.children[groupNode.children.length - 1]
         nodeMap.set(host.id, reactiveNode)
         if (host.ip) hostIpMap.set(host.ip, reactiveNode)
+        if (host.id) hostIdMap.set(host.id, reactiveNode)
       } else {
         loadTree()
       }
     })
 
-    sub(DATA_EVENTS.HOST_UPDATED, (host: Host) => {
+    sub(DATA_EVENTS.HOST_UPDATED, async (host: Host) => {
+      if (host.ip) allHostsMap.set(host.ip, host)
+
+      if (groupingMode.value === 'device') return
+
       const node = nodeMap.get(host.id)
       if (node && node.originalData) {
+        const oldHostData = node.originalData as Host
+        const oldGroupId = oldHostData.groupId
+        const newGroupId = host.groupId
+
+        // 清理旧 IP 缓存，防止 IP 变更后旧 IP 仍指向该节点
+        const oldIp = oldHostData.ip
+        if (oldIp && host.ip && oldIp !== host.ip) {
+          hostIpMap.delete(oldIp)
+        }
+
         Object.assign(node.originalData, host)
         if (host.ip) hostIpMap.set(host.ip, node)
+        if (host.id) hostIdMap.set(host.id, node)
+
+        // 检查分组是否变更
+        if (newGroupId && oldGroupId !== newGroupId) {
+          const oldParent = node.parent
+          const newParent = nodeMap.get(newGroupId)
+
+          if (newParent) {
+            // 1. 从旧父节点移除
+            if (oldParent && oldParent.children) {
+              const idx = oldParent.children.indexOf(node)
+              if (idx > -1) {
+                oldParent.children.splice(idx, 1)
+              }
+            }
+
+            // 2. 添加到新父节点
+            if (!newParent.children) newParent.children = []
+            newParent.children.push(node)
+            node.parent = newParent
+
+            // 3. 对新分组下的主机重新排序
+            sortHostNodes(newParent.children)
+
+            // 4. 触发视图更新
+            treeData.value = [...treeData.value]
+            await refreshView()
+          } else {
+            // 如果找不到新分组（极少见），重新加载整棵树
+            await loadTree()
+          }
+        }
       }
     })
 
     sub(DATA_EVENTS.HOST_DELETED, ({ id }) => {
+      // Cleanup cache? Hard to find IP by ID without iterating or secondary map.
+      // Ignore cleanup for now, or rebuild map on loadTree.
+
+      if (groupingMode.value === 'device') {
+        loadTree()
+        return
+      }
+
       deleteNode(id)
       treeData.value = [...treeData.value]
     })
@@ -343,6 +611,11 @@ export function useCloudTree(onDataChanged?: () => void) {
     sub(
       DATA_EVENTS.HOSTS_MOVED,
       async ({ hostIds, groupId }: { hostIds: string[]; groupId: string }) => {
+        if (groupingMode.value === 'device') {
+          loadTree()
+          return
+        }
+
         const newGroupNode = nodeMap.get(groupId)
         if (!newGroupNode) {
           loadTree()
@@ -397,14 +670,102 @@ export function useCloudTree(onDataChanged?: () => void) {
       }
     )
 
+    // 批量移动云机
+    sub(
+      DATA_EVENTS.DEVICES_MOVED,
+      async ({ deviceIds, groupId }: { deviceIds: string[]; groupId: string }) => {
+        // 仅在设备模式下处理
+        if (groupingMode.value !== 'device') return
+
+        const newGroupNode = nodeMap.get(groupId)
+        if (!newGroupNode) {
+          loadTree()
+          return
+        }
+
+        let changed = false
+        const movedNodes: TreeNode[] = []
+
+        deviceIds.forEach((deviceId) => {
+          const node = nodeMap.get(deviceId)
+          if (node && node.parent && node.parent.children) {
+            const idx = node.parent.children.indexOf(node)
+            if (idx !== -1) {
+              node.parent.children.splice(idx, 1)
+              if (node.originalData) (node.originalData as Device).groupId = groupId
+              node.parent = newGroupNode
+              newGroupNode.children = newGroupNode.children || []
+              newGroupNode.children.push(node)
+              changed = true
+              movedNodes.push(node)
+            }
+          }
+        })
+
+        if (changed) {
+          // 处理选中状态继承
+          const tree = treeRef.value
+          if (tree) {
+            const checkedKeys = tree.getCheckedKeys() || []
+            if (checkedKeys.includes(groupId)) {
+              const idsToSelect: string[] = []
+              movedNodes.forEach((n) => idsToSelect.push(n.id))
+              const newCheckedKeys = Array.from(new Set([...checkedKeys, ...idsToSelect]))
+              tree.setCheckedKeys(newCheckedKeys)
+            }
+          }
+
+          if (newGroupNode.children) {
+            sortDeviceNodes(newGroupNode.children)
+          }
+          treeData.value = [...treeData.value]
+          nextTick(() => {
+            onDataChanged?.()
+          })
+        }
+      }
+    )
+
     // --- Device Events (设备/云机) ---
     sub(DATA_EVENTS.DEVICE_ADDED, async (devices: Device[]) => {
+      if (groupingMode.value === 'device') {
+        loadTree()
+        return
+      }
+
       let hasChanges = false
       // 使用 Set 收集受影响的主机节点，避免重复排序
       const affectedHosts = new Set<TreeNode>()
 
       devices.forEach((device) => {
-        const hostNode = hostIpMap.get(device.host_ip || '')
+        // 防重检查：如果设备节点已存在，则转为更新
+        if (nodeMap.has(device.id)) {
+          const existingNode = nodeMap.get(device.id)
+          if (existingNode && existingNode.originalData) {
+            // 更新数据
+            Object.assign(existingNode.originalData, device)
+
+            // 检查父节点是否变更（迁移）- 暂不处理复杂的迁移逻辑，因为通常会有 MOVED 事件
+            // 这里主要关注属性更新
+
+            // 收集受影响的父节点以便重排序（如果名字变了）
+            if (existingNode.parent) {
+              affectedHosts.add(existingNode.parent)
+            }
+          }
+          return // 跳过新增逻辑
+        }
+
+        // 优先尝试通过 hostId 查找主机节点
+        let hostNode: TreeNode | undefined
+        if (device.hostId) {
+          hostNode = hostIdMap.get(device.hostId)
+        }
+        // 降级：如果没找到或没有 hostId，尝试通过 ip 查找
+        if (!hostNode && device.host_ip) {
+          hostNode = hostIpMap.get(device.host_ip)
+        }
+
         if (hostNode) {
           if (!hostNode.children) hostNode.children = []
           const newNode: TreeNode = {
@@ -429,7 +790,7 @@ export function useCloudTree(onDataChanged?: () => void) {
         }
       })
 
-      if (hasChanges) {
+      if (hasChanges || affectedHosts.size > 0) {
         treeData.value = [...treeData.value]
         await refreshView()
       }
@@ -494,6 +855,40 @@ export function useCloudTree(onDataChanged?: () => void) {
   })
   onUnmounted(() => removeListener())
 
+  /**
+   * 获取指定 Host IP 下运行中的云机数量
+   */
+  const getRunningCountByHostIp = (ip: string): number => {
+    // 1. Host 模式：直接从树节点统计 (性能最优)
+    if (groupingMode.value === 'host') {
+      const hostNode = hostIpMap.get(ip)
+      if (!hostNode || !hostNode.children) return 0
+      return hostNode.children.filter((childNode) => {
+        const device = childNode.originalData as Device
+        return device.state !== DeviceState.StateStopped && device.state !== DeviceState.StateFailed
+      }).length
+    }
+
+    // 2. Device 模式：遍历所有节点统计
+    // 由于 nodeMap 包含所有当前展示的节点，直接遍历即可
+    let count = 0
+    for (const node of nodeMap.values()) {
+      if (node.type === 'device') {
+        const device = node.originalData as Device
+        if (device.host_ip === ip) {
+          if (
+            device.state !== DeviceState.StateStopped &&
+            device.state !== DeviceState.StateFailed &&
+            device.state !== DeviceState.StateOffline
+          ) {
+            count++
+          }
+        }
+      }
+    }
+    return count
+  }
+
   return {
     treeRef,
     treeData,
@@ -503,11 +898,32 @@ export function useCloudTree(onDataChanged?: () => void) {
     expandedKeys,
     nodeMap,
     hostIpMap,
+    hostIdMap,
+    allHostsMap,
     loadTree,
     onQueryChanged,
     filterMethod,
     getNodeStatusClass,
     formatTreeLabel,
-    deleteNode // Exported for useCloudSelection if needed for cleanup
+    deleteNode, // Exported for useCloudSelection if needed for cleanup
+    groupingMode,
+    setGroupingMode: async (mode: 'host' | 'device') => {
+      if (groupingMode.value !== mode) {
+        groupingMode.value = mode
+
+        // 切换模式时：取消订阅 -> 重载数据 -> 重新订阅
+        // 保证数据监听逻辑与当前视图模式完全匹配，避免干扰
+        if (removeListener) {
+          removeListener()
+        }
+
+        treeData.value = [] // 清空当前视图
+
+        await loadTree()
+
+        removeListener = listenerDataUpdated()
+      }
+    },
+    getRunningCountByHostIp
   }
 }

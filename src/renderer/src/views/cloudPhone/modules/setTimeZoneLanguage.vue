@@ -1,51 +1,51 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    title="设置语言时区"
+    :title="t('cloudPhone.setTimeZoneLanguage')"
     :show-close="!loading"
     width="500px"
     @closed="handleClose"
   >
     <el-form ref="formRef" :model="form" :rules="rules" label-width="auto" label-position="top">
-      <el-form-item label="地区" prop="country">
-        <el-select v-model="form.country" filterable placeholder="请选择地区">
+      <el-form-item :label="t('cloudPhone.region')" prop="country">
+        <el-select v-model="form.country" filterable :placeholder="t('cloudPhone.regionPlaceholder')">
           <el-option
             v-for="item in countries"
             :key="item.countryCode"
-            :label="`${item.countryName} (${item.countryCode})`"
+            :label="`${isZhCN ? item.countryName : item.countryNameEnglish} (${item.countryCode})`"
             :value="item.countryCode"
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="时区" prop="timezone">
-        <el-select v-model="form.timezone" filterable placeholder="请选择时区">
+      <el-form-item :label="t('cloudPhone.timezone')" prop="timezone">
+        <el-select v-model="form.timezone" filterable :placeholder="t('cloudPhone.timezonePlaceholder')">
           <el-option
             v-for="item in filteredTimeZones"
             :key="item.timeZone"
-            :label="item.displayText"
+            :label="isZhCN ? item.displayText : item.displayTextEnglish"
             :value="item.timeZone"
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="语言" prop="locale">
-        <el-select v-model="form.locale" filterable placeholder="请选择语言">
+      <el-form-item :label="t('cloudPhone.language')" prop="locale">
+        <el-select v-model="form.locale" filterable :placeholder="t('cloudPhone.languagePlaceholder')">
           <el-option
             v-for="item in filteredLanguages"
             :key="item.languageCode"
-            :label="`${item.displayText} (${item.languageCode})`"
+            :label="`${isZhCN ? item.displayText : item.displayTextEnglish} (${item.languageCode})`"
             :value="item.languageCode"
           />
         </el-select>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="visible = false" :disabled="loading">取消</el-button>
-      <el-button type="primary" @click="handleSubmit" :loading="loading">确定</el-button>
+      <el-button @click="visible = false" :disabled="loading">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="handleSubmit" :loading="loading">{{ t('common.confirm') }}</el-button>
     </template>
   </vmos-dialog>
 </template>
 <script setup lang="ts">
-import { ref, computed, watch, toRaw } from 'vue'
+import { ref, toRaw, computed, watch } from 'vue'
 import { ElForm } from 'element-plus'
 import { languages } from '../data/languages'
 import { timeZones } from '../data/timezones'
@@ -55,6 +55,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { request, API_CONFIG, buildApiUrl, getErrorMessage } from '@shared/api'
 import { ipc } from '@renderer/core/ipc'
 import { DATA_EVENTS } from '@shared/ipc/data.types'
+import { useI18n } from 'vue-i18n'
+import { useLocale } from '@renderer/hooks/useLocale'
+
+const { t } = useI18n()
+const { isZhCN } = useLocale()
 const visible = ref(false)
 const loading = ref(false)
 const form = ref({
@@ -69,11 +74,11 @@ const initialForm = ref({
 })
 const deviceData = ref<Device>()
 const formRef = ref<InstanceType<typeof ElForm>>()
-const rules = ref({
-  locale: [{ required: true, message: '请选择语言', trigger: 'change' }],
-  timezone: [{ required: true, message: '请选择时区', trigger: 'change' }],
-  country: [{ required: true, message: '请选择地区', trigger: 'change' }]
-})
+const rules = computed(() => ({
+  locale: [{ required: true, message: t('cloudPhone.languagePlaceholder'), trigger: 'change' }],
+  timezone: [{ required: true, message: t('cloudPhone.timezonePlaceholder'), trigger: 'change' }],
+  country: [{ required: true, message: t('cloudPhone.regionPlaceholder'), trigger: 'change' }]
+}))
 
 // 根据选择的地区过滤时区
 const filteredTimeZones = computed(() => {
@@ -136,7 +141,7 @@ const handleSubmit = () => {
     const isTimezoneChanged = form.value.timezone !== initialForm.value.timezone
 
     if (!isCountryChanged && !isLocaleChanged && !isTimezoneChanged) {
-      ElMessage.warning('操作成功')
+      ElMessage.warning(t('common.operationSuccess'))
       visible.value = false
       loading.value = false
       return
@@ -192,11 +197,11 @@ const handleSubmit = () => {
 
       if (isCountryChanged) {
         ElMessageBox.confirm(
-          '操作成功，修改地区会重新设置 SIM 卡等信息，需要重启云机后才能生效，是否现在重启？',
-          '提示',
+          t('cloudPhone.countryChangedRestartConfirm'),
+          t('common.tips'),
           {
-            confirmButtonText: '立即重启',
-            cancelButtonText: '稍后重启',
+            confirmButtonText: t('common.confirm'),
+            cancelButtonText: t('common.cancel'),
             type: 'success'
           }
         )
@@ -209,9 +214,9 @@ const handleSubmit = () => {
               }>(DATA_EVENTS.DEVICE_RESTARTED, [toRaw(deviceData.value)])
               .then((res) => {
                 if (res.success) {
-                  ElMessage.success('操作成功')
+                  ElMessage.success(t('common.operationSuccess'))
                 } else {
-                  ElMessage.error(getErrorMessage(res.error) || '重启失败')
+                  ElMessage.error(getErrorMessage(res.error) || t('cloudPhone.restartFailed'))
                 }
               })
           })
@@ -219,11 +224,11 @@ const handleSubmit = () => {
             visible.value = false
           })
       } else {
-        ElMessage.success('操作成功')
+        ElMessage.success(t('common.operationSuccess'))
         visible.value = false
       }
     } catch (error) {
-      ElMessage.error(getErrorMessage(error) || '操作失败')
+      ElMessage.error(getErrorMessage(error) || t('common.operationFailed'))
     } finally {
       loading.value = false
     }
@@ -263,7 +268,7 @@ const getDeviceCountryLanguageTimezone = async () => {
       initialForm.value = { ...data }
     }
   } catch (error) {
-    ElMessage.error(getErrorMessage(error) || '获取失败')
+    ElMessage.error(getErrorMessage(error) || t('cloudPhone.getFailed'))
   }
 }
 defineExpose({

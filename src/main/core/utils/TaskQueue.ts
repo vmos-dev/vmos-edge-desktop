@@ -7,6 +7,9 @@ export class TaskQueue {
   /** 当前正在执行的任务数量 */
   private runningCount = 0
 
+  /** 是否已停止 */
+  private isStopped = false
+
   /** 最大并发数 */
   private readonly concurrency: number
 
@@ -19,6 +22,10 @@ export class TaskQueue {
    * @param task 返回 Promise 的异步函数
    */
   add(task: () => Promise<void>) {
+    if (this.isStopped) {
+      logger.warn('[TaskQueue] Queue is stopped, ignoring new task')
+      return
+    }
     this.queue.push(task)
     this.schedule() // 尝试调度任务
   }
@@ -29,6 +36,21 @@ export class TaskQueue {
    */
   clear() {
     this.queue = []
+  }
+
+  /**
+   * 停止队列：清空任务并禁止新任务
+   */
+  stop() {
+    this.isStopped = true
+    this.clear()
+  }
+
+  /**
+   * 恢复队列：允许添加新任务
+   */
+  start() {
+    this.isStopped = false
   }
 
   /**

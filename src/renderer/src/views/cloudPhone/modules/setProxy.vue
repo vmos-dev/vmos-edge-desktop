@@ -1,7 +1,7 @@
 <template>
   <VmosDialog
     v-model="visible"
-    :title="`设置代理(${currentDevice?.user_name})`"
+    :title="t('cloudPhone.setProxyTitle', { name: currentDevice?.user_name })"
     width="600px"
     :show-close="!loading && !checking"
     @closed="handleClose"
@@ -15,32 +15,56 @@
       label-position="top"
       @submit.prevent
     >
-      <el-form-item
-        label="当前代理"
-        prop="currentProxy"
-        v-if="currentProxy.protocol && currentProxy.host && currentProxy.port"
-      >
-        <span>{{ currentProxy.protocol }}://{{ currentProxy.host }}:{{ currentProxy.port }}</span>
-      </el-form-item>
+      <template v-if="currentProxy.nodes && currentProxy.nodes.length > 0">
+        <el-form-item :label="t('cloudPhone.currentProxy')" prop="currentProxy">
+          <span
+            >{{ currentProxy.nodes[currentProxy.nodes.length - 1].proxyType }}://{{
+              currentProxy.nodes[currentProxy.nodes.length - 1].ip
+            }}:{{ currentProxy.nodes[currentProxy.nodes.length - 1].port }}</span
+          >
+        </el-form-item>
+        <el-form-item
+          :label="t('cloudPhone.transferProxy')"
+          prop="currentProxy"
+          v-if="currentProxy.nodes.length > 1"
+        >
+          <div v-for="(node, index) in currentProxy.nodes.slice(0, -1)" :key="index">
+            {{ node.proxyType }}://{{ node.ip }}:{{ node.port }}
+          </div>
+        </el-form-item>
+      </template>
+      <template v-else>
+        <el-form-item
+          :label="t('cloudPhone.currentProxy')"
+          prop="currentProxy"
+          v-if="currentProxy.proxyType && currentProxy.host && currentProxy.port"
+        >
+          <span
+            >{{ currentProxy.proxyType }}://{{ currentProxy.host }}:{{ currentProxy.port }}</span
+          >
+        </el-form-item>
+      </template>
 
-      <el-form-item label="代理" prop="id" class="proxy-item">
+      <el-form-item :label="t('proxy.protocol')" prop="id" class="proxy-item">
         <template #label>
           <div class="label-row">
-            <div><span style="color: #f56c6c">*</span> 选择代理</div>
+            <div>
+              <span style="color: var(--el-color-danger)">*</span> {{ t('cloudPhone.selectProxy') }}
+            </div>
             <el-link
               v-if="!loading"
               type="primary"
               :underline="false"
               class="manage-link"
               @click="handleProxyLinkClick"
-              >前往代理管理</el-link
+              >{{ t('cloudPhone.goToProxyManagement') }}</el-link
             >
           </div>
         </template>
         <el-select
           v-model="proxyForm.id"
           filterable
-          placeholder="请选择代理"
+          :placeholder="t('cloudPhone.selectProxyPlaceholder')"
           style="width: 100%"
           @change="handleProxyChange"
         >
@@ -52,23 +76,23 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="出口信息" prop="proxyInfo" v-if="checkVisible">
+      <el-form-item :label="t('cloudPhone.exitInfo')" prop="proxyInfo" v-if="checkVisible">
         <div class="proxy-info-wrapper">
           <el-row :gutter="20">
             <el-col :span="12">
-              <span class="proxy-info-label">IP：</span>
+              <span class="proxy-info-label">{{ t('proxy.ip') }}：</span>
               <span class="proxy-info-value">{{ proxyInfo?.ip || '-' }}</span>
             </el-col>
             <el-col :span="12">
-              <span class="proxy-info-label">地区：</span>
+              <span class="proxy-info-label">{{ t('cloudPhone.regionLabel') }}</span>
               <span class="proxy-info-value">{{ proxyInfo?.country || '-' }}</span>
             </el-col>
             <el-col :span="12">
-              <span class="proxy-info-label">时区：</span>
+              <span class="proxy-info-label">{{ t('cloudPhone.timezoneLabel') }}</span>
               <span class="proxy-info-value">{{ proxyInfo?.timezone || '-' }}</span>
             </el-col>
             <el-col :span="12">
-              <span class="proxy-info-label">经纬度：</span>
+              <span class="proxy-info-label">{{ t('cloudPhone.locLabel') }}</span>
               <span class="proxy-info-value">{{ proxyInfo?.loc || '-' }}</span>
             </el-col>
           </el-row>
@@ -79,11 +103,9 @@
           <el-form-item prop="dnsOverProxyDisabled" label-position="left">
             <template #label>
               <div class="label-row">
-                代理DNS&nbsp;
-                <el-tooltip
-                  content="开启代理DNS需要确保您的代理IP支持DNS解析，否则云手机将无法联网：关闭代理DNS可能会导致DNS泄露。"
-                  placement="top"
-                  ><el-icon size="16"><QuestionFilled /></el-icon
+                {{ t('cloudPhone.proxyDns') }}&nbsp;
+                <el-tooltip :content="t('cloudPhone.proxyDnsTip')" placement="top"
+                  ><el-icon size="16"> <QuestionFilled /> </el-icon
                 ></el-tooltip>
               </div>
             </template>
@@ -91,59 +113,109 @@
           </el-form-item>
         </el-col>
         <el-col :span="12">
-          <el-form-item label="启用UDP" prop="udpDisabled" label-position="left">
+          <el-form-item :label="t('cloudPhone.enableUdp')" prop="udpDisabled" label-position="left">
             <el-switch v-model="proxyForm.udpDisabled" />
           </el-form-item>
         </el-col>
         <el-col :span="12" v-if="checkVisible">
-          <el-form-item label="IP仿真" prop="ipSimulatorDisabled" label-position="left">
+          <el-form-item
+            :label="t('cloudPhone.ipSimulator')"
+            prop="ipSimulatorDisabled"
+            label-position="left"
+          >
             <el-switch v-model="proxyForm.ipSimulatorDisabled" />
           </el-form-item>
         </el-col>
       </el-row>
       <div class="ip-simulator-info" v-if="proxyForm.ipSimulatorDisabled && checkVisible">
-        <el-icon><InfoFilled /></el-icon>
-        <span
-          >开启 IP
-          仿真后，云手机会根据代理的出口信息，自动设置所在地区、时区、语言和定位等信息。</span
-        >
+        <el-icon>
+          <InfoFilled />
+        </el-icon>
+        <span>{{ t('cloudPhone.ipSimulatorTip') }}</span>
       </div>
+
+      <el-row :gutter="20" style="margin-top: 10px">
+        <el-col :span="8">
+          <el-form-item
+            :label="t('cloudPhone.transferAgent')"
+            prop="isTransferAgent"
+            label-position="left"
+          >
+            <el-switch
+              v-model="proxyForm.isTransferAgent"
+              @change="proxyForm.transferAgentId = ''"
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="16" v-if="proxyForm.isTransferAgent">
+          <el-form-item prop="transferAgentId" label-position="left">
+            <el-select
+              v-model="proxyForm.transferAgentId"
+              filterable
+              :placeholder="t('cloudPhone.selectTransferAgent')"
+            >
+              <el-option
+                :label="`${item.name}(${item.host}:${item.port})`"
+                :value="item.id"
+                v-for="item in proxyList"
+                :key="item.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="24">
+          <div style="font-size: 12px; color: var(--el-text-color-placeholder); margin-left: 10px">
+            {{ t('cloudPhone.transferAgentTip') }}
+          </div>
+        </el-col>
+      </el-row>
       <template v-if="testResult !== null">
         <div
           :class="['test-result', testResult?.success ? 'test-success' : 'test-failure']"
           v-if="testResult?.success"
           style="margin-top: 10px"
         >
-          <el-icon><Check /></el-icon>
+          <el-icon>
+            <Check />
+          </el-icon>
           <span
-            >检测通过。
+            >{{ t('cloudPhone.testPassed') }}
             <template v-if="testResult?.data?.providerType !== 'default'">
-              IP: {{ testResult?.data?.ip || '-' }}，地区:
-              {{ testResult?.data?.country || '-' }}，时区:
-              {{ testResult?.data?.timezone || '-' }}，经纬度: {{ testResult?.data?.loc || '-' }}
+              {{ t('proxy.ip') }}: {{ testResult?.data?.ip || '-' }}，{{
+                t('cloudPhone.regionLabel')
+              }}
+              {{ testResult?.data?.country || '-' }}，{{ t('cloudPhone.timezoneLabel') }}
+              {{ testResult?.data?.timezone || '-' }}，{{ t('cloudPhone.locLabel') }}
+              {{ testResult?.data?.loc || '-' }}
             </template>
           </span>
         </div>
         <div :class="['test-result', testResult?.success ? 'test-success' : 'test-failure']" v-else>
-          <el-icon><Close /></el-icon>
-          <span>检测失败! {{ testResult?.error || '' }}</span>
+          <el-icon>
+            <Close />
+          </el-icon>
+          <span>{{ t('cloudPhone.testFailed') }} {{ testResult?.error || '' }}</span>
         </div>
       </template>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <div class="check-strategy-wrapper" v-if="checkVisible">
+        <div class="check-strategy-wrapper">
           <div class="check-strategy-group">
-            <span class="check-strategy-label">检测策略：</span>
+            <span class="check-strategy-label">{{ t('cloudPhone.checkStrategy') }}</span>
             <el-select
               v-model="checkStrategy"
-              placeholder="请选择"
+              :placeholder="t('cloudPhone.selectCheckStrategy')"
               size="small"
               @change="handleCheckStrategyChange"
               style="width: 150px"
             >
-              <el-option label="默认(不支持获取出口信息)" value="default" />
-              <el-option label="IPinfo" value="ipinfo" />
+              <el-option
+                :label="item.label"
+                :value="item.value"
+                v-for="item in ProxyCheckStrategyList"
+                :key="item.value"
+              />
             </el-select>
           </div>
           <el-button
@@ -154,21 +226,22 @@
             type="primary"
             :disabled="loading || checking"
           >
-            <el-icon class="el-icon--left"><Connection /></el-icon>
-            代理检测
+            <el-icon class="el-icon--left">
+              <Connection />
+            </el-icon>
+            {{ t('cloudPhone.proxyTest') }}
           </el-button>
         </div>
-        <span class="check-strategy-info" v-else>
-          代理检测和IP仿真功能目前仅支持 HTTP/HTTPS/SOCKS5 协议
-        </span>
         <div class="dialog-actions">
-          <el-button @click="visible = false" :disabled="loading || checking">取消</el-button>
+          <el-button @click="visible = false" :disabled="loading || checking">{{
+            t('common.cancel')
+          }}</el-button>
           <el-button
             type="primary"
             :loading="loading"
             @click="handleSave"
             :disabled="loading || checking"
-            >确定</el-button
+            >{{ t('common.confirm') }}</el-button
           >
         </div>
       </div>
@@ -176,7 +249,7 @@
   </VmosDialog>
 </template>
 <script setup lang="ts">
-import { ref, computed, toRaw } from 'vue'
+import { ref, toRaw, computed } from 'vue'
 import { InfoFilled, Check, Close, Connection, QuestionFilled } from '@element-plus/icons-vue'
 import { ipc } from '@renderer/core/ipc'
 import { PROXY_EVENTS } from '@shared/ipc/proxy.types'
@@ -190,7 +263,10 @@ import { CONFIG_KEYS } from '@shared/constant'
 import { languages } from '../data/languages'
 import { parseCoordinate } from '@renderer/utils'
 import { DATA_EVENTS } from '@shared/ipc/data.types'
+import { ProxyCheckStrategyList } from '@renderer/utils/constant'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const visible = ref(false)
 const loading = ref(false)
@@ -200,22 +276,25 @@ const proxyForm = ref<any>({
   id: '',
   dnsOverProxyDisabled: true,
   udpDisabled: true,
-  ipSimulatorDisabled: true
+  ipSimulatorDisabled: true,
+  isTransferAgent: false,
+  transferAgentId: ''
 })
 // 当前代理信息
 const currentProxy = ref<any>({
-  protocol: '',
+  proxyType: '',
   host: '',
-  port: ''
+  port: '',
+  nodes: []
 })
 const proxyList = ref<Proxy[]>([])
 const formRef = ref<InstanceType<typeof ElForm>>()
 const checking = ref(false)
 const checkStrategy = ref<string>('default')
-// 只有http https socks5 支持检测
+// 所有协议都支持检测
 const checkVisible = computed(() => {
   const proxy = proxyList.value.find((item) => item.id === proxyForm.value.id)
-  return ['http', 'https', 'socks5'].includes(proxy?.protocol || '')
+  return !!proxy?.protocol
 })
 // 出口信息
 const proxyInfo = computed(() => {
@@ -223,12 +302,18 @@ const proxyInfo = computed(() => {
   return proxy
 })
 
-const rules = ref({
-  id: [{ required: true, message: '请选择代理', trigger: 'change' }],
-  dnsOverProxyDisabled: [{ required: true, message: '请选择代理DNS', trigger: 'change' }],
-  udpDisabled: [{ required: true, message: '请选择开启UDP', trigger: 'change' }],
-  ipSimulatorDisabled: [{ required: true, message: '请选择开启IP仿真', trigger: 'change' }]
-})
+const rules = computed(() => ({
+  id: [{ required: true, message: t('cloudPhone.selectProxyPlaceholder'), trigger: 'change' }],
+  dnsOverProxyDisabled: [{ required: true, message: t('cloudPhone.proxyDns'), trigger: 'change' }],
+  udpDisabled: [{ required: true, message: t('cloudPhone.enableUdp'), trigger: 'change' }],
+  ipSimulatorDisabled: [
+    { required: true, message: t('cloudPhone.ipSimulator'), trigger: 'change' }
+  ],
+  isTransferAgent: [{ required: true, message: t('cloudPhone.transferAgent'), trigger: 'change' }],
+  transferAgentId: [
+    { required: true, message: t('cloudPhone.selectTransferAgent'), trigger: 'change' }
+  ]
+}))
 
 const handleClose = () => {
   formRef.value?.resetFields()
@@ -248,8 +333,11 @@ const handleCheckProxy = async () => {
   // 先验证必填字段
   try {
     await formRef.value?.validateField('id')
+    if (proxyForm.value.isTransferAgent) {
+      await formRef.value?.validateField('transferAgentId')
+    }
   } catch {
-    ElMessage.warning('请先填写必填字段')
+    ElMessage.warning(t('cloudPhone.fillRequiredFields'))
     return
   }
 
@@ -257,20 +345,48 @@ const handleCheckProxy = async () => {
   testResult.value = null
 
   try {
+    const proxies: any[] = []
+
+    // 如果有中转代理，先放中转代理
+    if (proxyForm.value.isTransferAgent && proxyForm.value.transferAgentId) {
+      const transferAgent = proxyList.value.find(
+        (item) => item.id === proxyForm.value.transferAgentId
+      )
+      if (transferAgent) {
+        proxies.push({
+          protocol: transferAgent.protocol,
+          host: transferAgent.host,
+          port: transferAgent.port,
+          username: transferAgent.username || undefined,
+          password: transferAgent.password || undefined,
+          rawLink: (transferAgent as any).rawLink || undefined
+        })
+      }
+    }
+
+    // 落地代理
     const proxy = proxyList.value.find((item) => item.id === proxyForm.value.id)
-    const res = await ipc.invoke<any>(PROXY_EVENTS.CHECK_PROXY, {
-      protocol: proxy?.protocol,
-      host: proxy?.host,
-      port: proxy?.port,
-      username: proxy?.username || undefined,
-      password: proxy?.password || undefined
-    })
+    if (proxy) {
+      proxies.push({
+        protocol: proxy.protocol,
+        host: proxy.host,
+        port: proxy.port,
+        username: proxy.username || undefined,
+        password: proxy.password || undefined,
+        rawLink: (proxy as any).rawLink || undefined
+      })
+    }
+
+    const res = await ipc.invoke<any>(
+      PROXY_EVENTS.CHECK_PROXY,
+      proxies.length > 1 ? proxies : proxies[0]
+    )
     if (res.success) {
       testResult.value = { success: true, data: res?.data?.data || {} }
       // 比较检测信息和出口信息是否一致
       compareProxyInfo(res?.data?.data || {})
     } else {
-      testResult.value = { success: false, error: res.error || '检测代理失败' }
+      testResult.value = { success: false, error: res.error || t('cloudPhone.testProxyFailed') }
     }
   } finally {
     checking.value = false
@@ -284,15 +400,11 @@ const compareProxyInfo = (data: any) => {
     (data?.timezone && data?.timezone !== proxyInfo.value.timezone) ||
     (data?.loc && data?.loc !== proxyInfo.value.loc)
   ) {
-    ElMessageBox.confirm(
-      '当前代理的实际出口信息已发生变化，可能由代理节点切换或出口策略调整导致。是否自动更新代理出口信息以保持数据一致？',
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    ).then(async () => {
+    ElMessageBox.confirm(t('cloudPhone.proxyExitInfoChanged'), t('cloudPhone.tip'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
+    }).then(async () => {
       const res = await ipc.invoke(PROXY_EVENTS.UPDATE_PROXY, {
         id: proxyInfo.value.id,
         isCheck: false,
@@ -306,7 +418,7 @@ const compareProxyInfo = (data: any) => {
         }
       })
       if (res.success) {
-        ElMessage.success('更新代理出口信息成功')
+        ElMessage.success(t('cloudPhone.updateProxyExitInfoSuccess'))
 
         getProxy()
       }
@@ -322,11 +434,10 @@ const handleSave = () => {
         loading.value = true
         // 根据id 获取代理信息
         const proxy = proxyList.value.find((item) => item.id === proxyForm.value.id)
-        console.log(
-          buildApiUrl(
-            currentDevice.value?.host_ip || '',
-            `${API_CONFIG.PATHS.SET_PROXY}/${currentDevice.value?.db_id || ''}`
-          )
+
+        // 获取中转代理信息
+        const transferAgent = proxyList.value.find(
+          (item) => item.id === proxyForm.value.transferAgentId
         )
 
         let params: any = {
@@ -335,7 +446,8 @@ const handleSave = () => {
           ip: proxy?.host,
           port: proxy?.port,
           proxyType: 'proxy',
-          proxyName: proxy?.protocol
+          proxyName: proxy?.protocol,
+          nodes: []
         }
 
         const mergeConfig = (params: any, rawLink?: string) => {
@@ -346,7 +458,7 @@ const handleSave = () => {
               ...JSON.parse(rawLink)
             }
           } catch {
-            throw new Error('解析代理配置失败')
+            throw new Error(t('proxy.parseConfigFailed'))
           }
         }
 
@@ -355,6 +467,30 @@ const handleSave = () => {
           ss: 'shadowsocks',
           ssr: 'shadowsocksr',
           vless: 'vless'
+        }
+
+        const buildProxyConfig = (proxyItem: any) => {
+          const config: any = {
+            ip: proxyItem.host,
+            port: proxyItem.port,
+            proxyName: proxyItem.protocol
+          }
+
+          if (['http', 'https', 'socks5'].includes(proxyItem.protocol)) {
+            config.account = proxyItem.username
+            config.password = proxyItem.password
+          } else {
+            const name = proxyNameMap[proxyItem.protocol]
+            if (name && proxyItem.rawLink) {
+              config.proxyName = name
+              Object.assign(config, mergeConfig({}, proxyItem.rawLink))
+            }
+          }
+          return config
+        }
+
+        if (transferAgent) {
+          params.nodes.push(buildProxyConfig(transferAgent))
         }
 
         if (proxy) {
@@ -370,6 +506,7 @@ const handleSave = () => {
               Object.assign(params, mergeConfig({}, proxy.rawLink))
             }
           }
+          params.nodes.push(buildProxyConfig(proxy))
         }
 
         // 设置代理
@@ -380,7 +517,7 @@ const handleSave = () => {
           ),
           params,
           {
-            timeout: 60 * 1000
+            timeout: 2 * 60 * 1000
           }
         )
 
@@ -462,7 +599,7 @@ const handleSave = () => {
           }
 
           if (proxyLoc) {
-            const { longitude, latitude } = parseCoordinate(proxyLoc)
+            const { longitude, latitude } = parseCoordinate(proxyLoc, 'latlng')
             // 设置经纬度
             await request.post(
               buildApiUrl(
@@ -481,15 +618,11 @@ const handleSave = () => {
         }
 
         if (isCountryChanged) {
-          ElMessageBox.confirm(
-            '操作成功，修改地区会重新设置 SIM 卡等信息，需要重启云机后才能生效，是否现在重启？',
-            '提示',
-            {
-              confirmButtonText: '立即重启',
-              cancelButtonText: '稍后重启',
-              type: 'success'
-            }
-          ).then(async () => {
+          ElMessageBox.confirm(t('cloudPhone.countryChangedRestartConfirm'), t('common.tips'), {
+            confirmButtonText: t('common.confirm'),
+            cancelButtonText: t('common.cancel'),
+            type: 'success'
+          }).then(async () => {
             // 重启云机
             await ipc
               .invoke<{
@@ -498,9 +631,9 @@ const handleSave = () => {
               }>(DATA_EVENTS.DEVICE_RESTARTED, [toRaw(currentDevice.value)])
               .then((res) => {
                 if (res.success) {
-                  ElMessage.success('操作成功')
+                  ElMessage.success(t('common.operationSuccess'))
                 } else {
-                  ElMessage.error(getErrorMessage(res.error) || '重启失败')
+                  ElMessage.error(getErrorMessage(res.error) || t('cloudPhone.restartFailed'))
                 }
               })
               .finally(() => {
@@ -508,11 +641,11 @@ const handleSave = () => {
               })
           })
         } else {
-          ElMessage.success('操作成功')
+          ElMessage.success(t('common.operationSuccess'))
           visible.value = false
         }
       } catch (error: any) {
-        ElMessage.error(getErrorMessage(error) || '操作失败')
+        ElMessage.error(getErrorMessage(error) || t('common.operationFailed'))
       } finally {
         loading.value = false
       }
@@ -527,15 +660,13 @@ const getCloudPhoneProxy = async () => {
         `${API_CONFIG.PATHS.GET_CLOUD_PHONE_PROXY}/${currentDevice.value?.db_id || ''}`
       )
     )
-    // 根据 ip 端口 有密码就还有账号密码 去匹配代理列表
-    const proxy = proxyList.value.find(
-      (item) =>
-        item.host === res.data?.proxy_config?.ip && item.port === res.data?.proxy_config?.port
-    )
+    const proxy = res?.data?.proxy_config || {}
     Object.assign(currentProxy.value, {
-      protocol: proxy?.protocol ?? '',
-      host: proxy?.host ?? '',
-      port: proxy?.port ?? ''
+      // @ts-ignore
+      proxyType: proxy?.proxyType,
+      host: proxy?.ip ?? '',
+      port: proxy?.port ?? '',
+      nodes: proxy?.nodes ?? []
     })
   } catch (error) {}
 }
@@ -583,12 +714,14 @@ defineExpose({
   .proxy-item {
     :deep(.el-form-item__label) {
       width: 100% !important;
+
       &::before {
         display: none;
       }
     }
   }
 }
+
 .label-row {
   display: flex;
   justify-content: space-between;
@@ -599,6 +732,7 @@ defineExpose({
     font-size: 12px;
   }
 }
+
 .proxy-info-wrapper {
   width: 100%;
 
@@ -612,7 +746,7 @@ defineExpose({
 
   .proxy-info-label {
     font-size: 13px;
-    color: #606266;
+    color: var(--el-text-color-regular);
     white-space: nowrap;
     margin-right: 4px;
     flex-shrink: 0;
@@ -620,7 +754,7 @@ defineExpose({
 
   .proxy-info-value {
     font-size: 13px;
-    color: #303133;
+    color: var(--el-text-color-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -637,20 +771,20 @@ defineExpose({
   align-items: flex-start;
   gap: 8px;
   font-size: 12px;
-  background-color: #f0f9ff;
-  color: #606266;
-  border: 1px solid #b3d8ff;
+  background-color: var(--el-color-primary-light-9);
+  color: var(--el-text-color-regular);
+  border: 1px solid var(--el-color-primary-light-6);
 
   .el-icon {
     font-size: 16px;
-    color: #409eff;
+    color: var(--el-color-primary);
     flex-shrink: 0;
     margin-top: 2px;
   }
 
   span {
     flex: 1;
-    color: #606266;
+    color: var(--el-text-color-regular);
   }
 }
 
@@ -667,15 +801,15 @@ defineExpose({
   }
 
   &.test-success {
-    background-color: #f0f9ff;
-    color: #67c23a;
+    background-color: var(--el-color-primary-light-9);
+    color: var(--el-color-success);
     border: 1px solid #b3e19d;
   }
 
   &.test-failure {
-    background-color: #fef0f0;
-    color: #f56c6c;
-    border: 1px solid #fbc4c4;
+    background-color: var(--el-color-danger-light-9);
+    color: var(--el-color-danger);
+    border: 1px solid var(--el-color-danger-light-7);
   }
 }
 
@@ -694,7 +828,8 @@ defineExpose({
 
   .check-strategy-info {
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
+    text-align: left;
   }
 
   .check-strategy-group {
@@ -704,7 +839,7 @@ defineExpose({
 
     .check-strategy-label {
       font-size: 13px;
-      color: #606266;
+      color: var(--el-text-color-regular);
       white-space: nowrap;
       font-weight: normal;
     }

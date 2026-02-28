@@ -1,4 +1,5 @@
 import { request, isCancel } from '@shared/api/request'
+import { getErrorMessage } from '@shared/api/utils'
 
 /* ============================
  * 请求任务类型定义
@@ -15,6 +16,8 @@ export interface RequestTaskOptions {
   key?: string
   /** 附加数据，用于回调透传 */
   meta?: any
+  /** 超时时间（毫秒） */
+  timeout?: number
 }
 
 export type RequestStatus = 'waiting' | 'processing' | 'success' | 'error' | 'cancelled'
@@ -24,7 +27,7 @@ export interface RequestTask extends RequestTaskOptions {
   status: RequestStatus
   controller: AbortController
   promise?: Promise<void>
-  response?: any
+  data?: any
   error?: any
 }
 
@@ -35,6 +38,7 @@ type Listener = (...args: any[]) => void
 
 export class RequestQueue {
   private concurrency: number
+  private timeout: number
   private queue: RequestTask[] = []
   private activeCount = 0
   private taskId = 0
@@ -42,8 +46,9 @@ export class RequestQueue {
   // 事件中心
   private events: Record<string, Listener[]> = {}
 
-  constructor(config?: { concurrency?: number }) {
+  constructor(config?: { concurrency?: number; timeout?: number }) {
     this.concurrency = config?.concurrency ?? 10
+    this.timeout = config?.timeout ?? 10000
   }
 
   /* ============================
@@ -146,7 +151,7 @@ export class RequestQueue {
     const config = {
       signal: task.controller.signal,
       headers: headers || {},
-      timeout: 10000 // 可以根据需求设置超时
+      timeout: task.timeout || this.timeout // 优先使用任务级别的超时，否则使用全局配置
     }
 
     let reqPromise: Promise<any>
@@ -169,25 +174,33 @@ export class RequestQueue {
 
     task.promise = reqPromise
       .then((res: any) => {
-        task.response = res
         // 假设 code === 200 为成功，这里可能需要根据实际业务调整
         // 或者直接认为请求成功就是 success，业务错误由调用方判断
         // 参考 upload.ts，这里先假设请求通了就算 success，具体业务逻辑如下：
-        if (res?.code === 200 || res?.status === 200 || res?.success) {
+        // 兼容 code 为 string 的情况, 且考虑可能包裹在 data 中
+        // 优先取 res.code，其次 res.data.code
+        const code = res?.code !== undefined ? res.code : res?.data?.code
+
+        // 使用宽松比较，兼容字符串 "200" 和数字 200
+        // 用户要求：不要强行比较 (==)
+        if (code == 200) {
           this.updateStatus(task, 'success')
+          // 如果 res.data 存在则使用，否则使用 res 本身作为数据（视具体结构而定）
+          // 之前的逻辑是 task.data = res?.data
+          // 如果 res 本身就是数据体，那么 task.data = res.data 可能是 undefined 或者子对象
+          // 安全起见：如果取到了 code，且 res.data 存在，则用 res.data
+          task.data = res?.data ?? res
         } else {
           // 也可以根据业务需要标记为 error
-          // task.error = res?.msg || 'Request Failed'
-          // this.updateStatus(task, 'error')
-          // 暂时统一视为 success (http success)，让业务层处理
-          this.updateStatus(task, 'success')
+          task.error = getErrorMessage(res) || 'Request Failed'
+          this.updateStatus(task, 'error')
         }
       })
       .catch((err) => {
         if (isCancel(err)) {
           this.updateStatus(task, 'cancelled')
         } else {
-          task.error = err
+          task.error = getErrorMessage(err) || 'Request Failed'
           this.updateStatus(task, 'error')
         }
       })
