@@ -352,55 +352,49 @@ export class DeviceManager extends BaseManager {
     const startTime = Date.now()
     logger.info(`[DeviceManager] deleteByHostIp called: hostIp=${ip}, hostId=${hostId}`)
     try {
-      // 输入验证
       if (!ip && !hostId) {
         logger.warn('[DeviceManager] deleteByHostIp: invalid ip and hostId, skipping')
         return []
       }
 
-      // 1. 优先通过 hostId 删除（如果提供了 hostId）
-      if (hostId) {
-        logger.debug(`[DeviceManager] deleteByHostIp: deleting by hostId=${hostId}`)
-        const devicesByHostId = this.deviceDao.getByHostId(hostId)
-        if (devicesByHostId.length > 0) {
-          this.deviceDao.deleteByHostId(hostId)
-          const duration = Date.now() - startTime
-          logger.info(
-            `[DeviceManager] deleteByHostIp success: deleted ${devicesByHostId.length} devices by hostId=${hostId}, duration=${duration}ms`
-          )
-          // 通知前端删除的设备
-          this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, devicesByHostId)
-          return devicesByHostId
-        } else {
-          logger.debug(
-            `[DeviceManager] deleteByHostIp: no devices found by hostId=${hostId}, will try by ip`
-          )
+      const deletedDevices: Device[] = []
+
+      this.dbInstance.transaction(() => {
+        // 1. 优先通过 hostId 删除（如果提供了 hostId）
+        if (hostId) {
+          const devicesByHostId = this.deviceDao.getByHostId(hostId)
+          if (devicesByHostId.length > 0) {
+            this.deviceDao.deleteByHostId(hostId)
+            deletedDevices.push(...devicesByHostId)
+          }
         }
+
+        // 2. 无论是否通过 hostId 删除过，都尝试通过 IP 删除，以确保清理干净
+        // 特别是考虑到 HostDao 中的 deviceCount 是通过 IP 关联的
+        if (ip) {
+          const devicesByHostIp = this.deviceDao.getByHostIp(ip)
+          // 过滤掉已经在 deletedDevices 中的设备，避免重复删除或通知
+          const remainingDevices = devicesByHostIp.filter(
+            (d) => !deletedDevices.some((dd) => dd.id === d.id)
+          )
+
+          if (remainingDevices.length > 0) {
+            this.deviceDao.deleteByHostIp(ip)
+            deletedDevices.push(...remainingDevices)
+          }
+        }
+      })
+
+      if (deletedDevices.length > 0) {
+        const duration = Date.now() - startTime
+        logger.info(
+          `[DeviceManager] deleteByHostIp success: deleted ${deletedDevices.length} devices, duration=${duration}ms`
+        )
+        // 通知前端删除的设备
+        this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, deletedDevices)
       }
 
-      // 2. 如果通过 hostId 删除失败（没找到设备），则通过 ip 删除（如果提供了 ip）
-      if (ip) {
-        logger.debug(`[DeviceManager] deleteByHostIp: deleting by hostIp=${ip}`)
-        const devicesByHostIp = this.deviceDao.getByHostIp(ip)
-        if (devicesByHostIp.length > 0) {
-          this.deviceDao.deleteByHostIp(ip)
-          const duration = Date.now() - startTime
-          logger.info(
-            `[DeviceManager] deleteByHostIp success: deleted ${devicesByHostIp.length} devices by hostIp=${ip}, duration=${duration}ms`
-          )
-          // 通知前端删除的设备
-          this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, devicesByHostIp)
-          return devicesByHostIp
-        } else {
-          logger.debug(`[DeviceManager] deleteByHostIp: no devices found by hostIp=${ip}`)
-        }
-      }
-
-      const duration = Date.now() - startTime
-      logger.info(
-        `[DeviceManager] deleteByHostIp: no devices found, hostIp=${ip}, hostId=${hostId}, duration=${duration}ms`
-      )
-      return []
+      return deletedDevices
     } catch (error) {
       logger.error('[DeviceManager] deleteByHostIp failed:', {
         error,
@@ -413,9 +407,68 @@ export class DeviceManager extends BaseManager {
   }
 
   /**
-   * 修改设备名称
-   * @param device 设备对象
+   * 清除主机下的离线设备
    */
+  public clearOfflineByHost(ip: string, hostId?: string): Device[] {
+    const startTime = Date.now()
+    logger.info(`[DeviceManager] clearOfflineByHost called: hostIp=${ip}, hostId=${hostId}`)
+    try {
+      if (!ip && !hostId) {
+        logger.warn('[DeviceManager] clearOfflineByHost: invalid ip and hostId, skipping')
+        return []
+      }
+
+      const offlineDevices: Device[] = []
+
+      this.dbInstance.transaction(() => {
+        // 收集所有离线设备
+        const allDevices: Device[] = []
+
+        if (hostId) {
+          allDevices.push(...this.deviceDao.getByHostId(hostId))
+        }
+
+        if (ip) {
+          const devicesByIp = this.deviceDao.getByHostIp(ip)
+          // 合并并去重
+          devicesByIp.forEach((d) => {
+            if (!allDevices.some((existing) => existing.id === d.id)) {
+              allDevices.push(d)
+            }
+          })
+        }
+
+        // 过滤出离线设备
+        const devicesToClear = allDevices.filter((device) => device.state === 'offline')
+
+        if (devicesToClear.length > 0) {
+          devicesToClear.forEach((device) => {
+            this.deviceDao.delete(device.id)
+            offlineDevices.push(device)
+          })
+        }
+      })
+
+      if (offlineDevices.length > 0) {
+        const duration = Date.now() - startTime
+        logger.info(
+          `[DeviceManager] clearOfflineByHost success: deleted ${offlineDevices.length} offline devices, duration=${duration}ms`
+        )
+        this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, offlineDevices)
+      }
+
+      return offlineDevices
+    } catch (error) {
+      logger.error('[DeviceManager] clearOfflineByHost failed:', {
+        error,
+        stack: error instanceof Error ? error.stack : undefined,
+        hostIp: ip,
+        hostId
+      })
+      throw error
+    }
+  }
+
   public async updateDeviceName(device: Device): Promise<void> {
     const startTime = Date.now()
     const { db_id, user_name, host_ip } = device
@@ -683,7 +736,12 @@ export class DeviceManager extends BaseManager {
    */
   public async renewDevice(
     devices: Device[],
-    options: { wipeData: boolean; adiID?: string; cert_hash?: string }
+    options: {
+      wipeData: boolean
+      adiName?: string
+      adiPass?: string
+      cert_hash?: string
+    }
   ) {
     const startTime = Date.now()
     const deviceIds = devices.map((d) => d.id || d.db_id).filter(Boolean)
@@ -727,8 +785,12 @@ export class DeviceManager extends BaseManager {
             wipeData: options.wipeData,
             scdArgs: this.getScdArgs()
           }
-          if (options.adiID) {
-            params.adiID = options.adiID
+          if (options.adiName) {
+            params.adiName = options.adiName
+          }
+
+          if (options.adiPass) {
+            params.adiPass = options.adiPass
           }
 
           if (options.cert_hash) {

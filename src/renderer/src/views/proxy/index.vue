@@ -69,8 +69,8 @@
     </div>
 
     <!-- 添加/编辑代理弹窗 -->
-    <ProxyDialog ref="proxyDialogRef" @success="loadProxies" />
-    <ImportProxyDialog ref="importDialogRef" @success="loadProxies" />
+    <ProxyDialog ref="proxyDialogRef" @success="handleProxyDialogSuccess" />
+    <ImportProxyDialog ref="importDialogRef" @success="handleImportDialogSuccess" />
   </div>
 </template>
 
@@ -88,7 +88,6 @@ import type { Proxy } from '@shared/ipc/data.types'
 import { formatTime } from '@shared/api'
 import { CopyText } from '@renderer/components'
 import { useI18n } from 'vue-i18n'
-
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -109,7 +108,12 @@ const deleteLoading = ref(false)
 // ==========================================
 
 const filteredProxies = computed(() => {
-  return proxyList.value
+  return [...proxyList.value].sort((a, b) => {
+    return (a.name || '').localeCompare(b.name || '', undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  })
 })
 
 const columns = computed(() => [
@@ -130,11 +134,15 @@ const columns = computed(() => [
     cellRenderer: ({ cellData, rowData }) => {
       return (
         <div class="proxy-info">
-          <span>{t('proxy.protocol')}: {cellData || '-'}</span>
+          <span>
+            {t('proxy.protocol')}: {cellData || '-'}
+          </span>
           <span>
             {t('proxy.host')}: <CopyText text={rowData?.host} />
           </span>
-          <span>{t('proxy.port')}: {rowData?.port || '-'}</span>
+          <span>
+            {t('proxy.port')}: {rowData?.port || '-'}
+          </span>
         </div>
       )
     }
@@ -386,6 +394,14 @@ const handleReset = () => {
  */
 const triggerImport = () => {
   importDialogRef.value?.init()
+}
+
+const handleProxyDialogSuccess = () => {
+  loadProxies()
+}
+
+const handleImportDialogSuccess = () => {
+  loadProxies()
 }
 
 onMounted(async () => {

@@ -11,6 +11,14 @@ interface LogPayload {
   [key: string]: any
 }
 
+const safeStringify = (value: any) => {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return '[Unserializable]'
+  }
+}
+
 /**
  * 格式化请求数据，安全地处理 FormData 和大对象
  */
@@ -53,7 +61,7 @@ const parseError = (error: any) => {
 
   const result: any = {
     stack: error.stack,
-    originalMessage: error.message || JSON.stringify(error)
+    originalMessage: error.message || safeStringify(error)
   }
 
   // 处理 Axios 错误
@@ -75,6 +83,13 @@ const parseError = (error: any) => {
   }
 
   return result
+}
+
+const isIgnorableUnhandledRejection = (reason: any) => {
+  const rawMessage =
+    typeof reason === 'string' ? reason : reason?.message || reason?.originalMessage || ''
+  const normalizedMessage = rawMessage.trim().replace(/^"+|"+$/g, '').toLowerCase()
+  return normalizedMessage === 'cancel' || normalizedMessage === 'canceled'
 }
 
 /**
@@ -142,6 +157,10 @@ export const initErrorCapture = (app: App) => {
   // 3. 未处理的 Promise 拒绝 (包括 Axios 请求失败但未 catch 的情况)
   window.onunhandledrejection = (event) => {
     // event.reason 可能是 Error 对象，也可能是其他值
+    if (isIgnorableUnhandledRejection(event.reason)) {
+      event.preventDefault()
+      return
+    }
     logger.error(`Unhandled Rejection`, event.reason)
   }
 

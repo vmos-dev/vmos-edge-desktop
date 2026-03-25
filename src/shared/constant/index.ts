@@ -13,6 +13,8 @@ export const CONFIG_KEYS = {
   KEEP_HOVER_MOVE: 'keep.hover.move',
   MINIMIZE_TO_TRAY: 'minimize.to.tray',
   APP_LANGUAGE: 'app.language',
+  CLIENT_UPDATE_CACHE: 'client.update.cache',
+  CLIENT_UPDATE_IGNORED_VERSION: 'client.update.ignored.version',
   IS_STREAMING: 'is.streaming',
   THEME_MODE: 'theme.mode',
   THEME_COLOR: 'theme.color',

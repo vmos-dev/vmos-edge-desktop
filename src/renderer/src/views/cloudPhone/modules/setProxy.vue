@@ -22,6 +22,11 @@
               currentProxy.nodes[currentProxy.nodes.length - 1].ip
             }}:{{ currentProxy.nodes[currentProxy.nodes.length - 1].port }}</span
           >
+          <el-tag size="small" style="margin-left: 8px">{{
+            currentProxy.engineType === 1
+              ? t('cloudPhone.engineEnhanced')
+              : t('cloudPhone.engineStandard')
+          }}</el-tag>
         </el-form-item>
         <el-form-item
           :label="t('cloudPhone.transferProxy')"
@@ -42,8 +47,39 @@
           <span
             >{{ currentProxy.proxyType }}://{{ currentProxy.host }}:{{ currentProxy.port }}</span
           >
+          <el-tag size="small" style="margin-left: 8px">{{
+            currentProxy.engineType === 1
+              ? t('cloudPhone.engineEnhanced')
+              : t('cloudPhone.engineStandard')
+          }}</el-tag>
         </el-form-item>
       </template>
+      <el-form-item prop="engineType">
+        <template #label>
+          <span class="engine-type-label">
+            {{ t('cloudPhone.engineType') }}
+            <el-tooltip placement="top" popper-class="proxy-engine-tip-popper">
+              <template #content>
+                <div class="proxy-engine-tip">
+                  <div>
+                    <strong>{{ t('cloudPhone.engineStandard') }}</strong
+                    >：{{ t('cloudPhone.engineStandardDesc') }}
+                  </div>
+                  <div>
+                    <strong>{{ t('cloudPhone.engineEnhanced') }}</strong
+                    >：{{ t('cloudPhone.engineEnhancedDesc') }}
+                  </div>
+                </div>
+              </template>
+              <el-icon class="label-tip-icon" :size="16"><QuestionFilled /></el-icon>
+            </el-tooltip>
+          </span>
+        </template>
+        <el-radio-group v-model="proxyForm.engineType">
+          <el-radio :value="0">{{ t('cloudPhone.engineStandard') }}</el-radio>
+          <el-radio :value="1">{{ t('cloudPhone.engineEnhanced') }}</el-radio>
+        </el-radio-group>
+      </el-form-item>
 
       <el-form-item :label="t('proxy.protocol')" prop="id" class="proxy-item">
         <template #label>
@@ -105,7 +141,7 @@
               <div class="label-row">
                 {{ t('cloudPhone.proxyDns') }}&nbsp;
                 <el-tooltip :content="t('cloudPhone.proxyDnsTip')" placement="top"
-                  ><el-icon size="16"> <QuestionFilled /> </el-icon
+                  ><el-icon class="label-tip-icon" :size="16"><QuestionFilled /></el-icon
                 ></el-tooltip>
               </div>
             </template>
@@ -262,6 +298,7 @@ import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
 import { languages } from '../data/languages'
 import { parseCoordinate } from '@renderer/utils'
+import { parseUri } from '@vmosedge/proxy-sdk/parser'
 import { DATA_EVENTS } from '@shared/ipc/data.types'
 import { ProxyCheckStrategyList } from '@renderer/utils/constant'
 import { useI18n } from 'vue-i18n'
@@ -278,10 +315,12 @@ const proxyForm = ref<any>({
   udpDisabled: true,
   ipSimulatorDisabled: true,
   isTransferAgent: false,
-  transferAgentId: ''
+  transferAgentId: '',
+  engineType: 0
 })
 // 当前代理信息
 const currentProxy = ref<any>({
+  engineType: 0,
   proxyType: '',
   host: '',
   port: '',
@@ -303,6 +342,7 @@ const proxyInfo = computed(() => {
 })
 
 const rules = computed(() => ({
+  engineType: [{ required: true, message: t('cloudPhone.engineType'), trigger: 'change' }],
   id: [{ required: true, message: t('cloudPhone.selectProxyPlaceholder'), trigger: 'change' }],
   dnsOverProxyDisabled: [{ required: true, message: t('cloudPhone.proxyDns'), trigger: 'change' }],
   udpDisabled: [{ required: true, message: t('cloudPhone.enableUdp'), trigger: 'change' }],
@@ -443,6 +483,7 @@ const handleSave = () => {
         let params: any = {
           dnsOverProxyDisabled: !proxyForm.value.dnsOverProxyDisabled,
           udpDisabled: !proxyForm.value.udpDisabled,
+          engineType: Number(proxyForm.value.engineType || 0),
           ip: proxy?.host,
           port: proxy?.port,
           proxyType: 'proxy',
@@ -452,6 +493,16 @@ const handleSave = () => {
 
         const mergeConfig = (params: any, rawLink?: string) => {
           if (!rawLink) return params
+          // URI 格式 (vmess://..., vless://...) 用 SDK parseUri 解析
+          if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(rawLink)) {
+            try {
+              const config = parseUri(rawLink)
+              return { ...params, ...config }
+            } catch {
+              throw new Error(t('proxy.parseConfigFailed'))
+            }
+          }
+          // JSON 格式（手动编辑保存的配置）
           try {
             return {
               ...params,
@@ -663,6 +714,7 @@ const getCloudPhoneProxy = async () => {
     const proxy = res?.data?.proxy_config || {}
     Object.assign(currentProxy.value, {
       // @ts-ignore
+      engineType: Number(res?.data?.engineType ?? 0),
       proxyType: proxy?.proxyType,
       host: proxy?.ip ?? '',
       port: proxy?.port ?? '',
@@ -850,6 +902,28 @@ defineExpose({
     gap: 10px;
     margin-left: auto;
     flex-shrink: 0;
+  }
+}
+
+.engine-type-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.label-tip-icon {
+  cursor: help;
+  color: var(--el-text-color-secondary);
+}
+</style>
+
+<style lang="scss">
+.proxy-engine-tip-popper {
+  max-width: 380px;
+  line-height: 1.5;
+
+  .proxy-engine-tip > div + div {
+    margin-top: 8px;
   }
 }
 </style>

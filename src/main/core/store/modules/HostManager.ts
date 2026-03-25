@@ -216,24 +216,12 @@ export class HostManager extends BaseManager {
   public deleteHost(host: Host) {
     try {
       logger.info(`[HostManager] deleteHost called:`, host)
-      if (!host.id || !host.ip) {
-        logger.warn(`[HostManager] deleteHost: invalid host, id=${host.id}, ip=${host.ip}`)
-        throw new Error('Host ID or IP cannot be empty')
+      const deletedHost = this.deleteHostRecord(host, { requireOffline: true })
+      if (!deletedHost) {
+        throw new Error('Host not found')
       }
-      // 删除该主机下的设备（deleteByHostIp 内部会通知前端）
-      this.dbInstance.transaction(() => {
-        logger.debug(
-          `[HostManager] deleteHost: deleting devices for host ip=${host.ip}, id=${host.id}`
-        )
-        this.deviceManager.deleteByHostIp(host.ip, host.id)
-        logger.info(
-          `[HostManager] deleteHost: devices deleted for host ip=${host.ip}, id=${host.id}`
-        )
-        this.hostDao.delete(host.id)
-        logger.info(`[HostManager] deleteHost: host deleted id=${host.id}`)
-      })
-      logger.info(`[HostManager] deleteHost success: id=${host.id}, ip=${host.ip}`)
-      this.notifyFrontend(DATA_EVENTS.HOST_DELETED, host)
+      logger.info(`[HostManager] deleteHost success: id=${deletedHost.id}, ip=${deletedHost.ip}`)
+      this.notifyFrontend(DATA_EVENTS.HOST_DELETED, deletedHost)
     } catch (error) {
       logger.error('[HostManager] deleteHost failed:', {
         error,
@@ -243,6 +231,41 @@ export class HostManager extends BaseManager {
       })
       throw error
     }
+  }
+
+  public deleteHosts(hosts: Host[]): number {
+    logger.info(
+      `[HostManager] deleteHosts called: count=${hosts.length}, hostIds=${hosts.map((host) => host.id).join(',')}`
+    )
+
+    if (!hosts.length) {
+      logger.warn('[HostManager] deleteHosts: empty host list')
+      throw new Error('Host list cannot be empty')
+    }
+
+    let deletedCount = 0
+
+    for (const host of hosts) {
+      try {
+        const deletedHost = this.deleteHostRecord(host, { requireOffline: true, skipInvalid: true })
+        if (deletedHost) {
+          deletedCount++
+          this.notifyFrontend(DATA_EVENTS.HOST_DELETED, deletedHost)
+        }
+      } catch (error) {
+        logger.error('[HostManager] deleteHosts item failed:', {
+          error,
+          stack: error instanceof Error ? error.stack : undefined,
+          id: host.id,
+          ip: host.ip
+        })
+      }
+    }
+
+    logger.info(
+      `[HostManager] deleteHosts completed: requested=${hosts.length}, deleted=${deletedCount}`
+    )
+    return deletedCount
   }
 
   public getHostsByGroupId(groupId: string): Host[] {
@@ -483,6 +506,42 @@ export class HostManager extends BaseManager {
     }
   }
 
+  public clearHostOfflineDevices(host: Host): Device[] {
+    const startTime = Date.now()
+    logger.info(`[HostManager] clearHostOfflineDevices called: id=${host.id}, ip=${host.ip}`)
+    try {
+      const existingHost = this.hostDao.getById(host.id) || this.hostDao.getByIp(host.ip)
+      if (!existingHost) {
+        logger.warn(
+          `[HostManager] clearHostOfflineDevices: host not found, id=${host.id}, ip=${host.ip}`
+        )
+        throw new Error('Host not found')
+      }
+
+      if (existingHost.status !== 'online') {
+        logger.warn(
+          `[HostManager] clearHostOfflineDevices: host is not online, id=${existingHost.id}, status=${existingHost.status}`
+        )
+        throw new Error('Only online hosts can clear offline devices')
+      }
+
+      const deletedDevices = this.deviceManager.clearOfflineByHost(existingHost.ip, existingHost.id)
+      const duration = Date.now() - startTime
+      logger.info(
+        `[HostManager] clearHostOfflineDevices success: id=${existingHost.id}, deleted=${deletedDevices.length}, duration=${duration}ms`
+      )
+      return deletedDevices
+    } catch (error) {
+      logger.error('[HostManager] clearHostOfflineDevices failed:', {
+        error,
+        stack: error instanceof Error ? error.stack : undefined,
+        id: host.id,
+        ip: host.ip
+      })
+      throw error
+    }
+  }
+
   public getHostByIp(ip: string): Host | undefined {
     try {
       logger.info(`[HostManager] getHostByIp called: ip=${ip}`)
@@ -516,5 +575,42 @@ export class HostManager extends BaseManager {
       })
       return undefined
     }
+  }
+
+  private deleteHostRecord(
+    host: Host,
+    options: { requireOffline?: boolean; skipInvalid?: boolean } = {}
+  ): Host | null {
+    if (!host.id || !host.ip) {
+      logger.warn(`[HostManager] deleteHostRecord: invalid host, id=${host.id}, ip=${host.ip}`)
+      if (options.skipInvalid) return null
+      throw new Error('Host ID or IP cannot be empty')
+    }
+
+    const existingHost = this.hostDao.getById(host.id) || this.hostDao.getByIp(host.ip)
+
+    if (!existingHost) {
+      logger.warn(`[HostManager] deleteHostRecord: host not found, id=${host.id}, ip=${host.ip}`)
+      if (options.skipInvalid) return null
+      throw new Error('Host not found')
+    }
+
+    if (options.requireOffline && existingHost.status !== 'offline') {
+      logger.warn(
+        `[HostManager] deleteHostRecord: host is not offline, id=${existingHost.id}, status=${existingHost.status}`
+      )
+      if (options.skipInvalid) return null
+      throw new Error('Only offline hosts can be deleted')
+    }
+
+    this.dbInstance.transaction(() => {
+      logger.debug(
+        `[HostManager] deleteHostRecord: deleting devices for host ip=${existingHost.ip}, id=${existingHost.id}`
+      )
+      this.deviceManager.deleteByHostIp(existingHost.ip, existingHost.id)
+      this.hostDao.delete(existingHost.id)
+    })
+
+    return existingHost
   }
 }

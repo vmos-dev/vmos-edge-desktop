@@ -4,12 +4,14 @@ import fs from 'fs'
 import { app } from 'electron'
 import {
   ALL_TABLES,
+  CUSTOM_ADIS_SCHEMA,
   generateCreateTableSQL,
   DB_VERSION,
   DB_VERSION_KEY,
   type TableSchema
 } from './Schema'
 import { logger } from '../logger'
+import { v4 as uuidv4 } from 'uuid'
 
 export class SQLiteDB {
   private static instance: SQLiteDB
@@ -330,6 +332,11 @@ export class SQLiteDB {
       // v2: 添加 remark 和 location 字段
       2: () => {
         // syncAllTableSchemas 会自动添加缺失字段，这里可以放一些特殊的数据迁移逻辑
+      },
+
+      // v8: custom_adis.id 迁移为 uuid TEXT 主键
+      8: () => {
+        this.migrateCustomAdisToUuidId()
       }
     }
 
@@ -348,6 +355,55 @@ export class SQLiteDB {
         }
       }
     }
+  }
+
+  private migrateCustomAdisToUuidId() {
+    if (!this.tableExists('custom_adis')) return
+
+    const tableInfo = this.db.pragma('table_info(custom_adis)') as any[]
+    const idCol = tableInfo.find((c) => String(c?.name).toLowerCase() === 'id')
+    const idType = String(idCol?.type || '').toUpperCase()
+
+    if (idType === 'TEXT') return
+
+    const oldRows = this.db
+      .prepare(
+        'SELECT brand, model, model_name, asopVersion, layout, name, path, updateTime FROM custom_adis'
+      )
+      .all() as Array<{
+      brand: string
+      model: string
+      model_name: string
+      asopVersion: string
+      layout: string
+      name: string
+      path: string
+      updateTime: string
+    }>
+
+    this.db.exec('ALTER TABLE custom_adis RENAME TO custom_adis_old')
+    this.db.exec('DROP INDEX IF EXISTS idx_custom_adis_name')
+    this.createTable(CUSTOM_ADIS_SCHEMA)
+
+    const insertStmt = this.db.prepare(
+      'INSERT INTO custom_adis (id, brand, model, model_name, asopVersion, layout, name, path, updateTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+
+    for (const row of oldRows) {
+      insertStmt.run(
+        uuidv4(),
+        row.brand,
+        row.model,
+        row.model_name,
+        row.asopVersion,
+        row.layout,
+        row.name,
+        row.path,
+        row.updateTime
+      )
+    }
+
+    this.db.exec('DROP TABLE custom_adis_old')
   }
 
   /**

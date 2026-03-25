@@ -50,7 +50,7 @@ export class DeviceDao extends BaseDao<Device> {
    */
   public getByHostIp(hostIp: string): Device[] {
     const rows = this.dbInstance.db
-      .prepare(`SELECT * FROM ${this.tableName} WHERE host_ip = ?`)
+      .prepare(`SELECT * FROM ${this.tableName} WHERE trim(host_ip) = trim(?)`)
       .all(hostIp)
     return rows.map((row) => this.deserialize(row))
   }
@@ -70,7 +70,7 @@ export class DeviceDao extends BaseDao<Device> {
    */
   public markAllOfflineByHost(hostIp: string): void {
     this.dbInstance.db
-      .prepare(`UPDATE ${this.tableName} SET state = 'offline' WHERE host_ip = ?`)
+      .prepare(`UPDATE ${this.tableName} SET state = 'offline' WHERE trim(host_ip) = trim(?)`)
       .run(hostIp)
   }
 
@@ -87,7 +87,7 @@ export class DeviceDao extends BaseDao<Device> {
     const placeholders = activeIds.map(() => '?').join(',')
     this.dbInstance.db
       .prepare(
-        `UPDATE ${this.tableName} SET state = 'offline' WHERE host_ip = ? AND id NOT IN (${placeholders}) AND state != 'offline'`
+        `UPDATE ${this.tableName} SET state = 'offline' WHERE trim(host_ip) = trim(?) AND id NOT IN (${placeholders}) AND state != 'offline'`
       )
       .run(hostIp, ...activeIds)
   }
@@ -96,7 +96,7 @@ export class DeviceDao extends BaseDao<Device> {
    * 删除主机下的所有设备
    */
   public deleteByHostIp(hostIp: string): void {
-    this.dbInstance.db.prepare(`DELETE FROM ${this.tableName} WHERE host_ip = ?`).run(hostIp)
+    this.dbInstance.db.prepare(`DELETE FROM ${this.tableName} WHERE trim(host_ip) = trim(?)`).run(hostIp)
   }
 
   /**

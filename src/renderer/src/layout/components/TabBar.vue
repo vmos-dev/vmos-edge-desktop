@@ -34,7 +34,9 @@ const tabs = computed<Tab[]>(() => [
   { key: 'cloud', label: t('layout.cloud'), icon: 'phone', path: '/cloud' },
   { key: 'host', label: t('layout.host'), icon: 'host', path: '/host' },
   { key: 'image', label: t('layout.image'), icon: 'image', path: '/image' },
-  { key: 'proxy', label: t('layout.proxy'), icon: 'proxy', path: '/proxy' }
+  { key: 'proxy', label: t('layout.proxy'), icon: 'proxy', path: '/proxy' },
+  { key: 'automation', label: t('layout.automation'), icon: 'automation', path: '/automation' },
+  { key: 'aiAgent', label: t('layout.aiAgent'), icon: 'aiworkflow', path: '/ai-agent' }
 ])
 
 const activeTab = ref('cloud')
@@ -71,13 +73,15 @@ const handleTabClick = (key: string) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 20px;
+  padding: 8px 12px;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.3s;
   color: var(--el-text-color-regular);
   font-size: 14px;
   position: relative;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab-item:hover {

@@ -92,8 +92,29 @@ export const API_CONFIG = {
     // 获取视频注入状态
     GET_VIDEO_INJECT_STATUS: '/android_api/v1/getInjectStatus',
 
+    // 音频注入
+    AUDIO_INJECT: '/android_api/v1/audio_inject',
+    // 关闭音频注入
+    CLOSE_AUDIO_INJECT: '/android_api/v1/audio_inject_off',
+    // 获取音频注入状态
+    GET_AUDIO_INJECT_STATUS: '/android_api/v1/getInjectAudioStatus',
+
     // 获取指定实例详细信息
-    GET_CLOUD_PHONE_INFO: '/container_api/v1/get_android_detail'
+    GET_CLOUD_PHONE_INFO: '/container_api/v1/get_android_detail',
+    // 导入备份
+    IMPORT_BACKUP: '/backup/import',
+    // 备份云机
+    EXPORT_BACKUP: '/backup/export',
+    // 取消备份
+    CANCEL_BACKUP: '/backup/cancel',
+
+    // ==================== SCD 音频 (云机窗口) ====================
+    /** 查询 SCD 配置（含音频是否开启状态）- GET，路径需拼接 :db_id */
+    GET_SCD_CONFIG: '/container_api/v1/scd_config',
+    /** 设置 SCD 配置（开启/关闭音频参数）- POST，路径需拼接 :db_id */
+    POST_SCD_CONFIG: '/container_api/v1/scd_config',
+    /** 重启 SCD 使音频配置生效 - POST，路径需拼接 :db_id */
+    POST_SCD_RESTART: '/container_api/v1/scd_restart'
   }
 } as const
 

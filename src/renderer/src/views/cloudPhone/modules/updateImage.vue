@@ -65,55 +65,19 @@
         </el-form-item>
 
         <template v-if="isNeedAdi">
-          <div class="section-title">{{ t('cloudPhone.machineSettings') }}</div>
-          <el-form-item>
-            <el-radio-group v-model="machineMode">
-              <el-radio label="random">{{ t('cloudPhone.random') }}</el-radio>
-              <el-radio label="custom">{{ t('cloudPhone.custom') }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-
-          <template v-if="machineMode === 'custom'">
-            <!-- Specify Model -->
-            <div class="section-title">{{ t('cloudPhone.specifyModel') }}</div>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item :label="t('cloudPhone.brand')" prop="brand">
-                  <el-select
-                    v-model="form.brand"
-                    @change="handleBrandChange"
-                    filterable
-                    :placeholder="t('cloudPhone.brandPlaceholder')"
-                    style="width: 100%"
-                  >
-                    <el-option
-                      v-for="item in brandOptions"
-                      :key="item.brand"
-                      :label="item.brand"
-                      :value="item.brand"
-                    />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item :label="t('cloudPhone.model')" prop="adiID">
-                  <el-select
-                    v-model="form.adiID"
-                    filterable
-                    :placeholder="t('cloudPhone.modelPlaceholder')"
-                    style="width: 100%"
-                  >
-                    <el-option
-                      v-for="item in modelOptions"
-                      :key="item.id"
-                      :label="`${item.model_name}${item.isUploaded ? t('cloudPhone.uploaded') : ''}`"
-                      :value="item.id"
-                    />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-          </template>
+          <MachineSettingsSelector
+            ref="machineSelectorRef"
+            :host-ip="host?.ip || ''"
+            :android-version="currentAndroidVersion"
+            host-adi-failure-policy="throw"
+            brand-prop="brand"
+            adi-prop="adiID"
+            v-model:machine-mode="machineMode"
+            v-model:brand="form.brand"
+            v-model:adi-id="form.adiID"
+            v-model:adi-name="form.adiName"
+            v-model:adi-pass="form.adiPass"
+          />
         </template>
       </el-form>
 
@@ -156,6 +120,8 @@ import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
 import { getDeviceTypeText } from '@renderer/utils/i18n-maps'
 import ImageSelect from '../components/ImageSelect.vue'
+import MachineSettingsSelector from '../components/MachineSettingsSelector.vue'
+import type { AdiWithUpload, MachineMode } from '../components/machineSettings.types'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -173,20 +139,18 @@ const loading = ref(false)
 const formRef = ref<InstanceType<typeof ElForm>>()
 const device = ref<Device>()
 const host = ref<Host>()
-
-// const imageOptions = ref<(Image & { isUploaded: boolean })[]>([]) // Unused
-const brandOptions = ref<any>([])
-const modelOptions = ref<any>([])
-const allAvailableModels = ref<(Adi & { isUploaded: boolean })[]>([]) // 用于随机选择
+const machineSelectorRef = ref<InstanceType<typeof MachineSettingsSelector> | null>(null)
 let loadingInstance: { close: () => void; setText: (text: string) => void } | null = null
 
 const form = reactive<any>({
   image_repository: '',
   brand: '',
-  adiID: ''
+  adiID: '',
+  adiName: '',
+  adiPass: ''
 })
 
-const machineMode = ref('random') // 'random' | 'custom'
+const machineMode = ref<MachineMode>('random')
 
 const rules = computed(() => {
   const baseRules = {
@@ -224,111 +188,27 @@ const isNeedAdi = computed(() => {
 })
 
 const handleClose = () => {
-  brandOptions.value = []
-  modelOptions.value = []
   currentAndroidVersion.value = ''
   formRef.value?.resetFields()
   form.image_repository = ''
   form.brand = ''
   form.adiID = ''
+  form.adiName = ''
+  form.adiPass = ''
   machineMode.value = 'random'
-  allAvailableModels.value = []
 }
 
 const imageSelectRef = ref()
 
-// Logic from CreateCloud.vue
 const handleImageChange = (image: Image & { isUploaded: boolean }) => {
   if (image) {
-    getBrandOptions(image.androidVersion)
+    machineSelectorRef.value?.reload(image.androidVersion)
   }
 }
-// Removed duplicated getImageOptions declaration
-// const getImageOptions = async () => { ... } is replaced by the one below
 
 const getImageOptions = async () => {
   await imageSelectRef.value?.getImageOptions()
 }
-
-const handleBrandChange = (value: string) => {
-  form.adiID = ''
-  const brand = brandOptions.value.find((item: any) => item.brand === value)
-  if (brand) {
-    modelOptions.value = brand.list
-    form.adiID = modelOptions.value?.[0]?.id ?? ''
-  }
-}
-
-const filterAndGroupByBrand = (data: Adi[], asopVersion: string, adiIds: number[]) => {
-  const brandMap = new Map<string, Adi[]>()
-
-  data.forEach((item: Adi) => {
-    // ① 查询条件：镜像版本
-    if (item.asopVersion !== asopVersion) return
-
-    // ② 品牌分组
-    if (!brandMap.has(item.brand)) {
-      brandMap.set(item.brand, [])
-    }
-
-    brandMap.get(item.brand)!.push(item)
-  })
-
-  return Array.from(brandMap.entries()).map(([brand, list]) => ({
-    brand,
-    list:
-      list.map((item: Adi) => ({
-        ...item,
-        isUploaded: (adiIds as any[]).includes(item.id)
-      })) || ([] as Adi[])
-  }))
-}
-
-const getBrandOptions = async (asopVersion: string) => {
-  if (!asopVersion || !isReal.value) return
-
-  try {
-    const res = await ipc.invoke<Adi[]>(ADI_EVENTS.GET_ADIS)
-
-    if (res.success) {
-      // 获取主机机型模板列表
-      const adiList = await request.get(
-        buildApiUrl(host.value?.ip || '', API_CONFIG.PATHS.GET_HOST_ADI_TEMPLATE_LIST)
-      )
-      const adiIds = adiList?.data?.list?.map((item: any) => Number(item.adiID)) || []
-
-      // 1. 筛选并保存所有可用机型（用于随机）
-      const filteredAdis = (res.data || []).filter((item: Adi) => item.asopVersion === asopVersion)
-      allAvailableModels.value = filteredAdis.map((item: Adi) => ({
-        ...item,
-        isUploaded: adiIds.includes(Number(item.id))
-      })) as any[]
-
-      // 2. 分组显示（用于自定义）
-      const options = filterAndGroupByBrand(res.data || [], asopVersion, adiIds)
-
-      brandOptions.value = options
-
-      // Default selection if not set or invalid
-      if (!form.brand || !options.find((o) => o.brand === form.brand)) {
-        form.brand = options?.[0]?.brand ?? ''
-      }
-
-      const currentBrand = options.find((item) => item.brand === form.brand)
-      const modelOptionsData = currentBrand?.list ?? options?.[0]?.list ?? []
-
-      modelOptions.value = modelOptionsData
-
-      if (!form.adiID || !modelOptionsData.find((m: any) => m.id === form.adiID)) {
-        form.adiID = modelOptionsData?.[0]?.id ?? ''
-      }
-    }
-  } catch (error: any) {
-    ElMessage.error(getErrorMessage(error, t('cloudPhone.getHostModelTemplateListFailed')))
-  }
-}
-
-// const getImageOptions = async () => { ... } removed
 
 const createLoading = () => {
   const target = document.querySelector('.update-edit-dialog') as HTMLElement
@@ -381,31 +261,22 @@ const handleSubmit = async () => {
     try {
       createLoading()
 
-      // Determine ADI
-      let targetAdi: any = null
-      let targetAdiID = ''
+      let targetAdi: AdiWithUpload | null = null
 
       if (isNeedAdi.value) {
-        if (machineMode.value === 'random') {
-          if (allAvailableModels.value.length === 0) {
+        targetAdi = machineSelectorRef.value?.getSelectedModel() ?? null
+
+        if (!targetAdi) {
+          if (machineMode.value === 'random') {
             throw new Error(t('cloudPhone.noAvailableModelTemplates'))
           }
-          const idx = Math.floor(Math.random() * allAvailableModels.value.length)
-          targetAdi = allAvailableModels.value[idx]
-          targetAdiID = targetAdi.id
-        } else {
-          // Custom
-          targetAdi = modelOptions.value.find((item: any) => item.id === form.adiID)
-          targetAdiID = form.adiID
+          throw new Error(t('cloudPhone.selectModel'))
         }
-      } else {
-        // Not needed
-        targetAdiID = ''
+
       }
 
-      // Check uploads
       const uploads: {
-        adi?: Adi
+        adi?: AdiWithUpload
         image?: Image
       } = {}
 
@@ -414,12 +285,10 @@ const handleSubmit = async () => {
       }
 
       const image = imageSelectRef.value?.getSelectedImage()
-      // const image = imageOptions.value.find((item: any) => item.version === form.image_repository)
       if (image && !image.isUploaded) {
         uploads.image = image
       }
 
-      // Upload ADI
       if (uploads.adi) {
         loadingInstance?.setText(t('cloudPhone.uploadingModelTemplateToHost'))
         const res = await ipc.invoke<Adi>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, {
@@ -431,7 +300,6 @@ const handleSubmit = async () => {
         }
       }
 
-      // Upload Image
       if (uploads.image) {
         loadingInstance?.setText(t('cloudPhone.uploadingImageToHost'))
         const res = await ipc.invoke<Image>(IMAGES_EVENTS.UPLOAD_IMAGE_TO_HOST, {
@@ -445,7 +313,6 @@ const handleSubmit = async () => {
 
       loadingInstance?.setText(t('cloudPhone.modifyingImage'))
 
-      // 获取推流设置并添加到 scdArgs（JSON 字符串）
       const fpsRes = await ipc.invoke<string>(CONFIG_EVENTS.GET_CONFIGS, CONFIG_KEYS.STREAM_FPS)
       const bitrateRes = await ipc.invoke<string>(
         CONFIG_EVENTS.GET_CONFIGS,
@@ -453,11 +320,8 @@ const handleSubmit = async () => {
       )
       const fps = fpsRes.success && fpsRes.data ? fpsRes.data : '30'
       const bitrate = bitrateRes.success && bitrateRes.data ? bitrateRes.data : '2'
-      // 码率转换为字节，1MB = 1024 * 1024 字节
-      // 使用字符串形式避免 JSON.stringify 将大数字转换为科学计数法
       const bitrateBytes = parseInt(bitrate) * 1024 * 1024
 
-      // Call update API
       await request.post(
         buildApiUrl(host.value?.ip || '', API_CONFIG.PATHS.UPDATE_CLOUD_PHONE_IMAGE),
         {
@@ -465,7 +329,6 @@ const handleSubmit = async () => {
           repository: form.image_repository,
           adiName: targetAdi?.name,
           adiPass: targetAdi?.pwd,
-          adiID: targetAdiID,
           scdArgs: JSON.stringify({
             video_bit_rate: String(bitrateBytes),
             max_fps: fps
@@ -594,3 +457,4 @@ defineExpose({
   }
 }
 </style>
+

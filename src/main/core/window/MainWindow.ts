@@ -95,7 +95,8 @@ class MainWindowManager {
           webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
             sandbox: false,
-            webviewTag: true
+            webviewTag: true,
+            webSecurity: false
           }
         },
         mainUrl

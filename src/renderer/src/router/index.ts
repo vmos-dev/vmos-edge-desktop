@@ -44,6 +44,18 @@ const router = createRouter({
           name: 'General',
           component: () => import('@renderer/views/general/index.vue'),
           meta: { title: 'layout.header.generalSettings' }
+        },
+        {
+          path: '/automation',
+          name: 'Automation',
+          component: () => import('@renderer/views/automation/index.vue'),
+          meta: { title: 'layout.automation' }
+        },
+        {
+          path: '/ai-agent',
+          name: 'AiAgent',
+          component: () => import('@renderer/views/aiAgent/index.vue'),
+          meta: { title: 'layout.aiAgent' }
         }
       ]
     },

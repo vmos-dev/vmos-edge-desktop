@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 主机相关的 IPC 处理器
  */
 import { handle } from '../IpcBus'
@@ -225,6 +225,24 @@ export function registerHostHandlers() {
   })
 
   // 删除主机
+  // 清除本地主机下离线云机
+  handle<Host, { deletedCount: number }>(DATA_EVENTS.CLEAR_HOST_OFFLINE_DEVICES, async (host) => {
+    const startTime = Date.now()
+    logger.info(
+      `[HostHandler] CLEAR_HOST_OFFLINE_DEVICES request: id=${host.id}, ip=${host.ip}, status=${host.status}`
+    )
+    try {
+      const deletedDevices = hostManager.clearHostOfflineDevices(host)
+      const duration = Date.now() - startTime
+      logger.info(
+        `[HostHandler] CLEAR_HOST_OFFLINE_DEVICES success: id=${host.id}, deleted=${deletedDevices.length}, duration=${duration}ms`
+      )
+      return { success: true, data: { deletedCount: deletedDevices.length } }
+    } catch (error) {
+      return handleError(error)
+    }
+  })
+
   handle<Host, void>(DATA_EVENTS.HOST_DELETED, async (host) => {
     const startTime = Date.now()
     logger.info(`[HostHandler] HOST_DELETED request: id=${host.id}, ip=${host.ip}`)
@@ -235,6 +253,23 @@ export function registerHostHandlers() {
         `[HostHandler] HOST_DELETED success: id=${host.id}, ip=${host.ip}, duration=${duration}ms`
       )
       return { success: true }
+    } catch (error) {
+      return handleError(error)
+    }
+  })
+
+  handle<Host[], number>(DATA_EVENTS.DELETE_HOSTS, async (hosts) => {
+    const startTime = Date.now()
+    logger.info(
+      `[HostHandler] DELETE_HOSTS request: count=${hosts.length}, hostIds=${hosts.map((host) => host.id).join(',')}`
+    )
+    try {
+      const deletedCount = hostManager.deleteHosts(hosts)
+      const duration = Date.now() - startTime
+      logger.info(
+        `[HostHandler] DELETE_HOSTS success: requested=${hosts.length}, deleted=${deletedCount}, duration=${duration}ms`
+      )
+      return { success: true, data: deletedCount }
     } catch (error) {
       return handleError(error)
     }
@@ -281,7 +316,9 @@ export function registerHostHandlers() {
 
       const ip = addresses[0]
       const duration = Date.now() - startTime
-      logger.info(`[HostHandler] RESOLVE_DOMAIN success: domain=${domain}, ip=${ip}, duration=${duration}ms`)
+      logger.info(
+        `[HostHandler] RESOLVE_DOMAIN success: domain=${domain}, ip=${ip}, duration=${duration}ms`
+      )
       return { success: true, data: ip }
     } catch (error) {
       logger.error(`[HostHandler] RESOLVE_DOMAIN failed: domain=${domain}`, error)

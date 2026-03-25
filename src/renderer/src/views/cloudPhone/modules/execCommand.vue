@@ -19,6 +19,28 @@
             :disabled="isProcessing || isExecuted"
           />
         </el-form-item>
+        <el-form-item v-if="!isExecuted" :label="t('cloudPhone.commandTemplates')">
+          <div class="command-templates">
+            <div
+              v-for="group in commandTemplateGroups"
+              :key="group.labelKey"
+              class="template-group"
+            >
+              <div class="group-header">{{ t(group.labelKey) }}</div>
+              <div class="group-tags">
+                <span
+                  v-for="tpl in group.templates"
+                  :key="tpl.command"
+                  class="template-tag"
+                  :class="{ disabled: isProcessing }"
+                  @click="applyTemplate(tpl)"
+                >
+                  {{ t(tpl.labelKey) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item :label="t('cloudPhone.timeoutSeconds')" prop="timeout">
           <el-input-number
             v-model="form.timeout"
@@ -154,6 +176,70 @@ const isProcessing = ref(false)
 
 const deviceCount = computed(() => devices.value.length)
 
+const commandTemplateGroups = [
+  {
+    labelKey: 'cloudPhone.cmdCatInput',
+    templates: [
+      { labelKey: 'cloudPhone.cmdTplHome', command: 'input keyevent KEYCODE_HOME' },
+      { labelKey: 'cloudPhone.cmdTplBack', command: 'input keyevent KEYCODE_BACK' },
+      { labelKey: 'cloudPhone.cmdTplPower', command: 'input keyevent KEYCODE_POWER' },
+      { labelKey: 'cloudPhone.cmdTplVolumeUp', command: 'input keyevent KEYCODE_VOLUME_UP' },
+      { labelKey: 'cloudPhone.cmdTplVolumeDown', command: 'input keyevent KEYCODE_VOLUME_DOWN' },
+      { labelKey: 'cloudPhone.cmdTplInputText', command: 'input text "hello"' },
+      { labelKey: 'cloudPhone.cmdTplTapScreen', command: 'input tap 500 500' },
+      { labelKey: 'cloudPhone.cmdTplSwipeScreen', command: 'input swipe 300 1000 300 500' },
+      { labelKey: 'cloudPhone.cmdTplOpenSettings', command: 'am start -a android.settings.SETTINGS' },
+      { labelKey: 'cloudPhone.cmdTplOpenDialer', command: 'am start -a android.intent.action.DIAL' },
+      { labelKey: 'cloudPhone.cmdTplScreenshot', command: 'screencap -p /sdcard/screenshot.png' },
+      { labelKey: 'cloudPhone.cmdTplScreenRecordStart', command: 'screenrecord /sdcard/record.mp4' },
+      { labelKey: 'cloudPhone.cmdTplScreenRecordStop', command: 'killall -INT screenrecord' }
+    ]
+  },
+  {
+    labelKey: 'cloudPhone.cmdCatApp',
+    templates: [
+      { labelKey: 'cloudPhone.cmdTplListPackages', command: 'pm list packages' },
+      { labelKey: 'cloudPhone.cmdTplListSystem', command: 'pm list packages -s' },
+      { labelKey: 'cloudPhone.cmdTplListThirdParty', command: 'pm list packages -3' },
+      { labelKey: 'cloudPhone.cmdTplAppVersion', command: 'dumpsys package <package_name> | grep versionName' },
+      { labelKey: 'cloudPhone.cmdTplAppMemory', command: 'dumpsys meminfo <package_name>' },
+      { labelKey: 'cloudPhone.cmdTplClearAppData', command: 'pm clear <package_name>' },
+      { labelKey: 'cloudPhone.cmdTplUninstallApp', command: 'pm uninstall <package_name>' },
+      { labelKey: 'cloudPhone.cmdTplForceStopApp', command: 'am force-stop <package_name>' },
+      {
+        labelKey: 'cloudPhone.cmdTplLaunchApp',
+        command: 'monkey -p <package_name> -c android.intent.category.LAUNCHER 1'
+      },
+      {
+        labelKey: 'cloudPhone.cmdTplLaunchActivity',
+        command: 'am start -n com.android.settings/.Settings'
+      }
+    ]
+  },
+  {
+    labelKey: 'cloudPhone.cmdCatDevice',
+    templates: [
+      { labelKey: 'cloudPhone.cmdTplCurrentActivity', command: 'dumpsys activity activities | grep mResumedActivity' },
+      { labelKey: 'cloudPhone.cmdTplSystemVersion', command: 'getprop ro.build.version.release' },
+      { labelKey: 'cloudPhone.cmdTplDeviceModel', command: 'getprop ro.product.model' },
+      { labelKey: 'cloudPhone.cmdTplDeviceBrand', command: 'getprop ro.product.brand' },
+      { labelKey: 'cloudPhone.cmdTplAndroidId', command: 'settings get secure android_id' },
+      { labelKey: 'cloudPhone.cmdTplIpAddress', command: 'ifconfig' },
+      { labelKey: 'cloudPhone.cmdTplCpuInfo', command: 'cat /proc/cpuinfo' },
+      { labelKey: 'cloudPhone.cmdTplMemInfo', command: 'cat /proc/meminfo' },
+      { labelKey: 'cloudPhone.cmdTplDiskSpace', command: 'df -h' },
+      { labelKey: 'cloudPhone.cmdTplBattery', command: 'dumpsys battery' },
+      { labelKey: 'cloudPhone.cmdTplScreenSize', command: 'wm size' },
+      { labelKey: 'cloudPhone.cmdTplScreenDensity', command: 'wm density' }
+    ]
+  }
+]
+
+const applyTemplate = (tpl: { labelKey: string; command: string }) => {
+  if (isProcessing.value || isExecuted.value) return
+  form.value.command = tpl.command
+}
+
 const form = ref({
   command: '',
   timeout: 60
@@ -281,6 +367,56 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.command-templates {
+  .template-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .group-header {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+    line-height: 24px;
+    min-width: 70px;
+  }
+
+  .group-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .template-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--el-text-color-regular);
+    background: var(--el-fill-color-light);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+
+    &:hover:not(.disabled) {
+      color: var(--el-color-primary);
+      background: var(--el-color-primary-light-9);
+    }
+
+    &.disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  }
 }
 
 .tip {

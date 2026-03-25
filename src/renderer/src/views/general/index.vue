@@ -110,14 +110,14 @@
               @change="() => (streamType = 'video')"
               >{{ t('settings.videoOnly') }}</el-checkbox
             >
-            <!-- <el-checkbox
+            <el-checkbox
               label="audio"
               :model-value="streamType === 'audio'"
               :disabled="isStreaming"
               @change="() => (streamType = 'audio')"
               :checked="isStreaming"
               >{{ t('settings.audioOnly') }}</el-checkbox
-            > -->
+            >
           </el-radio-group>
         </div>
 
@@ -433,7 +433,7 @@
                   <el-input-number
                     v-model="configForm.timeout"
                     :min="10"
-                    :max="10000"
+                    :max="100000"
                     :step="100"
                     controls-position="right"
                     @change="handleProxyCheckTimeoutChange"
@@ -538,6 +538,7 @@ import { MEDIAMTX_GET_STATUS } from '@shared/ipc/channels'
 import { CONFIG_KEYS } from '@shared/constant'
 import { useI18n } from 'vue-i18n'
 import type { MediaServerStatus } from '@shared/ipc/mediaMtx.types'
+import { copyToClipboard } from '@renderer/utils'
 
 const { t } = useI18n()
 
@@ -576,7 +577,7 @@ const handleResetTheme = async () => {
     })
     await resetTheme()
     ElMessage.success(t('common.operationSuccess'))
-  } catch (e) {
+  } catch {
     // ignore cancel
   }
 }
@@ -655,7 +656,7 @@ const configRules = computed(() => {
       {
         type: 'number' as const,
         min: 10,
-        max: 10000,
+        max: 100000,
         message: t('settings.timeoutRange'),
         trigger: 'change'
       }
@@ -1017,7 +1018,9 @@ const handleScreenshotStoragePathChange = async () => {
               loadConfig()
             }
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error('Open screenshot storage path selector failed:', error)
+        }
       }
     })
   } catch (error) {
@@ -1032,11 +1035,10 @@ const handleExportLog = async () => {
   if (exporting.value) return
   exporting.value = true
   try {
-    const res = await ipc.invoke<{ success: boolean; message?: string }>(
-      SHARED_EVENTS.EXPORT_TODAY_LOG
-    )
+    const res = await ipc.invoke<{ filePath: string }>(SHARED_EVENTS.EXPORT_TODAY_LOG)
     if (res.success) {
       ElMessage.success(t('settings.exportSuccess'))
+      return
     }
   } catch (error) {
     console.error('Export log failed:', error)
@@ -1118,7 +1120,7 @@ const handleStreamingChange = async (val: string | number | boolean) => {
 
 const copyRtspUrl = () => {
   if (!rtspUrl.value) return
-  navigator.clipboard.writeText(rtspUrl.value).then(() => {
+  copyToClipboard(rtspUrl.value, () => {
     ElMessage.success(t('settings.rtspAddressCopied'))
   })
 }
@@ -1127,12 +1129,18 @@ const copyRtspUrl = () => {
 const syncServerStatus = async () => {
   try {
     const res = await ipc.invoke<MediaServerStatus>(MEDIAMTX_GET_STATUS)
-    if (res.success && res.data?.running) {
-      if (isStreaming.value) {
-        // 尝试恢复
+    const serverRunning = res.success && res.data?.running
+
+    if (isStreaming.value) {
+      // 想要推流，但目前没有处于 streaming 状态 (可能是刚打开页面、刷新、或推流中断)
+      if (publisherState.value !== 'streaming' && publisherState.value !== 'connecting') {
+        // 如果服务器没开，或者虽然开了但本地没连上，都尝试 startPublishing
         const url = await startPublishing()
         rtspUrl.value = url
-      } else {
+      }
+    } else {
+      // 不想要推流，但服务器还在运行 (可能上个页面开启后未正常关闭)，则清理
+      if (serverRunning) {
         await stopPublishing()
       }
     }

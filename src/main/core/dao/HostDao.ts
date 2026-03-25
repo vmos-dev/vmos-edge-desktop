@@ -18,7 +18,7 @@ export class HostDao extends BaseDao<Host> {
   }
   /** 根据ip 查询主机信息 */
   public getByIp(ip: string): Host | undefined {
-    const row = this.dbInstance.db.prepare(`SELECT * FROM ${this.tableName} WHERE ip = ?`).get(ip)
+    const row = this.dbInstance.db.prepare(`SELECT * FROM ${this.tableName} WHERE trim(ip) = trim(?)`).get(ip)
     return row ? this.deserialize(row) : undefined
   }
   /**

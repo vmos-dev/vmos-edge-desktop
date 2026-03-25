@@ -14,11 +14,7 @@
         >
           <span v-if="storagePath">{{ storagePath }}</span>
           <span v-else class="path-empty">{{ t('image.pathNotSet') }}</span>
-          <el-tooltip
-            v-if="!isPathValid"
-            :content="t('image.pathNotExistTip')"
-            placement="top"
-          >
+          <el-tooltip v-if="!isPathValid" :content="t('image.pathNotExistTip')" placement="top">
             <el-icon class="warning-icon"><Warning /></el-icon>
           </el-tooltip>
         </div>
@@ -83,10 +79,12 @@
             filterable
             class="search-select"
           >
-            <el-option :label="t('adi.android15')" value="15" />
-            <el-option :label="t('adi.android14')" value="14" />
-            <el-option :label="t('adi.android13')" value="13" />
-            <el-option :label="t('adi.android10')" value="10" />
+            <el-option
+              v-for="option in ANDROID_VERSION_OPTIONS"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item class="form-item-actions">
@@ -98,13 +96,22 @@
             <el-icon class="el-icon--left"><Refresh /></el-icon>
             {{ t('common.reset') }}
           </el-button>
+          <el-button type="danger" plain :loading="batchDeleteLoading" @click="handleBatchDelete">
+            <el-icon class="el-icon--left"><Delete /></el-icon>
+            {{ t('image.batchDelete') }}
+          </el-button>
         </el-form-item>
       </el-form>
     </div>
 
     <!-- 镜像列表表格 -->
     <div class="table-container">
-      <ImageTable :data="filteredImages" @delete="handleDelete" />
+      <ImageTable
+        :data="filteredImages"
+        :selected-ids="selectedImageIds"
+        @delete="handleDelete"
+        @selection-change="handleSelectionChange"
+      />
     </div>
 
     <!-- 导入镜像弹窗 -->
@@ -115,13 +122,14 @@
 <script setup lang="ts">
 defineOptions({ name: 'Image' })
 import { ref, computed, reactive, onMounted } from 'vue'
-import { Download, Folder, Warning, List, Search, Refresh } from '@element-plus/icons-vue'
+import { Download, Folder, Warning, List, Search, Refresh, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, ElForm, ElTooltip } from 'element-plus'
 import ImageTable, { ImageItem } from './components/ImageTable.vue'
 import ImportDialog from './components/ImportDialog.vue'
 import { ipc } from '@renderer/core/ipc'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
+import { ANDROID_VERSION_OPTIONS } from '@shared/constant/androidVersions'
 import { IMAGES_EVENTS } from '@shared/ipc/images.types'
 import type { Image } from '@shared/ipc/data.types'
 import { useI18n } from 'vue-i18n'
@@ -132,6 +140,7 @@ const storagePath = ref<string>('')
 const isPathValid = ref<boolean>(true) // 路径是否有效
 const importDialogRef = ref<InstanceType<typeof ImportDialog>>()
 const loading = ref(false)
+const batchDeleteLoading = ref(false)
 
 const searchFormRef = ref<InstanceType<typeof ElForm>>()
 const searchForm = reactive({
@@ -140,6 +149,7 @@ const searchForm = reactive({
 })
 
 const imageList = ref<ImageItem[]>([])
+const selectedImages = ref<ImageItem[]>([])
 
 // ==========================================
 // 工具函数
@@ -197,6 +207,8 @@ const filteredImages = computed(() => {
   return imageList.value
 })
 
+const selectedImageIds = computed(() => selectedImages.value.map((item) => item.id))
+
 // ==========================================
 // 方法
 // ==========================================
@@ -218,11 +230,15 @@ const changeStoragePath = async () => {
 
 const handleDelete = async (row: ImageItem) => {
   try {
-    await ElMessageBox.confirm(t('image.deleteConfirmMessage', { name: row.name }), t('image.deleteConfirm'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning'
-    })
+    await ElMessageBox.confirm(
+      t('image.deleteConfirmMessage', { name: row.name }),
+      t('image.deleteConfirm'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
 
     const res = await ipc.invoke(IMAGES_EVENTS.DELETE_IMAGE, row.id)
     if (res.success) {
@@ -235,6 +251,60 @@ const handleDelete = async (row: ImageItem) => {
     if (error !== 'cancel') {
       ElMessage.error(error?.message || t('common.deleteFailed'))
     }
+  }
+}
+
+const handleSelectionChange = (rows: ImageItem[]) => {
+  selectedImages.value = rows
+}
+
+const handleBatchDelete = async () => {
+  if (!selectedImages.value.length) {
+    ElMessage.warning(t('image.batchDeleteSelectWarning'))
+    return
+  }
+
+  if (batchDeleteLoading.value) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('image.batchDeleteMessage', { count: selectedImages.value.length }),
+      t('image.batchDeleteConfirm'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+
+    batchDeleteLoading.value = true
+    const ids = selectedImages.value.map((item) => item.id)
+    const res = await ipc.invoke<number>(IMAGES_EVENTS.DELETE_IMAGES, ids)
+
+    if (!res.success) {
+      ElMessage.error(res.error || t('common.deleteFailed'))
+      return
+    }
+
+    const deletedCount = res.data ?? 0
+    if (deletedCount === ids.length) {
+      ElMessage.success(t('image.batchDeleteSuccess', { count: deletedCount }))
+    } else {
+      ElMessage.warning(
+        t('image.batchDeletePartial', { success: deletedCount, fail: ids.length - deletedCount })
+      )
+    }
+
+    selectedImages.value = []
+    await loadImages()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || t('common.deleteFailed'))
+    }
+  } finally {
+    batchDeleteLoading.value = false
   }
 }
 
@@ -294,7 +364,10 @@ const loadImages = async () => {
 
     const res = await ipc.invoke<Image[]>(IMAGES_EVENTS.QUERY_IMAGES, options)
     if (res.success && res.data) {
-      imageList.value = res.data.map(convertImageToItem)
+      const nextImageList = res.data.map(convertImageToItem)
+      const nextIds = new Set(nextImageList.map((item) => item.id))
+      imageList.value = nextImageList
+      selectedImages.value = selectedImages.value.filter((item) => nextIds.has(item.id))
     } else {
       ElMessage.error(res.error || t('common.loadFailed'))
       imageList.value = []
@@ -334,7 +407,7 @@ const checkStoragePath = async () => {
     } else {
       isPathValid.value = false
     }
-  } catch (error: any) {
+  } catch {
     isPathValid.value = false
   }
 }

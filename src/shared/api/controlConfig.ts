@@ -1,16 +1,16 @@
 /**
  * 设备控制 API 配置
- * 
+ *
  * 本配置模块定义了与云手机设备控制相关的 API 端点路径和基础配置项。
  * 所有 API 路径均遵循 RESTful 设计规范，通过 buildDeviceApiUrl 函数构建完整的请求 URL。
- * 
+ *
  * @module controlConfig
  * @see {@link https://developer.android.com/reference/android/provider/CallLog.Calls Android CallLog API}
  */
 
 /**
  * API 控制配置常量
- * 
+ *
  * 包含成功状态码、默认端口号以及所有设备控制相关的 API 路径定义。
  * 使用 `as const` 确保类型安全，防止意外修改。
  */
@@ -23,7 +23,7 @@ export const API_CONTROL_CONFIG = {
 
   /**
    * API 路径定义
-   * 
+   *
    * 所有路径均为相对路径，不包含协议、主机和端口信息。
    * 完整 URL 需要通过 buildDeviceApiUrl 函数构建。
    */
@@ -87,41 +87,49 @@ export const API_CONTROL_CONFIG = {
     /** 设置系统属性 */
     SET_SYSTEM_PROP: '/system/set_prop',
 
+    // ==================== 文件管理 (File) ====================
+    /** 列出目录内容 */
+    FILE_LIST: '/file/list',
+    /** 导出文件 */
+    FILE_EXPORT: '/file/export',
+
     /** 获取api版本 */
     GET_API_VERSION: '/base/version_info',
-  },
+    /** 是否开启轨道 */
+    SET_ACTION_TRAJECTORY: '/base/api_global_settings'
+  }
 } as const
 
 /**
  * 构建设备 API 的完整请求 URL
- * 
+ *
  * 根据提供的参数构建符合 Android API v2 规范的完整 URL。
  * 函数会自动处理路径格式，确保生成的 URL 符合规范。
- * 
+ *
  * @param ip - 云手机主机 IP 地址（IPv4 格式，如：192.168.1.100）
  * @param deviceId - 云手机设备唯一标识符（设备 ID）
  * @param path - API 相对路径（支持带或不带前导斜杠，如：'sms/list' 或 '/sms/list'）
  * @param port - 目标服务端口号（可选，默认使用 API_CONTROL_CONFIG.DEFAULT_PORT）
- * 
+ *
  * @returns 完整的 HTTP URL 字符串
- * 
+ *
  * @example
  * ```typescript
  * // 基本用法
  * const url = buildDeviceApiUrl('192.168.1.100', 'device-123', 'sms/list')
  * // 返回: 'http://192.168.1.100:18182/android_api/v2/device-123/sms/list'
- * 
+ *
  * // 使用配置中的路径常量
  * const url = buildDeviceApiUrl(
  *   '192.168.1.100',
  *   'device-123',
  *   API_CONTROL_CONFIG.PATHS.GET_SMS_LIST
  * )
- * 
+ *
  * // 自定义端口
  * const url = buildDeviceApiUrl('192.168.1.100', 'device-123', 'sms/list', 8080)
  * ```
- * 
+ *
  * @throws {Error} 当 path 参数为空或无效时可能抛出错误
  */
 export function buildDeviceApiUrl(

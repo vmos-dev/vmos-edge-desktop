@@ -3,7 +3,7 @@ import { ADI_EVENTS } from '@shared/ipc/adi.types'
 import { adiManager } from '../../store/managers'
 import { logger } from '../../logger'
 import { isAxiosError } from '@shared/api/request'
-import { Adi } from '@shared/ipc/adi.types'
+import { Adi, CustomAdi } from '@shared/ipc/adi.types'
 import type { Host } from '@shared/ipc/data.types'
 
 /**
@@ -49,8 +49,62 @@ export function registerAdiHandlers() {
     }
   })
 
+  // 获取所有自定义机型
+  handle<void, CustomAdi[]>(ADI_EVENTS.GET_CUSTOM_ADIS, async () => {
+    const startTime = Date.now()
+    logger.info(`[AdiHandler] GET_CUSTOM_ADIS request`)
+    try {
+      const adis = adiManager.getCustomAdis()
+      const duration = Date.now() - startTime
+      logger.info(
+        `[AdiHandler] GET_CUSTOM_ADIS success: count=${adis.length}, duration=${duration}ms`
+      )
+      return {
+        success: true,
+        data: adis
+      }
+    } catch (error) {
+      return handleError(error)
+    }
+  })
+
+  // 导入自定义机型
+  // 兼容 payload 可能被包装的场景，确保 filePath 为字符串
+  handle<{ filePath: string } | { payload?: { filePath: string } }, CustomAdi>(
+    ADI_EVENTS.IMPORT_CUSTOM_ADI,
+    async (data) => {
+      const raw = (data as any)?.payload ?? data
+      const filePath = typeof raw?.filePath === 'string' ? raw.filePath : undefined
+      if (!filePath) {
+        logger.error(`[AdiHandler] IMPORT_CUSTOM_ADI invalid payload: filePath expected string, got ${typeof raw?.filePath}`)
+        return { success: false, error: 'Invalid file path' }
+      }
+      logger.info(`[AdiHandler] IMPORT_CUSTOM_ADI request: path=${filePath}`)
+      try {
+        const adi = await adiManager.importCustomAdi(filePath)
+        return {
+          success: true,
+          data: adi
+        }
+      } catch (error) {
+        return handleError(error)
+      }
+    }
+  )
+
+  // 删除自定义机型
+  handle<string, void>(ADI_EVENTS.DELETE_CUSTOM_ADI, async (id) => {
+    logger.info(`[AdiHandler] DELETE_CUSTOM_ADI request: id=${id}`)
+    try {
+      await adiManager.deleteCustomAdi(id)
+      return { success: true }
+    } catch (error) {
+      return handleError(error)
+    }
+  })
+
   // 上传机型模板到主机
-  handle<{ adi: Adi; host: Host }, void>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, async (data) => {
+  handle<{ adi: Adi | CustomAdi; host: Host }, void>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, async (data) => {
     logger.info(`[AdiHandler] UPLOAD_ADI_TO_HOST request: adi=${data.adi.name}, host=${data.host.ip}`)
     try {
       await adiManager.uploadAdiToHost(data.adi, data.host)

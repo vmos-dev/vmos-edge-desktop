@@ -42,6 +42,15 @@
         <el-form-item :label="t('cloudPhone.model') + '：'" v-if="isReal">
           <CopyText :text="(device as any).model_name || (device as any).model"></CopyText>
         </el-form-item>
+        <el-form-item :label="t('cloudPhone.resolution') + '：'">
+          <CopyText
+            :text="
+              device.width && device.height
+                ? device.width + 'x' + device.height + (device.dpi ? 'x' + device.dpi : '')
+                : '-'
+            "
+          ></CopyText>
+        </el-form-item>
 
         <el-form-item :label="t('cloudPhone.hostIp') + '：'" v-if="device.host_ip">
           <CopyText :text="device.host_ip"></CopyText>
@@ -105,12 +114,20 @@
             <span v-if="apiVersionLoading" class="value-text">
               <el-icon class="is-loading"><Loading /></el-icon>
             </span>
-            <span v-else-if="apiVersionInfo" class="value-text api-version-text" @click="openSupportedApiList">
+            <span
+              v-else-if="apiVersionInfo"
+              class="value-text api-version-text"
+              @click="openSupportedApiList"
+            >
               {{ apiVersionInfo.version_name }} ({{ apiVersionInfo.version_code }})
               <el-icon class="view-icon"><View /></el-icon>
             </span>
-            <span v-else-if="apiVersionError === 'unknown'" class="value-text">{{ t('cloudPhone.apiVersionUnknown') }}</span>
-            <span v-else-if="apiVersionError === 'failed'" class="value-text error-text">{{ t('cloudPhone.getFailed') }}</span>
+            <span v-else-if="apiVersionError === 'unknown'" class="value-text">{{
+              t('cloudPhone.apiVersionUnknown')
+            }}</span>
+            <span v-else-if="apiVersionError === 'failed'" class="value-text error-text">{{
+              t('cloudPhone.getFailed')
+            }}</span>
             <span v-else class="value-text">-</span>
           </div>
         </el-form-item>
@@ -164,7 +181,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Device } from '@shared/ipc/data.types'
-import { EditPen, Check, Close, Loading, View, Folder, Document, Search } from '@element-plus/icons-vue'
+import {
+  EditPen,
+  Check,
+  Close,
+  Loading,
+  View,
+  Folder,
+  Document,
+  Search
+} from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { request, getErrorMessage } from '@shared/api'
 import { API_CONFIG, buildApiUrl } from '@shared/api/config'
@@ -208,7 +234,7 @@ const groupedApiList = computed(() => {
   if (!apiVersionInfo.value?.supported_list) return {}
   const groups: Record<string, string[]> = {}
   const keyword = apiSearchKeyword.value.toLowerCase().trim()
-  
+
   for (const api of apiVersionInfo.value.supported_list) {
     // 搜索过滤
     if (keyword && !api.toLowerCase().includes(keyword)) {
@@ -228,7 +254,7 @@ const groupedApiList = computed(() => {
     }
     groups[moduleName].push(api)
   }
-  
+
   // 按模块名排序
   const sortedKeys = Object.keys(groups).sort((a, b) => a.localeCompare(b))
   const sortedGroups: Record<string, string[]> = {}

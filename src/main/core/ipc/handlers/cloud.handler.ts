@@ -60,6 +60,7 @@ export function arrangeCloudWindowsTiled(
     if (win.isFullScreen()) win.setFullScreen(false)
     if (win.isMinimized()) win.restore()
     if (!win.isVisible()) win.show()
+    win.focus()
     return true
   })
 

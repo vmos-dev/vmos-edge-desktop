@@ -4,7 +4,21 @@
  */
 
 import { ipcRenderer, IpcRendererEvent } from 'electron'
-import { IPC_SEND, IPC_INVOKE, IPC_PUSH, WindowId, IpcResponse } from '@shared/ipc'
+import {
+  IPC_SEND,
+  IPC_INVOKE,
+  IPC_PUSH,
+  BACKUP_SELECT_DIRECTORY,
+  BACKUP_CREATE_WRITER,
+  BACKUP_WRITE_CHUNK,
+  BACKUP_CLOSE_WRITER,
+  BACKUP_ABORT_WRITER,
+  type WindowId,
+  type IpcResponse,
+  type BackupCreateWriterPayload,
+  type BackupCreateWriterResult,
+  type BackupSelectDirectoryResult
+} from '@shared/ipc'
 
 /** 获取当前窗口信息 */
 function getWindowInfo(): WindowId {
@@ -35,6 +49,20 @@ function getWindowInfo(): WindowId {
 
 /** 当前窗口信息 */
 const windowInfo = getWindowInfo()
+
+async function invokeIpc<T = unknown>(event: string, payload?: unknown): Promise<T> {
+  const result = (await ipcRenderer.invoke(IPC_INVOKE, {
+    event,
+    payload,
+    sender: windowInfo
+  })) as IpcResponse<T>
+
+  if (!result?.success) {
+    throw new Error(result?.error || 'IPC 调用失败')
+  }
+
+  return result.data as T
+}
 
 /**
  * IPC API - 暴露给渲染进程
@@ -86,4 +114,30 @@ export const ipcApi = {
   }
 }
 
+/**
+ * 备份文件写盘 API
+ */
+export const backupFsApi = {
+  async selectDirectory(): Promise<BackupSelectDirectoryResult | null> {
+    return invokeIpc<BackupSelectDirectoryResult | null>(BACKUP_SELECT_DIRECTORY)
+  },
+
+  async createWriter(payload: BackupCreateWriterPayload): Promise<BackupCreateWriterResult> {
+    return invokeIpc<BackupCreateWriterResult>(BACKUP_CREATE_WRITER, payload)
+  },
+
+  async write(writerId: string, chunk: Uint8Array): Promise<void> {
+    await invokeIpc<void>(BACKUP_WRITE_CHUNK, { writerId, chunk })
+  },
+
+  async close(writerId: string): Promise<void> {
+    await invokeIpc<void>(BACKUP_CLOSE_WRITER, { writerId })
+  },
+
+  async abort(writerId: string): Promise<void> {
+    await invokeIpc<void>(BACKUP_ABORT_WRITER, { writerId })
+  }
+}
+
 export type IpcApi = typeof ipcApi
+export type BackupFsApi = typeof backupFsApi

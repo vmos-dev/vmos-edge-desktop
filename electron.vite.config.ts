@@ -57,7 +57,8 @@ export default defineConfig({
       __APP_VERSION__: JSON.stringify(pkg.version),
       __APP_VERSION_CODE__: JSON.stringify(versionCode || 0),
       __APP_VERSION_HASH__: JSON.stringify(versionHash || ''),
-      __IMAGE_SUPPORT_VERSION_TIME__: imageSupportVersionTime
+      __IMAGE_SUPPORT_VERSION_TIME__: imageSupportVersionTime,
+      __GA_MEASUREMENT_ID__: JSON.stringify('')
     },
     resolve: {
       alias: {
@@ -66,7 +67,16 @@ export default defineConfig({
       }
     },
     assetsInclude: ['**/*.glb', '**/*.gltf'],
-    plugins: [vue(), vueJsx()],
+    plugins: [
+      vue({
+        template: {
+          compilerOptions: {
+            isCustomElement: (tag) => tag === 'webview'
+          }
+        }
+      }),
+      vueJsx()
+    ],
     server: {
       host: true,
       open: false

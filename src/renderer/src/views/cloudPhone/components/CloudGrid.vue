@@ -1,5 +1,5 @@
 <template>
-  <div class="cloud-grid-container" ref="containerRef">
+  <div ref="containerRef" class="cloud-grid-container">
     <div v-if="!data || data.length === 0" class="empty-container">
       <el-empty :description="t('cloudPhone.noSelectedDevice')" :image-size="150" />
     </div>
@@ -15,6 +15,7 @@
     <RecycleScroller
       v-else-if="containerWidth > 0"
       ref="scrollerRef"
+      v-slot="{ item: row }"
       class="scroller"
       :items="rows"
       :item-size="rowHeight"
@@ -22,7 +23,7 @@
       :buffer="rowHeight"
       :pool-size="20"
       @scroll="onScrollerScroll"
-      v-slot="{ item: row }"
+      @mousedown.capture="onDragMouseDown"
     >
       <div class="grid-row" :style="{ gap: ITEM_GAP + 'px', marginBottom: ITEM_GAP + 'px' }">
         <!-- 每一行内部渲染多个 GridItem -->
@@ -46,6 +47,18 @@
         />
       </div>
     </RecycleScroller>
+
+    <!-- 拖拽框选矩形 -->
+    <div
+      v-if="isDragging"
+      class="drag-selection-rect"
+      :style="{
+        left: selectionRect.x + 'px',
+        top: selectionRect.y + 'px',
+        width: selectionRect.width + 'px',
+        height: selectionRect.height + 'px'
+      }"
+    />
 
     <!-- 右键菜单 (使用 Teleport 挂载到 body，避免父级 transform 影响 fixed 定位) -->
     <Teleport to="body">
@@ -74,11 +87,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue'
+import { ref, computed, onActivated, onDeactivated, onUnmounted, onMounted, nextTick } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { Device, DeviceState } from '@shared/ipc/data.types'
 import { useResizeObserver } from '@renderer/hooks/useResizeObserver'
+import { useDragSelect } from '../hooks/useDragSelect'
 import GridItem from './GridItem.vue'
 import { ElEmpty } from 'element-plus'
 import { useI18n } from 'vue-i18n'
@@ -413,13 +427,36 @@ const closeContextMenu = () => {
   contextMenuVisible.value = false
 }
 
-onMounted(() => {
+let hasDocumentClickListener = false
+
+const bindDocumentClickListener = () => {
+  if (hasDocumentClickListener) return
   document.addEventListener('click', closeContextMenu)
+  hasDocumentClickListener = true
+}
+
+const unbindDocumentClickListener = () => {
+  if (!hasDocumentClickListener) return
+  document.removeEventListener('click', closeContextMenu)
+  hasDocumentClickListener = false
+}
+
+onMounted(() => {
+  bindDocumentClickListener()
+})
+
+onActivated(() => {
+  bindDocumentClickListener()
+})
+
+onDeactivated(() => {
+  closeContextMenu()
+  unbindDocumentClickListener()
 })
 
 onUnmounted(() => {
   cleanup()
-  document.removeEventListener('click', closeContextMenu)
+  unbindDocumentClickListener()
 })
 
 // ==========================================
@@ -430,6 +467,25 @@ const { cleanup } = useResizeObserver(containerRef, {
   onResize: (entry) => {
     containerWidth.value = entry.contentRect.width
   }
+})
+
+// ==========================================
+// 拖拽框选
+// ==========================================
+const {
+  isDragging,
+  selectionRect,
+  onMouseDown: onDragMouseDown
+} = useDragSelect({
+  scrollerRef,
+  rows,
+  rowHeight,
+  data: () => props.data,
+  getItemWidth,
+  itemGap: ITEM_GAP,
+  selectable: () => props.selectable,
+  selectedIds: () => props.selectedIds,
+  onSelectionChange: (ids) => emit('selection-change', ids)
 })
 
 // ==========================================
@@ -473,6 +529,17 @@ defineExpose({})
   background-color: var(--el-bg-color);
   padding: 0;
   box-sizing: border-box;
+  position: relative;
+}
+
+/* 拖拽框选矩形 */
+.drag-selection-rect {
+  position: absolute;
+  border: 1px solid var(--el-color-primary);
+  background-color: var(--el-color-primary-light-8);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 100;
 }
 
 .empty-container {

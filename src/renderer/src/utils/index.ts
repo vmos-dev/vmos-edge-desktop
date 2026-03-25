@@ -25,12 +25,23 @@ export function formatTime(timestamp?: number, format: string = 'yyyy-MM-dd HH:m
 
 // 复制
 export function copyToClipboard(text: string, callback?: () => void) {
-  try {
-    navigator.clipboard.writeText(text)
-    callback?.()
-  } catch (error) {
-    console.error('Copy failed', error)
+  if (!text || !navigator.clipboard?.writeText) {
+    return
   }
+
+  if (typeof document !== 'undefined' && !document.hasFocus()) {
+    console.warn('Copy skipped because document is not focused')
+    return
+  }
+
+  void navigator.clipboard
+    .writeText(text)
+    .then(() => {
+      callback?.()
+    })
+    .catch((error) => {
+      console.warn('Copy failed', error)
+    })
 }
 
 /** 格式化文件大小 */

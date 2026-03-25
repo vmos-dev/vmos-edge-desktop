@@ -266,7 +266,7 @@ import { UploadFilled, InfoFilled } from '@element-plus/icons-vue'
 import { ipc } from '@renderer/core/ipc'
 import { PROXY_EVENTS } from '@shared/ipc/proxy.types'
 import * as XLSX from 'xlsx'
-import parseUri from '@renderer/utils/uri-parser'
+import { parseUri } from '@vmosedge/proxy-sdk/parser'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -287,7 +287,7 @@ const form = reactive({
 })
 
 const emit = defineEmits<{
-  success: []
+  success: [data: { count: number }]
 }>()
 
 const init = () => {
@@ -347,8 +347,13 @@ const parseLines = (lines: string[]) => {
   for (const line of lines) {
     if (!line || !line.trim()) continue
     try {
-      const config = parseUri(line.trim())
-      const payload = convertConfigToPayload(config)
+      const raw = line.trim()
+      const config = parseUri(raw)
+      const payload = {
+        ...convertConfigToPayload(config),
+        rawLink: raw
+      }
+      // 保留原始 URI，检测时始终用最新 parseUri 解析
       results.push({ raw: line, valid: true, payload })
     } catch (e: any) {
       results.push({ raw: line, valid: false, error: t('proxy.formatIncorrect') })
@@ -562,7 +567,7 @@ const handleConfirm = async () => {
       } else {
         ElMessage.success(t('proxy.importSuccess', { count: success }))
       }
-      emit('success')
+      emit('success', { count: res.data.success })
       visible.value = false
     } else {
       ElMessage.error(res.error || t('proxy.importFailed'))

@@ -52,54 +52,19 @@
       >
         <!-- 单机模式：选择机型 -->
         <template v-if="!isBatch && isReal">
-          <div class="section-title">{{ t('cloudPhone.machineSettings') }}</div>
-          <el-form-item>
-            <el-radio-group v-model="machineMode">
-              <el-radio label="random">{{ t('cloudPhone.random') }}</el-radio>
-              <el-radio label="custom">{{ t('cloudPhone.custom') }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-
-          <template v-if="machineMode === 'custom'">
-            <div class="section-title">{{ t('cloudPhone.specifyModel') }}</div>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item :label="t('cloudPhone.brand')" prop="brand">
-                  <el-select
-                    v-model="form.brand"
-                    @change="handleBrandChange"
-                    filterable
-                    :placeholder="t('cloudPhone.brandPlaceholder')"
-                    style="width: 100%"
-                  >
-                    <el-option
-                      v-for="item in brandOptions"
-                      :key="item.brand"
-                      :label="item.brand"
-                      :value="item.brand"
-                    />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item :label="t('cloudPhone.model')" prop="adiID">
-                  <el-select
-                    v-model="form.adiID"
-                    filterable
-                    :placeholder="t('cloudPhone.modelPlaceholder')"
-                    style="width: 100%"
-                  >
-                    <el-option
-                      v-for="item in modelOptions"
-                      :key="item.id"
-                      :label="`${item.model_name}${item.isUploaded ? t('cloudPhone.uploaded') : ''}`"
-                      :value="item.id"
-                    />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-          </template>
+          <MachineSettingsSelector
+            ref="machineSelectorRef"
+            :host-ip="devices[0]?.host_ip || ''"
+            :android-version="devices[0]?.aosp_version || ''"
+            host-adi-failure-policy="continue"
+            brand-prop="brand"
+            adi-prop="adiID"
+            v-model:machine-mode="machineMode"
+            v-model:brand="form.brand"
+            v-model:adi-id="form.adiID"
+            v-model:adi-name="form.adiName"
+            v-model:adi-pass="form.adiPass"
+          />
           <el-form-item :label="t('cloudPhone.cert')" prop="cert_hash" v-if="isReal">
             <upload-cert
               v-model="form.cert_hash"
@@ -171,11 +136,11 @@ import { Device, Host, DATA_EVENTS } from '@shared/ipc/data.types'
 import { Adi, ADI_EVENTS } from '@shared/ipc/adi.types'
 import { ElForm, ElMessage, ElLoading } from 'element-plus'
 import { Warning } from '@element-plus/icons-vue'
-import { buildApiUrl, API_CONFIG } from '@shared/api/config'
-import { request } from '@shared/api/request'
 import { getErrorMessage } from '@shared/api'
 import { DeviceType } from '@renderer/utils/constant'
 import { getDeviceTypeText } from '@renderer/utils/i18n-maps'
+import MachineSettingsSelector from '../components/MachineSettingsSelector.vue'
+import type { AdiWithUpload, MachineMode } from '../components/machineSettings.types'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -194,21 +159,20 @@ const formRef = ref<InstanceType<typeof ElForm>>()
 const devices = ref<Device[]>([])
 const hostsMap = ref<Map<string, Host>>(new Map())
 
-const brandOptions = ref<any>([])
-const modelOptions = ref<any>([])
+const machineSelectorRef = ref<InstanceType<typeof MachineSettingsSelector> | null>(null)
 const uploadLoading = ref(false)
 let loadingInstance: { close: () => void; setText: (text: string) => void } | null = null
 
 const isBatch = computed(() => devices.value.length > 1)
 
 const isReal = ref(false)
-const machineMode = ref('random') // 'random' | 'custom'
-// 存储所有可用机型用于随机
-const allAvailableModels = ref<(Adi & { isUploaded: boolean })[]>([])
+const machineMode = ref<MachineMode>('random')
 
 const form = reactive<any>({
   brand: '',
   adiID: '',
+  adiName: '',
+  adiPass: '',
   cert_hash: '',
   wipeData: true,
   bool_custom_properties: false,
@@ -236,6 +200,8 @@ const handleClose = () => {
   formRef.value?.resetFields()
   form.brand = ''
   form.adiID = ''
+  form.adiName = ''
+  form.adiPass = ''
   form.cert_hash = ''
   form.wipeData = true
   form.userProp = ''
@@ -243,87 +209,6 @@ const handleClose = () => {
   machineMode.value = 'random'
   devices.value = []
   hostsMap.value.clear()
-  allAvailableModels.value = []
-}
-
-const handleBrandChange = (value: string) => {
-  form.adiID = ''
-  const brand = brandOptions.value.find((item: any) => item.brand === value)
-  if (brand) {
-    modelOptions.value = brand.list
-    form.adiID = modelOptions.value?.[0]?.id ?? ''
-  }
-}
-
-const getBrandOptions = async (asopVersion: string) => {
-  if (!asopVersion || !isReal.value) return
-
-  try {
-    const res = await ipc.invoke<Adi[]>(ADI_EVENTS.GET_ADIS)
-
-    if (res.success) {
-      // 获取主机机型模板列表
-      // 对于单机，我们只查询该设备对应的主机
-      const device = devices.value[0]
-      const host = hostsMap.value.get(device.host_ip || '')
-
-      let adiIds: number[] = []
-      if (host) {
-        try {
-          const adiList = await request.get(
-            buildApiUrl(host.ip || '', API_CONFIG.PATHS.GET_HOST_ADI_TEMPLATE_LIST)
-          )
-          adiIds = adiList?.data?.list?.map((item: any) => Number(item.adiID)) || []
-        } catch (e) {
-          console.error('Failed to get host ADI list', e)
-        }
-      }
-
-      // 筛选符合当前镜像版本的机型
-      const filteredAdis = (res.data || []).filter((item: Adi) => item.asopVersion === asopVersion)
-
-      // 保存所有符合条件的机型，用于随机选择
-      allAvailableModels.value = filteredAdis.map((item: Adi) => ({
-        ...item,
-        isUploaded: adiIds.includes(Number(item.id))
-      })) as any[]
-
-      // 构建品牌选项（复用之前的逻辑，但数据源已筛选过）
-      const brandMap = new Map<string, any[]>()
-      filteredAdis.forEach((item: Adi) => {
-        if (!brandMap.has(item.brand)) {
-          brandMap.set(item.brand, [])
-        }
-        brandMap.get(item.brand)!.push(item)
-      })
-
-      const options = Array.from(brandMap.entries()).map(([brand, list]) => ({
-        brand,
-        list: list.map((item: Adi) => ({
-          ...item,
-          isUploaded: adiIds.includes(Number(item.id))
-        }))
-      }))
-
-      brandOptions.value = options
-
-      // Default selection
-      if (!form.brand || !options.find((o) => o.brand === form.brand)) {
-        form.brand = options?.[0]?.brand ?? ''
-      }
-
-      const currentBrand = options.find((item) => item.brand === form.brand)
-      const modelOptionsData = currentBrand?.list ?? options?.[0]?.list ?? []
-
-      modelOptions.value = modelOptionsData
-
-      if (!form.adiID || !modelOptionsData.find((m: any) => m.id === form.adiID)) {
-        form.adiID = modelOptionsData?.[0]?.id ?? ''
-      }
-    }
-  } catch (error: any) {
-    ElMessage.error(getErrorMessage(error, t('cloudPhone.getAdiListFailed')))
-  }
 }
 
 const createLoading = () => {
@@ -367,51 +252,39 @@ const handleSubmit = async () => {
   try {
     createLoading()
 
-    let targetAdiID: number | undefined = undefined
+    let targetAdi: AdiWithUpload | null = null
 
-    // 1. 确定最终使用的机型 ID（只有真机才有机型选择）
     if (!isBatch.value && isReal.value) {
-      if (machineMode.value === 'custom') {
-        targetAdiID = form.adiID ? Number(form.adiID) : undefined
-      } else {
-        // 随机模式：从所有可用机型中随机选一个
-        if (allAvailableModels.value.length > 0) {
-          // 用户明确表示可以随机到自己，因此移除排除逻辑，保持纯随机
-          const randomIndex = Math.floor(Math.random() * allAvailableModels.value.length)
-          targetAdiID = (allAvailableModels.value[randomIndex] as any).id
-        } else {
+      targetAdi = machineSelectorRef.value?.getSelectedModel() ?? null
+
+      if (!targetAdi) {
+        if (machineMode.value === 'random') {
           throw new Error(t('cloudPhone.noAvailableModelTemplates'))
         }
+        throw new Error(t('cloudPhone.selectModel'))
       }
 
-      // 2. 检查并上传 ADI (如果是单机模式且是真机)
-      if (targetAdiID && isReal.value) {
-        // 在所有可用模型中找到选中的（无论是随机还是自定义）
-        const adi = allAvailableModels.value.find((item: any) => item.id == targetAdiID) as Adi & {
-          isUploaded: boolean
-        }
-        const device = devices.value[0]
-        const host = hostsMap.value.get(device.host_ip || '')
+      const device = devices.value[0]
+      const host = hostsMap.value.get(device.host_ip || '')
 
-        if (adi && !adi.isUploaded && host) {
-          loadingInstance?.setText(t('cloudPhone.uploadingModelTemplateToHost'))
-          const res = await ipc.invoke<Adi>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, {
-            adi: toRaw(adi),
-            host: toRaw(host)
-          })
-          if (!res.success) {
-            throw new Error(res.error || t('cloudPhone.uploadModelTemplateFailed'))
-          }
+      if (targetAdi && !targetAdi.isUploaded && host) {
+        loadingInstance?.setText(t('cloudPhone.uploadingModelTemplateToHost'))
+        const res = await ipc.invoke<Adi>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, {
+          adi: toRaw(targetAdi),
+          host: toRaw(host)
+        })
+        if (!res.success) {
+          throw new Error(res.error || t('cloudPhone.uploadModelTemplateFailed'))
         }
       }
     }
 
     loadingInstance?.setText(t('cloudPhone.executingRenewDevice'))
 
-    // 3. 调用 IPC 进行一键新机
     const options = {
       wipeData: form.wipeData,
-      adiID: targetAdiID,
+      adiName: targetAdi?.name,
+      adiPass: targetAdi?.pwd,
       cert_hash: form.cert_hash
     }
 
@@ -456,19 +329,14 @@ const init = (rows: Device[], hosts: Map<string, Host>) => {
   devices.value = rows
   hostsMap.value = hosts
 
-  // 如果是单机，初始化机型选择（只有真机才获取机型列表）
   if (rows.length === 1) {
     const device = rows[0]
     isReal.value = device.device_type === DeviceType.REAL || !device.device_type
-    if (isReal.value) {
-      getBrandOptions(device.aosp_version || '')
-    }
   } else {
-    // 取第一个
     const device = rows?.[0] || {}
     isReal.value = device?.device_type === DeviceType.REAL || !device?.device_type
-    // 批量模式下不获取机型列表，也就无法随机，保持原有逻辑
   }
+
   visible.value = true
 }
 
@@ -582,3 +450,4 @@ defineExpose({
   cursor: help;
 }
 </style>
+

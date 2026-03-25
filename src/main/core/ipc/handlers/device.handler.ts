@@ -118,7 +118,15 @@ export function registerDeviceHandlers() {
 
   // 一键新机
   handle<
-    { devices: Device[]; options: { wipeData: boolean; adiID?: string; cert_hash?: string } },
+    {
+      devices: Device[]
+      options: {
+        wipeData: boolean
+        adiName?: string
+        adiPass?: string
+        cert_hash?: string
+      }
+    },
     { renewedDevices: Device[]; failedDevices: Device[] }
   >(DATA_EVENTS.RENEW_DEVICE, async ({ devices, options }) => {
     const startTime = Date.now()

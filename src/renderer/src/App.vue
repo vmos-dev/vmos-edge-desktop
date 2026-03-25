@@ -1,6 +1,7 @@
 <template>
   <el-config-provider :locale="currentElLocale">
     <router-view />
+    <DesktopUpdateChecker />
   </el-config-provider>
 </template>
 
@@ -10,6 +11,7 @@ import { ElConfigProvider } from 'element-plus'
 import { useLocale } from './hooks/useLocale'
 import { useTheme } from './hooks/useTheme'
 import { ipc, MEDIAMTX_LOG } from '@renderer/core/ipc'
+import DesktopUpdateChecker from './components/DesktopUpdateChecker.vue'
 
 const { currentElLocale, setupStorageListener } = useLocale()
 const { initTheme, setupThemeListener } = useTheme()
@@ -19,10 +21,11 @@ onMounted(() => {
   const cleanupLocale = setupStorageListener()
   const cleanupTheme = setupThemeListener()
 
+  // 监听 MediaMTX 日志
   const cleanupMediaMtxLog = ipc.on<{ type: 'stdout' | 'stderr'; message: string }>(
     MEDIAMTX_LOG,
     (data) => {
-      // @ts-ignore
+      // @ts-expect-error: debug flag may be injected at runtime for local debugging.
       if (window.isDebug) {
         if (data.type === 'stderr') {
           console.warn('[MediaMTX] stderr', data.message)

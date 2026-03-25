@@ -315,6 +315,11 @@ export const countries = [
     countryNameEnglish: 'India'
   },
   {
+    countryCode: 'ID',
+    countryName: '印度尼西亚',
+    countryNameEnglish: 'Indonesia'
+  },
+  {
     countryCode: 'IQ',
     countryName: '伊拉克',
     countryNameEnglish: 'Iraq'

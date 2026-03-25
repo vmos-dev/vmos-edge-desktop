@@ -11,20 +11,23 @@ export default {
   reset: 'Reset to Defaults',
   resetDesc: 'Restore appearance settings to initial state',
   mainWindowSize: 'Main Window Size',
-  windowSizeDesc: 'Set the window size when the program starts. Changes take effect after restarting the client.',
+  windowSizeDesc:
+    'Set the window size when the program starts. Changes take effect after restarting the client.',
   minimizeToTray: 'Minimize to system tray when closing window',
   cloudWindowSettings: 'Cloud Device Window Settings',
   initSizeSettings: 'Initial Size Settings (Device Adaptive by Ratio)',
   custom: 'Custom',
   maxSide: 'Max Side',
-  maxSideDesc: 'Set the maximum side length of cloud device screen (range 300 - 2000px). Changes will take effect on next device connection.',
+  maxSideDesc:
+    'Set the maximum side length of cloud device screen (range 300 - 2000px). Changes will take effect on next device connection.',
   operationSettings: 'Operation Settings',
   wheelSensitivity: 'Wheel Sensitivity',
   wheelSensitivityDesc: 'Larger value means slower wheel (0.001 - 800)',
   enableHover: 'Enable Android Hover Interaction',
   videoRenderConfig: 'Video & Render Config',
   disableHardwareAccel: 'Disable Hardware Acceleration (Use CPU Rendering)',
-  hardwareAccelDesc: 'When device only has integrated graphics or poor graphics driver compatibility, enabling hardware acceleration may cause display anomalies or stability issues. Disabling will use CPU rendering with higher stability but possibly lower performance. Changes take effect after restarting the client.',
+  hardwareAccelDesc:
+    'When device only has integrated graphics or poor graphics driver compatibility, enabling hardware acceleration may cause display anomalies or stability issues. Disabling will use CPU rendering with higher stability but possibly lower performance. Changes take effect after restarting the client.',
   proxyCheck: 'Proxy Check',
   checkStrategy: 'Check Strategy',
   apiKey: 'API Key',
@@ -40,7 +43,8 @@ export default {
   exportLogDesc: 'Export client runtime logs to file for troubleshooting.',
   default: 'Default',
   defaultDesc: 'Only checks network connectivity, cannot identify proxy exit IP and region.',
-  ipapiDesc: 'Can detect proxy exit IP and region, available by default, no API Key needed, fill in after quota is used up.',
+  ipapiDesc:
+    'Can detect proxy exit IP and region, available by default, no API Key needed, fill in after quota is used up.',
   selectProvider: 'Please select check provider',
   enterTimeout: 'Please enter test timeout',
   timeoutRange: 'Timeout range: 10 - 10000ms',
@@ -93,5 +97,6 @@ export default {
   streamBitrate: 'Bitrate',
   streamBitrateDesc: 'Set stream bitrate (range 1 - 16 MB)',
   mbUnit: 'MB',
-  streamSettingsDesc: 'Changes will take effect after operations such as creating instance, starting instance, restarting instance, resetting instance, upgrading image, or replacing device info.'
+  streamSettingsDesc:
+    'Changes will take effect after operations such as creating instance, starting instance, restarting instance, resetting instance, upgrading image, or replacing device info.'
 }

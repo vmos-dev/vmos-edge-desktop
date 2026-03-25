@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, onUnmounted } from 'vue'
 import { ElMessage, ElUpload } from 'element-plus'
 import { request } from '@shared/api/request'
 import { buildApiUrl, API_CONFIG } from '@shared/api/config'
@@ -223,6 +223,7 @@ function mbToBytes(mb: number): number {
 }
 
 const handleClose = () => {
+  stopPolling()
   Object.assign(hostDetail, defaultHostDetail())
 }
 
@@ -260,7 +261,7 @@ const handleUpdateCBS = async (options: any) => {
  * 获取主机详情
  */
 async function fetchHostDetail(host: Host) {
-  if (loading.value) return
+  if (!visible.value || loading.value) return
   loading.value = true
   try {
     // 从row中设置基本信息
@@ -270,6 +271,7 @@ async function fetchHostDetail(host: Host) {
     // 从 /v1/get_hardware_cfg 获取基本信息（型号、系统版本等）
     const hardwareUrl = buildApiUrl(host.ip, API_CONFIG.PATHS.GET_HARDWARE_CFG)
     const hardwareResponse = await request.get(hardwareUrl, {})
+    if (!visible.value) return
 
     if (hardwareResponse.data) {
       const hardwareData = hardwareResponse.data
@@ -287,6 +289,7 @@ async function fetchHostDetail(host: Host) {
 
     const systemInfoUrl = buildApiUrl(host.ip, API_CONFIG.PATHS.GET_SYSTEM_INFO)
     const systemInfoResponse = await request.get(systemInfoUrl, {})
+    if (!visible.value) return
 
     if (systemInfoResponse.data) {
       const data = systemInfoResponse.data
@@ -344,31 +347,57 @@ async function fetchHostDetail(host: Host) {
   }
 }
 
-let timer: NodeJS.Timeout
+let timer: any = null
+
+const stopPolling = () => {
+  if (!timer) return
+  clearTimeout(timer)
+  timer = null
+}
+
+const startPolling = () => {
+  stopPolling()
+  const poll = async () => {
+    if (!visible.value || !host.value) {
+      stopPolling()
+      return
+    }
+    await fetchHostDetail(host.value)
+    if (visible.value && host.value) {
+      timer = setTimeout(poll, 3500)
+    }
+  }
+  timer = setTimeout(poll, 3500)
+}
 
 watch(
   () => visible.value,
   (newVal) => {
     if (newVal) {
-      if (timer) {
-        clearInterval(timer)
-      }
-      timer = setInterval(() => {
-        fetchHostDetail(host.value!)
-      }, 3500)
+      startPolling()
     } else {
-      clearInterval(timer)
+      stopPolling()
     }
   }
 )
 
+onUnmounted(() => {
+  stopPolling()
+})
+
 /**
  * 初始化并显示详情
  */
-const init = async (row: Host) => {
+const init = (row: Host) => {
+  stopPolling()
   host.value = row
-  fetchHostDetail(row)
+  const isAlreadyVisible = visible.value
   visible.value = true
+  fetchHostDetail(row)
+  // 如果弹框已经是打开状态，watch 不会触发，需要手动开启轮询
+  if (isAlreadyVisible) {
+    startPolling()
+  }
 }
 
 defineExpose({

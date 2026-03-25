@@ -5,7 +5,7 @@
 
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { ipcApi, IpcApi } from './ipc'
+import { ipcApi, backupFsApi, type IpcApi, type BackupFsApi } from './ipc'
 
 // 获取窗口信息用于日志
 const windowInfo = ipcApi.getWindowInfo()
@@ -19,6 +19,7 @@ function exposeApis(): void {
 
   // 注入统一的 IPC API
   contextBridge.exposeInMainWorld('ipc', ipcApi)
+  contextBridge.exposeInMainWorld('backupFs', backupFsApi)
 
   // 日志输出
   if (windowInfo.type === 'cloud') {
@@ -41,6 +42,8 @@ if (process.contextIsolated) {
   window.electron = electronAPI
   // @ts-ignore
   window.ipc = ipcApi
+  // @ts-ignore
+  window.backupFs = backupFsApi
 }
 
 // 类型声明扩展
@@ -48,5 +51,6 @@ declare global {
   interface Window {
     electron: typeof electronAPI
     ipc: IpcApi
+    backupFs: BackupFsApi
   }
 }

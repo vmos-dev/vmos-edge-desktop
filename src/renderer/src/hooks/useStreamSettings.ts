@@ -16,7 +16,6 @@ const VIDEO_DEVICE_KEY = 'selected_video_device'
 const AUDIO_DEVICE_KEY = 'selected_audio_device'
 const IS_STREAMING_SYNC_KEY = 'sync_is_streaming'
 const RTSP_URL_KEY = 'rtsp_url'
-const PUBLISHER_STATE_KEY = 'publisher_state'
 
 /* =========================
  * 通用：ref ⇄ store 双向同步
@@ -58,7 +57,7 @@ const selectedVideoDevice = useSyncedRef<string>(VIDEO_DEVICE_KEY, '')
 const selectedAudioDevice = useSyncedRef<string>(AUDIO_DEVICE_KEY, '')
 const isStreaming = useSyncedRef<boolean>(IS_STREAMING_SYNC_KEY, false)
 const rtspUrl = useSyncedRef<string>(RTSP_URL_KEY, '')
-const publisherState = useSyncedRef<WebRtcState>(PUBLISHER_STATE_KEY, 'idle')
+const publisherState = ref<WebRtcState>('idle')
 
 /* =========================
  * 设备列表

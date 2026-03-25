@@ -7,6 +7,7 @@ import { dialog } from 'electron'
 import { formatTime } from '@shared/api'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 import * as tar from 'tar'
 
 /**
@@ -42,7 +43,9 @@ export function registerSharedHandlers() {
       shell.openExternal(url).catch((err) => {
         logger.error(`[SharedHandler] Failed to open browser window: ${url}`, err)
       })
-    } catch (error) {}
+    } catch (error) {
+      logger.error(`[SharedHandler] OPEN_BROWSER_WINDOW failed: ${url}`, error)
+    }
   })
 
   handle<OpenDialogOptions, string>(SHARED_EVENTS.SELECT_FILE, async (options) => {
@@ -59,14 +62,15 @@ export function registerSharedHandlers() {
   })
 
   // 导出当天日志
-  handle<void, { success: boolean; message?: string }>(SHARED_EVENTS.EXPORT_TODAY_LOG, async () => {
+  handle<void, { filePath: string }>(SHARED_EVENTS.EXPORT_TODAY_LOG, async () => {
     logger.info('[SharedHandler] EXPORT_TODAY_LOG request')
+    let tempDir = ''
     try {
       const logFiles = logger.getTodayLogFiles()
 
       if (logFiles.length === 0) {
         logger.warn(`[SharedHandler] Today's log file not found`)
-        return { success: false, message: '今日暂无日志文件' }
+        return { success: false, error: '今日暂无日志文件' }
       }
 
       const { canceled, filePath } = await dialog.showSaveDialog({
@@ -75,31 +79,54 @@ export function registerSharedHandlers() {
       })
 
       if (canceled || !filePath) {
-        return { success: false }
+        return { success: false, error: '已取消导出' }
       }
 
-      // 将所有日志文件打包到 tar
-      // 1. 准备文件列表 (tar 需要相对路径或 cwd)
-      // 为了简单，我们直接将文件作为流添加，或者使用 tar.c
-      // 由于文件可能分散（虽然目前都在 logsDir），我们使用 cwd = logsDir
+      // 先复制到临时目录做快照，再打包，避免日志正在写入时造成归档不稳定
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vmos-edge-log-export-'))
+      const fileNames: string[] = []
+      const usedNames = new Set<string>()
 
-      const logsDir = path.dirname(logFiles[0].path)
-      const fileNames = logFiles.map((f) => path.basename(f.path))
+      for (const logFile of logFiles) {
+        const srcPath = logFile.path
+        const ext = path.extname(srcPath)
+        const stem = path.basename(srcPath, ext)
+        let targetName = `${stem}${ext}`
+        let seq = 1
+        while (usedNames.has(targetName)) {
+          targetName = `${stem}-${seq}${ext}`
+          seq++
+        }
+        usedNames.add(targetName)
+        fs.copyFileSync(srcPath, path.join(tempDir, targetName))
+        fileNames.push(targetName)
+      }
 
       await tar.create(
         {
-          gzip: false, // 不再压缩为 .tar.gz，因为部分日志已经是 .gz 了，或者用户希望快速打包
+          // 生成更通用的 tar 头，提升 macOS 归档工具兼容性
+          gzip: false,
+          portable: true,
+          noPax: true,
           file: filePath,
-          cwd: logsDir
+          cwd: tempDir
         },
         fileNames
       )
 
       logger.info(`[SharedHandler] Logs exported to: ${filePath}`)
-      return { success: true }
+      return { success: true, data: { filePath } }
     } catch (error) {
       logger.error('[SharedHandler] Failed to export log:', error)
-      return { success: false, message: error instanceof Error ? error.message : '导出失败' }
+      return { success: false, error: error instanceof Error ? error.message : '导出失败' }
+    } finally {
+      if (tempDir) {
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        } catch (cleanupError) {
+          logger.warn('[SharedHandler] Failed to cleanup temp export dir:', cleanupError)
+        }
+      }
     }
   })
 

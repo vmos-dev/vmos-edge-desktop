@@ -12,6 +12,104 @@ class Logger {
   private logsDir: string
   private static instance: Logger | null = null
 
+  private formatLogLine(
+    appVersion: string,
+    timestamp: unknown,
+    level: string,
+    message: unknown,
+    meta: Record<string, unknown>,
+    options: { uppercaseLevel?: boolean } = {}
+  ): string {
+    const normalizedLevel = options.uppercaseLevel === false ? level : level.toUpperCase()
+    const metaStr = Object.keys(meta).length ? ` ${this.safeSerialize(meta)}` : ''
+    return `[v${appVersion}] [${String(timestamp ?? '')}] [${normalizedLevel}] ${String(message)}${metaStr}`
+  }
+
+  private safeSerialize(value: unknown): string {
+    const seen = new WeakSet<object>()
+
+    try {
+      return JSON.stringify(value, (_key, currentValue) => {
+        if (currentValue instanceof Error) {
+          return this.serializeError(currentValue)
+        }
+
+        if (typeof currentValue === 'bigint') {
+          return currentValue.toString()
+        }
+
+        if (typeof currentValue === 'function') {
+          return `[Function ${currentValue.name || 'anonymous'}]`
+        }
+
+        if (typeof currentValue === 'object' && currentValue !== null) {
+          if (seen.has(currentValue)) {
+            return '[Circular]'
+          }
+          seen.add(currentValue)
+        }
+
+        return currentValue
+      })
+    } catch (error) {
+      return JSON.stringify({
+        serializationError: this.getReadableErrorMessage(error)
+      })
+    }
+  }
+
+  private serializeError(error: Error): Record<string, unknown> {
+    const serialized: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    }
+    const errorRecord = error as unknown as Record<string, unknown>
+
+    const keys = new Set([
+      ...Object.getOwnPropertyNames(error),
+      ...Object.keys(errorRecord)
+    ])
+
+    for (const key of keys) {
+      if (key === 'name' || key === 'message' || key === 'stack') {
+        continue
+      }
+
+      try {
+        serialized[key] = errorRecord[key]
+      } catch (readError) {
+        serialized[key] = `[Property read failed: ${this.getReadableErrorMessage(readError)}]`
+      }
+    }
+
+    return serialized
+  }
+
+  private getReadableErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return `${error.name}: ${error.message}`
+    }
+    return String(error)
+  }
+
+  private write(level: 'debug' | 'info' | 'warn' | 'error', message: string, args: any[]): void {
+    try {
+      if (args.length > 0) {
+        this.logger.log(level, message, ...args)
+      } else {
+        this.logger.log(level, message)
+      }
+    } catch (error) {
+      // 日志系统本身不能再把主进程带崩，退化到控制台输出。
+      console.error(`[Logger] Failed to write ${level} log`, {
+        error,
+        message,
+        args
+      })
+    }
+  }
+
   private constructor() {
     this.logsDir = path.join(app.getPath('userData'), 'vmosedge', 'logs')
 
@@ -40,8 +138,7 @@ class Logger {
       winston.format.timestamp({ format: getLocalTimeStr }),
       winston.format.errors({ stack: true }),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : ''
-        return `[v${appVersion}] [${timestamp}] [${level.toUpperCase()}] ${message} ${metaStr}`
+        return this.formatLogLine(appVersion, timestamp, level, message, meta)
       })
     )
 
@@ -61,6 +158,7 @@ class Logger {
     this.logger = winston.createLogger({
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
       format: logFormat,
+      exitOnError: false,
       transports: [
         dailyRotateTransport,
         // 开发环境也输出到控制台
@@ -70,8 +168,9 @@ class Logger {
               format: winston.format.combine(
                 winston.format.colorize(),
                 winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                  const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : ''
-                  return `[v${appVersion}] [${timestamp}] [${level}] ${message} ${metaStr}`
+                  return this.formatLogLine(appVersion, timestamp, level, message, meta, {
+                    uppercaseLevel: false
+                  })
                 })
               )
             })
@@ -177,44 +276,28 @@ class Logger {
    * 记录 debug 级别日志
    */
   public debug(message: string, ...args: any[]): void {
-    if (args.length > 0) {
-      this.logger.debug(message, ...args)
-    } else {
-      this.logger.debug(message)
-    }
+    this.write('debug', message, args)
   }
 
   /**
    * 记录 info 级别日志
    */
   public info(message: string, ...args: any[]): void {
-    if (args.length > 0) {
-      this.logger.info(message, ...args)
-    } else {
-      this.logger.info(message)
-    }
+    this.write('info', message, args)
   }
 
   /**
    * 记录 warn 级别日志
    */
   public warn(message: string, ...args: any[]): void {
-    if (args.length > 0) {
-      this.logger.warn(message, ...args)
-    } else {
-      this.logger.warn(message)
-    }
+    this.write('warn', message, args)
   }
 
   /**
    * 记录 error 级别日志
    */
   public error(message: string, ...args: any[]): void {
-    if (args.length > 0) {
-      this.logger.error(message, ...args)
-    } else {
-      this.logger.error(message)
-    }
+    this.write('error', message, args)
   }
 
   /**

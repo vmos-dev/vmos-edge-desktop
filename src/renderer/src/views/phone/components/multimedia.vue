@@ -45,28 +45,32 @@
       <div class="group-content">
         <div class="config-item">
           <div class="config-label">
+            <span>{{ t('phone.multimedia.streamingType') }}</span>
+          </div>
+          <div class="config-value">
+            <el-radio-group v-model="injectType">
+              <el-radio value="video">{{ t('phone.multimedia.videoOrAudioVideo') }}</el-radio>
+              <el-radio value="audio">{{ t('phone.multimedia.audio') }}</el-radio>
+            </el-radio-group>
+          </div>
+        </div>
+        <div class="config-item">
+          <div class="config-label">
             <span>{{ t('phone.multimedia.streamingStatus') }}</span>
           </div>
           <div class="config-value">
-            <el-tag
-              :type="videoInject.isInjecting ? 'success' : 'info'"
-              size="small"
-              effect="light"
-              >{{
-                videoInject.isInjecting
-                  ? t('phone.multimedia.enabled')
-                  : t('phone.multimedia.disabled')
-              }}</el-tag
-            >
+            <el-tag :type="isInjectingEcho ? 'success' : 'info'" size="small" effect="light">{{
+              isInjectingEcho ? t('phone.multimedia.enabled') : t('phone.multimedia.disabled')
+            }}</el-tag>
           </div>
         </div>
-        <template v-if="videoInject.isInjecting">
+        <template v-if="isInjectingEcho">
           <div class="config-item">
             <div class="config-label">
               <span>{{ t('phone.multimedia.streamingAddress') }}</span>
             </div>
             <div class="config-value">
-              <div class="rtsp-display custom">{{ videoInject.injectUrl }}</div>
+              <div class="rtsp-display custom">{{ echoInjectUrl }}</div>
             </div>
           </div>
 
@@ -76,7 +80,7 @@
             </div>
             <div class="config-value">
               <el-tag :type="statusTagType" size="small" effect="light">{{
-                injectTypeText
+                injectTypeTextEcho
               }}</el-tag>
             </div>
           </div>
@@ -96,6 +100,18 @@
             </div>
           </div>
         </template>
+        <div class="config-item" v-if="injectType !== 'audio'">
+          <div class="config-label">
+            <span>{{ t('phone.multimedia.displayMode') }}</span>
+          </div>
+          <div class="config-value">
+            <el-radio-group v-model="cropMode" :disabled="isInjectingEcho || streamingLoading">
+              <el-radio :value="0">{{ t('phone.multimedia.cropModeFill') }}</el-radio>
+              <el-radio :value="1">{{ t('phone.multimedia.cropModeCrop') }}</el-radio>
+              <el-radio :value="2">{{ t('phone.multimedia.cropModeStretch') }}</el-radio>
+            </el-radio-group>
+          </div>
+        </div>
       </div>
       <div class="submit">
         <el-button
@@ -105,7 +121,7 @@
           plain
           :loading="streamingLoading"
           icon="VideoPlay"
-          v-if="!videoInject.isInjecting"
+          v-if="!isInjectingEcho"
           >{{ t('phone.multimedia.startStreaming') }}</el-button
         >
         <el-button
@@ -138,13 +154,23 @@ const { t } = useI18n()
 // 从父组件获取设备信息
 const phoneDevice = inject<Ref<Device | undefined>>('phoneDevice')
 const deviceIdRef = inject<Ref<string>>('deviceId')
-// 当前注入状态
+// 当前注入视频状态
 const videoInject = ref({
   isInjecting: false,
   injectType: '',
   injectUrl: ''
 })
 
+// 当前音频注入
+const audioInject = ref({
+  isInjecting: false,
+  injectUrl: ''
+})
+
+// 推流类型
+const injectType = ref<'video' | 'audio'>('video')
+
+const cropMode = ref(0)
 const customRtspUrl = ref('')
 
 // 获取设备信息
@@ -168,6 +194,26 @@ const streamingLoading = ref(false)
 
 const { streamType, isStreaming, publisherState, rtspUrl } = useStreamSettings()
 
+/** 接口里 isInjecting 可能为 1 / true */
+function normalizeInjecting(raw: unknown): boolean {
+  return raw === true || raw == 1
+}
+
+/**
+ * 推流类型单选回显：视频注入开 → 视频；音频注入开 → 音频（二者互斥）；都关 → 按采集类型 streamType
+ */
+// function syncInjectTypeRadio() {
+//   if (videoInject.value.isInjecting) {
+//     injectType.value = 'video'
+//     return
+//   }
+//   if (audioInject.value.isInjecting) {
+//     injectType.value = 'audio'
+//     return
+//   }
+//   injectType.value = streamType.value === 'audio' ? 'audio' : 'video'
+// }
+
 // 计算是否使用自定义地址
 
 // 开启
@@ -188,16 +234,33 @@ const handleInject = async () => {
     //   return
     // }
     streamingLoading.value = true
-    const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.VIDEO_INJECT}/${dbId}`)
-    await request.post(
-      apiUrl,
-      {
-        url: rtspAddress
-      },
-      {
-        timeout: 60 * 60 * 1000
-      }
-    )
+    // 开启前先尝试关闭视频/音频注入，确保状态干净（接口互斥）
+    const closeVideoUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.CLOSE_VIDEO_INJECT}/${dbId}`)
+    const closeAudioUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.CLOSE_AUDIO_INJECT}/${dbId}`)
+    await Promise.allSettled([request.get(closeVideoUrl), request.get(closeAudioUrl)])
+
+    if (injectType.value === 'audio') {
+      const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.AUDIO_INJECT}/${dbId}`)
+      await request.post(
+        apiUrl,
+        { injectUrl: rtspAddress },
+        {
+          timeout: 60 * 60 * 1000
+        }
+      )
+    } else {
+      const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.VIDEO_INJECT}/${dbId}`)
+      await request.post(
+        apiUrl,
+        {
+          url: rtspAddress,
+          injectCropMode: cropMode.value
+        },
+        {
+          timeout: 60 * 60 * 1000
+        }
+      )
+    }
 
     ElMessage.success(t('phone.multimedia.operationSuccess'))
     customRtspUrl.value = ''
@@ -215,8 +278,15 @@ const handleCloseInject = async () => {
     if (streamingLoading.value) return
     const { hostIp, dbId } = getDeviceInfo()
 
-    const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.CLOSE_VIDEO_INJECT}/${dbId}`)
-    await request.get(apiUrl)
+    if (videoInject.value.isInjecting) {
+      const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.CLOSE_VIDEO_INJECT}/${dbId}`)
+      await request.get(apiUrl)
+    } else if (audioInject.value.isInjecting) {
+      const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.CLOSE_AUDIO_INJECT}/${dbId}`)
+      await request.get(apiUrl)
+    } else {
+      return
+    }
 
     ElMessage.success(t('phone.multimedia.operationSuccess'))
     getVideoInjectStatus()
@@ -238,14 +308,30 @@ const streamTypeText = computed(() => {
   }
 })
 
-const injectTypeText = computed(() => {
-  switch (videoInject.value.injectType) {
-    case 'image':
-      return t('phone.multimedia.image')
-    case 'video':
-      return t('phone.multimedia.videoStreaming')
-    case 'stream':
-      return t('phone.multimedia.rtspStreaming')
+/** 当前推流回显：视频/音视频走 videoInject，纯音频走 audioInject */
+const isInjectingEcho = computed(
+  () => videoInject.value.isInjecting || audioInject.value.isInjecting
+)
+
+const echoInjectUrl = computed(() =>
+  videoInject.value.isInjecting ? videoInject.value.injectUrl : audioInject.value.injectUrl
+)
+
+const injectTypeTextEcho = computed(() => {
+  if (videoInject.value.isInjecting) {
+    switch (videoInject.value.injectType) {
+      case 'image':
+        return t('phone.multimedia.image')
+      case 'video':
+        return t('phone.multimedia.videoStreaming')
+      case 'stream':
+        return t('phone.multimedia.rtspStreaming')
+      default:
+        return t('phone.multimedia.unknown')
+    }
+  }
+  if (audioInject.value.isInjecting) {
+    return t('phone.multimedia.audio')
   }
   return t('phone.multimedia.unknown')
 })
@@ -272,6 +358,32 @@ const statusTagType = computed(() => {
 
 const timeout = 5000
 
+const getAudioInjectStatus = async (silent = false) => {
+  try {
+    const { hostIp, dbId } = getDeviceInfo()
+    const apiUrl = buildApiUrl(hostIp, `${API_CONFIG.PATHS.GET_AUDIO_INJECT_STATUS}/${dbId}`)
+    const response = await request.get(apiUrl, undefined, {
+      timeout
+    })
+    if (response) {
+      const audioOn = normalizeInjecting(response?.data?.isInjecting)
+      Object.assign(audioInject.value, {
+        isInjecting: audioOn,
+        injectUrl: response?.data?.source ?? ''
+      })
+      if (audioOn) {
+        // 与视频注入互斥：音频开则本地清空视频回显，避免轮询残留
+        Object.assign(videoInject.value, { isInjecting: false, injectType: '', injectUrl: '' })
+      }
+    }
+  } catch (error) {
+    if (!silent) {
+      ElMessage.error(getErrorMessage(error) || t('phone.multimedia.getAudioInjectStatusFailed'))
+    }
+    console.error('getAudioInjectStatus failed', error)
+  }
+}
+
 const getVideoInjectStatus = async (silent = false) => {
   try {
     const { hostIp, dbId } = getDeviceInfo()
@@ -280,11 +392,19 @@ const getVideoInjectStatus = async (silent = false) => {
       timeout
     })
     if (response) {
+      const videoOn = normalizeInjecting(response?.data?.isInjecting)
       Object.assign(videoInject.value, {
-        isInjecting: response?.data?.isInjecting,
-        injectType: response?.data?.injectType,
-        injectUrl: response?.data?.injectUrl
+        isInjecting: videoOn,
+        injectType: response?.data?.injectType ?? '',
+        injectUrl: response?.data?.injectUrl ?? ''
       })
+      if (videoOn) {
+        // 与音频注入互斥：视频开则本地清空音频回显，避免轮询残留
+        Object.assign(audioInject.value, { isInjecting: false, injectUrl: '' })
+      } else {
+        await getAudioInjectStatus(silent)
+      }
+      //  !silent && syncInjectTypeRadio()
     }
   } catch (error) {
     if (!silent) {

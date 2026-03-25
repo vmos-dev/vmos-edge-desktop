@@ -17,6 +17,7 @@ import { configManager, mediaMtxManager } from './core/store/managers'
 import { logger } from './core/logger/Logger'
 import { CONFIG_KEYS } from '@shared/constant'
 import { destroyProxyCheckWorkerManager } from './core/workers/ProxyCheckWorkerManager'
+import { destroyAgentWorkerManager } from './core/workers/AgentWorkerManager'
 import { SQLiteDB } from './core/db/SQLiteDB'
 
 app.commandLine.appendSwitch('no-proxy-server')
@@ -98,7 +99,7 @@ function initDefaultConfigs(): void {
     configManager.initDefaults({
       [CONFIG_KEYS.IMAGE_STORAGE_PATH]: imagesDir,
       [CONFIG_KEYS.MAX_DISPLAY_SIDE]: '600',
-      [CONFIG_KEYS.PROXY_CHECK_TIMEOUT]: '5000',
+      [CONFIG_KEYS.PROXY_CHECK_TIMEOUT]: '10000',
       [CONFIG_KEYS.PROXY_CHECK_API_KEY]: '',
       [CONFIG_KEYS.PROXY_CHECK_PROVIDER_TYPE]: 'ipmap',
       [CONFIG_KEYS.SCREENSHOT_STORAGE_PATH]: screenshotStoragePath,
@@ -294,6 +295,10 @@ app.on('before-quit', () => {
   } catch (error) {
     logger.error('[App] Failed to destroy proxy worker manager:', error)
   }
+
+  void destroyAgentWorkerManager().catch((error) => {
+    console.error('[App] Failed to destroy agent runtime manager:', error)
+  })
 
   try {
     // 关闭数据库连接 (执行 WAL Checkpoint)

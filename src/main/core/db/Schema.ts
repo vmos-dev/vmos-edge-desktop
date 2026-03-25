@@ -173,6 +173,41 @@ export const PROXIES_SCHEMA: TableSchema = {
   ]
 }
 
+// AutomationScripts 自动化脚本表结构
+export const AUTOMATION_SCRIPTS_SCHEMA: TableSchema = {
+  name: 'automation_scripts',
+  columns: [
+    { name: 'id', type: 'TEXT', primaryKey: true },
+    { name: 'name', type: 'TEXT', notNull: true },
+    { name: 'description', type: 'TEXT' },
+    { name: 'content', type: 'TEXT', notNull: true }, // JSON 字符串化的 WorkflowScript
+    { name: 'createTime', type: 'INTEGER', defaultValue: 0 },
+    { name: 'updateTime', type: 'INTEGER', defaultValue: 0 }
+  ],
+  indexes: [
+    'CREATE INDEX IF NOT EXISTS idx_automation_scripts_name ON automation_scripts(name)'
+  ]
+}
+
+// CustomAdis 自定义机型表结构
+export const CUSTOM_ADIS_SCHEMA: TableSchema = {
+  name: 'custom_adis',
+  columns: [
+    { name: 'id', type: 'TEXT', primaryKey: true },
+    { name: 'brand', type: 'TEXT' },
+    { name: 'model', type: 'TEXT' },
+    { name: 'model_name', type: 'TEXT' },
+    { name: 'asopVersion', type: 'TEXT' },
+    { name: 'layout', type: 'TEXT' },
+    { name: 'name', type: 'TEXT', notNull: true }, // 压缩包文件名
+    { name: 'path', type: 'TEXT', notNull: true }, // 压缩包在用户目录的完整路径
+    { name: 'updateTime', type: 'TEXT' }
+  ],
+  indexes: [
+    'CREATE INDEX IF NOT EXISTS idx_custom_adis_name ON custom_adis(name)'
+  ]
+}
+
 // 所有表的 Schema 定义
 export const ALL_TABLES: TableSchema[] = [
   GROUPS_SCHEMA,
@@ -180,7 +215,9 @@ export const ALL_TABLES: TableSchema[] = [
   DEVICES_SCHEMA,
   CONFIGS_SCHEMA,
   IMAGES_SCHEMA,
-  PROXIES_SCHEMA
+  PROXIES_SCHEMA,
+  AUTOMATION_SCRIPTS_SCHEMA,
+  CUSTOM_ADIS_SCHEMA
 ]
 
 // 获取表的所有列名（用于字段过滤）
@@ -213,5 +250,5 @@ export function generateCreateTableSQL(schema: TableSchema): string {
 }
 
 // 数据库版本配置
-export const DB_VERSION = 5 // 当前数据库版本（新增 proxies 表）
+export const DB_VERSION = 8 // 当前数据库版本（custom_adis.id 切换为 uuid）
 export const DB_VERSION_KEY = 'user_version'

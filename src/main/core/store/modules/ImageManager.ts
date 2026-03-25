@@ -163,29 +163,15 @@ export class ImageManager extends BaseManager {
         throw new Error('Invalid input: id is required')
       }
 
-      const version = this.imageDao.getById(id)?.version ?? ''
+      const deleted = this.deleteImageRecordWithCleanup(id)
+      const duration = Date.now() - startTime
 
-      if (version) {
-        // 查询当前id 版本关联了几条数据
-        const images = this.imageDao.query({ version: version })
-
-        const deleted = this.imageDao.deleteImage(id)
-        if (
-          images.length === 1 &&
-          images?.[0]?.storagePath &&
-          fs.existsSync(images?.[0]?.storagePath)
-        ) {
-          // 删除版本文件
-          fs.rmSync(path.join(images?.[0]?.storagePath))
-        }
-
-        const duration = Date.now() - startTime
-        if (!deleted) {
-          logger.warn(`[ImageManager] deleteImage not found: id=${id}, duration=${duration}ms`)
-          throw new Error(`Image not found: id=${id}`)
-        }
-        logger.info(`[ImageManager] deleteImage success: id=${id}, duration=${duration}ms`)
+      if (!deleted) {
+        logger.warn(`[ImageManager] deleteImage not found: id=${id}, duration=${duration}ms`)
+        return
       }
+
+      logger.info(`[ImageManager] deleteImage success: id=${id}, duration=${duration}ms`)
     } catch (error) {
       logger.error('[ImageManager] deleteImage failed:', {
         error,
@@ -208,11 +194,39 @@ export class ImageManager extends BaseManager {
         throw new Error('Empty ids array: ids is required')
       }
 
-      const deletedCount = this.imageDao.deleteImages(ids)
+      let deletedCount = 0
+      const failedIds: string[] = []
+
+      for (const id of ids) {
+        try {
+          if (this.deleteImageRecordWithCleanup(id)) {
+            deletedCount++
+          }
+        } catch (error) {
+          failedIds.push(id)
+          logger.error('[ImageManager] deleteImages item failed:', {
+            error,
+            stack: error instanceof Error ? error.stack : undefined,
+            id
+          })
+        }
+      }
+
+      if (failedIds.length > 0 && deletedCount === 0) {
+        throw new Error(`Failed to delete images: ${failedIds.join(',')}`)
+      }
+
       const duration = Date.now() - startTime
       logger.info(
         `[ImageManager] deleteImages success: requested=${ids.length}, deleted=${deletedCount}, duration=${duration}ms`
       )
+
+      if (failedIds.length > 0) {
+        logger.warn(
+          `[ImageManager] deleteImages partial failure: failed=${failedIds.join(',')}, deleted=${deletedCount}`
+        )
+      }
+
       return deletedCount
     } catch (error) {
       logger.error('[ImageManager] deleteImages failed:', {
@@ -223,6 +237,27 @@ export class ImageManager extends BaseManager {
       })
       throw error
     }
+  }
+
+  private deleteImageRecordWithCleanup(id: string): boolean {
+    const targetImage = this.imageDao.getById(id)
+    if (!targetImage?.version) {
+      return false
+    }
+
+    const versionImages = this.imageDao.query({ version: targetImage.version })
+    const deleted = this.imageDao.deleteImage(id)
+
+    if (
+      deleted &&
+      versionImages.length === 1 &&
+      versionImages[0]?.storagePath &&
+      fs.existsSync(versionImages[0].storagePath)
+    ) {
+      fs.rmSync(versionImages[0].storagePath, { recursive: true, force: true })
+    }
+
+    return deleted
   }
 
   /**

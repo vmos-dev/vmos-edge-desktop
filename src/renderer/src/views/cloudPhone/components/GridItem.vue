@@ -5,6 +5,7 @@
     :class="[`grid-item-${size}`, { 'is-offline': isOffline }]"
     :style="style"
     @click="onClick"
+    @dragstart.prevent
     @contextmenu.prevent="onContextMenu"
   >
     <!-- 截图区域 -->
@@ -510,6 +511,8 @@ const formatState = (state: any) => {
   overflow: hidden;
   box-sizing: border-box;
   border: 1px solid var(--el-border-color-light);
+  user-select: none;
+  -webkit-user-select: none;
 
   &:hover {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -559,6 +562,7 @@ const formatState = (state: any) => {
 
   img {
     border: none;
+    -webkit-user-drag: none;
   }
 }
 

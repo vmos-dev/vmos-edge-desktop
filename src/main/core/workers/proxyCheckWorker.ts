@@ -25,7 +25,7 @@ const COOLDOWN_MS = 300
 // 最大重试次数
 const MAX_RETRIES = 2
 // 可重试的错误关键词
-const RETRYABLE_ERRORS = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'socket hang up', 'network']
+const RETRYABLE_ERRORS = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'socket hang up', 'network', 'disconnected', 'TLS']
 
 
 /**
@@ -141,12 +141,19 @@ interface WorkerResponse {
 function getProxyConfig(proxy: WorkerMessage['data']['proxies'][number]) {
   // 如果有原始链接，优先使用
   if (proxy.rawLink) {
+    // 如果是 URI 字符串 (vless://..., ss://...)，直接返回让 SDK parseUri 处理
+    if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(proxy.rawLink)) {
+      return proxy.rawLink
+    }
     try {
       // 尝试解析 JSON（适配 UI 存入的 rawLink）
-
-      return JSON.parse(proxy.rawLink)
+      const config = JSON.parse(proxy.rawLink)
+      // 兼容旧数据：gRPC 协议但缺少 grpc-opts 时，尝试从 serviceName 补全
+      if (config.network === 'grpc' && !config['grpc-opts'] && config.serviceName) {
+        config['grpc-opts'] = { 'grpc-service-name': config.serviceName }
+      }
+      return config
     } catch (e) {
-      // 如果不是 JSON，可能是 URI 字符串 (ss://..., vmess://...)
       return proxy.rawLink
     }
   }

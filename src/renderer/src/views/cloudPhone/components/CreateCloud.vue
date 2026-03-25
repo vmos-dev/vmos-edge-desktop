@@ -81,54 +81,20 @@
         </el-form-item>
 
         <template v-if="createCloudForm.device_type === 'real'">
-          <el-form-item prop="machine_mode" :label="t('cloudPhone.machineSettings')">
-            <el-radio-group
-              v-model="createCloudForm.machine_mode"
-              @change="handleMachineModeChange"
-            >
-              <el-radio :label="t('cloudPhone.random')" value="random" />
-              <el-radio :label="t('cloudPhone.custom')" value="custom" />
-            </el-radio-group>
-          </el-form-item>
-
-          <!-- 品牌机型选择（仅云真机支持） -->
-          <el-row :gutter="20" v-show="createCloudForm.machine_mode === 'custom'">
-            <el-col :span="12">
-              <el-form-item :label="t('cloudPhone.brand')" prop="brand">
-                <el-select
-                  v-model="createCloudForm.brand"
-                  @change="handleBrandChange"
-                  filterable
-                  :placeholder="t('cloudPhone.brandPlaceholder')"
-                  style="width: 100%"
-                >
-                  <el-option
-                    v-for="item in brandOptions"
-                    :key="item.brand"
-                    :label="item.brand"
-                    :value="item.brand"
-                  />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item :label="t('cloudPhone.model')" prop="adiID">
-                <el-select
-                  v-model="createCloudForm.adiID"
-                  filterable
-                  :placeholder="t('cloudPhone.modelPlaceholder')"
-                  style="width: 100%"
-                >
-                  <el-option
-                    v-for="item in modelOptions"
-                    :key="item.id"
-                    :label="`${item.model_name}${item.isUploaded ? t('cloudPhone.uploaded') : ''}`"
-                    :value="item.id"
-                  />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
+          <MachineSettingsSelector
+            ref="machineSelectorRef"
+            :host-ip="host?.ip || ''"
+            :android-version="currentAndroidVersion"
+            host-adi-failure-policy="throw"
+            brand-prop="brand"
+            adi-prop="adiID"
+            v-model:machine-mode="createCloudForm.machine_mode"
+            v-model:brand="createCloudForm.brand"
+            v-model:adi-id="createCloudForm.adiID"
+            v-model:adi-name="createCloudForm.adi_name"
+            v-model:adi-pass="createCloudForm.adi_pass"
+            @model-change="handleMachineModelChange"
+          />
         </template>
 
         <!-- 分辨率选择（根据云机类型显示不同选项） -->
@@ -438,7 +404,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, toRaw, onUnmounted, computed } from 'vue'
+import { ref, reactive, watch, toRaw, onUnmounted, computed, nextTick } from 'vue'
 import { Host } from '@shared/ipc/data.types'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ipc } from '@renderer/core/ipc'
@@ -457,6 +423,8 @@ import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
 import axios from 'axios'
 import ImageSelect from './ImageSelect.vue'
+import MachineSettingsSelector from './MachineSettingsSelector.vue'
+import type { AdiWithUpload, MachineModelChangePayload } from './machineSettings.types'
 import store from 'store'
 import { useI18n } from 'vue-i18n'
 import { useLocale } from '@renderer/hooks/useLocale'
@@ -473,6 +441,7 @@ const host = ref<Host>()
 const visible = ref(false)
 const formRef = ref()
 const imageSelectRef = ref()
+const machineSelectorRef = ref<InstanceType<typeof MachineSettingsSelector> | null>(null)
 // const imageOptions = ref<(Image & { isUploaded: boolean })[]>([]) // Unused, logic moved to child and synced via v-model if needed, but here we only need `currentAndroidVersion` for brand logic
 
 // const imageOptions = ref<(Image & { isUploaded: boolean })[]>([]) // Still used for default selection logic in watch
@@ -488,17 +457,13 @@ const dnsTypeOptions = computed(() => [
   { label: t('cloudPhone.custom'), value: 'custom' }
 ])
 
-// 品牌选项列表
-const brandOptions = ref<any>([])
-
-// 机型选项列表
-const modelOptions = ref<any>([])
-
-// 所有可用机型列表
-const allAvailableModels = ref<(Adi & { isUploaded: boolean })[]>([])
-
 // 固定分辨率选项（所有类型都支持）
-const fixedResolutionOptions = ref<{ label: string; value: string }[]>([])
+const fixedResolutionOptions = ref<{ label: string; value: string }[]>(
+  (ResolutionModel as readonly string[]).map((item) => ({
+    label: item,
+    value: item
+  }))
+)
 
 // ADI分辨率选项（仅云真机支持，从机型模板获取）
 const adiResolutionOptions = ref<{ label: string; value: string }[]>([])
@@ -539,6 +504,8 @@ const defaultData = () => {
   return {
     // 品牌机型相关（仅虚拟机使用）
     adiID: '',
+    adi_name: '',
+    adi_pass: '',
     brand: '',
     machine_mode: 'random',
     // GMS和网络配置
@@ -739,48 +706,31 @@ watch(
 )
 
 /**
- * 监听机型变化（仅云真机）
- * 当选择机型时，自动设置对应的分辨率（如果机型有layout字段）
- */
-watch(
-  () => createCloudForm.adiID,
-  (val) => {
-    // 仅云真机需要处理机型变化
-    if (createCloudForm.device_type !== 'real') return
-
-    const model = modelOptions.value.find((item: any) => item.id == val)
-    if (model && model.layout) {
-      // 如果机型有layout（分辨率），自动设置为ADI分辨率
-      createCloudForm.resolutionStr = model.layout
-      createCloudForm.customResolution = '' // 清空自定义分辨率
-      updateAdiResolutionOptions(model)
-    }
-  }
-)
-
-/**
  * 监听云机类型变化
  * 切换类型时，清空不属于当前类型的参数，并默认选中第一个选项
  */
 watch(
   () => createCloudForm.device_type,
-  async () => {
+  async (deviceType) => {
     createCloudForm.brand = ''
     createCloudForm.adiID = ''
-    modelOptions.value = []
+    createCloudForm.adi_name = ''
+    createCloudForm.adi_pass = ''
     adiResolutionOptions.value = []
     // 清空分辨率相关字段
     createCloudForm.resolutionStr = ''
     createCloudForm.customResolution = ''
 
-    // 根据新类型重新初始化选项
-    if (createCloudForm.image_repository && currentAndroidVersion.value) {
-      await getBrandOptions(currentAndroidVersion.value)
+    // 虚拟机默认分辨率
+    if (deviceType === 'virtual') {
+      createCloudForm.resolutionStr = '720x1280x320'
+      return
     }
 
-    // 虚拟机默认分辨率
-    if (createCloudForm.device_type === 'virtual') {
-      createCloudForm.resolutionStr = '720x1280x320'
+    await nextTick()
+
+    if (createCloudForm.image_repository && currentAndroidVersion.value) {
+      await machineSelectorRef.value?.reload(currentAndroidVersion.value)
     }
   }
 )
@@ -813,9 +763,19 @@ watch(
   }
 )
 
-const handleMachineModeChange = () => {
-  if (createCloudForm.machine_mode === 'random') {
-    randomizeModel()
+const handleMachineModelChange = ({ model }: MachineModelChangePayload) => {
+  if (createCloudForm.device_type !== 'real') return
+
+  if (model?.layout) {
+    createCloudForm.resolutionStr = model.layout
+    createCloudForm.customResolution = ''
+    updateAdiResolutionOptions(model)
+    return
+  }
+
+  adiResolutionOptions.value = []
+  if (fixedResolutionOptions.value.length > 0 && createCloudForm.resolutionStr !== 'custom') {
+    createCloudForm.resolutionStr = fixedResolutionOptions.value[0].value
   }
 }
 const handleUploadAdiProgress = (percent: number) => {
@@ -867,49 +827,12 @@ const currentAndroidVersion = ref('')
 
 const handleImageChange = (image: Image & { isUploaded: boolean }) => {
   if (image) {
-    getBrandOptions(image.androidVersion)
+    machineSelectorRef.value?.reload(image.androidVersion)
   }
 }
 const getImageOptions = async (refresh: boolean = false) => {
   if (refresh) {
     await imageSelectRef.value?.getImageOptions()
-  }
-}
-
-/**
- * 处理品牌变化（仅云真机）
- * 选择品牌后，自动更新机型选项和ADI分辨率选项（只显示该品牌的分辨率）
- * @param value 选中的品牌值
- */
-const handleBrandChange = (value: string) => {
-  // 清空机型选择
-  createCloudForm.adiID = ''
-  // 清空分辨率（因为品牌变化可能导致分辨率变化）
-  createCloudForm.resolutionStr = ''
-  createCloudForm.customResolution = ''
-
-  // 根据品牌更新机型选项
-  const brand = brandOptions.value.find((item: any) => item.brand === value)
-  if (brand) {
-    modelOptions.value = brand.list
-
-    // 更新ADI分辨率选项：只显示该品牌的分辨率（每个品牌只有一个）
-    updateAdiResolutionOptions(brand?.list?.[0])
-
-    // 默认选中第一个机型
-    if (modelOptions.value.length > 0) {
-      createCloudForm.adiID = modelOptions.value[0].id
-      // 如果第一个机型有layout，自动设置为分辨率
-      if (modelOptions.value[0].layout) {
-        createCloudForm.resolutionStr = modelOptions.value[0].layout
-      } else if (fixedResolutionOptions.value.length > 0) {
-        // 否则默认选中第一个固定分辨率
-        createCloudForm.resolutionStr = fixedResolutionOptions.value[0].value
-      }
-    } else if (fixedResolutionOptions.value.length > 0) {
-      // 如果没有机型，默认选中第一个固定分辨率
-      createCloudForm.resolutionStr = fixedResolutionOptions.value[0].value
-    }
   }
 }
 
@@ -924,156 +847,23 @@ const handleResolutionChange = (value: string) => {
   }
 }
 
-const filterAndGroupByBrand = (
-  data: Adi[],
-  asopVersion: string,
-  adiIds: number[]
-): { brand: string; list: Adi[] }[] => {
-  const brandMap = new Map<string, Adi[]>()
-
-  data.forEach((item: Adi) => {
-    // ① 查询条件：镜像版本
-    if (item.asopVersion !== asopVersion) return
-
-    // ② 品牌分组
-    if (!brandMap.has(item.brand)) {
-      brandMap.set(item.brand, [])
-    }
-
-    brandMap.get(item.brand)!.push(item)
-  })
-
-  return Array.from(brandMap.entries()).map(([brand, list]) => ({
-    brand,
-    list:
-      list.map((item: Adi) => ({
-        ...item,
-        isUploaded: adiIds.includes(Number(item.id))
-      })) || ([] as Adi[])
-  }))
-}
-
-/**
- * 初始化分辨率选项
- * 只初始化固定分辨率，ADI分辨率需要根据选中的品牌动态更新
- * @param data ADI数据列表（暂不使用，保留参数以保持接口一致性）
- * @param asopVersion Android版本（暂不使用，保留参数以保持接口一致性）
- */
-const initResolutionOptions = (_data: Adi[], _asopVersion: string) => {
-  // 初始化固定分辨率选项（所有类型都支持）
-  fixedResolutionOptions.value = (ResolutionModel as readonly string[]).map((item) => ({
-    label: item,
-    value: item
-  }))
-
-  // ADI分辨率选项不在这里初始化，需要根据选中的品牌动态更新
-  // 每个品牌只有一个ADI分辨率，只显示当前选中品牌的分辨率
-  adiResolutionOptions.value = []
-}
-
 /**
  * 更新ADI分辨率选项（根据选中的品牌）
  * 每个品牌只有一个ADI分辨率（所有机型共享）
  * @param brandList 品牌下的机型列表
  */
 const updateAdiResolutionOptions = (model: any) => {
-  if (!model) return
+  if (!model?.layout) {
+    adiResolutionOptions.value = []
+    return
+  }
+
   adiResolutionOptions.value = [
     {
       label: model.layout,
       value: model.layout
     }
   ]
-}
-
-const randomizeModel = () => {
-  if (allAvailableModels.value.length > 0) {
-    const randomIndex = Math.floor(Math.random() * allAvailableModels.value.length)
-    const randomModel = allAvailableModels.value[randomIndex]
-    if (randomModel) {
-      createCloudForm.adiID = randomModel.id
-      createCloudForm.resolutionStr = randomModel.layout
-      const brand = brandOptions.value.find((item: any) => item.brand === randomModel.brand)
-
-      if (brand) {
-        modelOptions.value = brand.list
-        createCloudForm.brand = brand.brand
-      }
-    }
-  }
-}
-/**
- * 获取品牌选项（仅云真机需要）
- * @param asopVersion Android版本
- * @param refresh 是否为刷新操作
- */
-const getBrandOptions = async (asopVersion: string) => {
-  if (!asopVersion || createCloudForm.device_type !== 'real') return
-
-  try {
-    // 获取所有ADI数据
-    const res = await ipc.invoke<Adi[]>(ADI_EVENTS.GET_ADIS)
-
-    if (res.success) {
-      // 初始化分辨率选项（固定分辨率和ADI分辨率）
-      initResolutionOptions(res.data || [], asopVersion)
-
-      // 获取主机已上传的机型模板列表
-      const adiList = await request.get(
-        buildApiUrl(host.value?.ip || '', API_CONFIG.PATHS.GET_HOST_ADI_TEMPLATE_LIST)
-      )
-      const adiIds = adiList?.data?.list?.map((item: any) => Number(item.adiID)) || []
-
-      // 筛选符合当前镜像版本的机型
-      allAvailableModels.value =
-        res.data
-          ?.filter((item: Adi) => item.asopVersion === asopVersion)
-          .map((item: Adi) => ({
-            ...item,
-            isUploaded: adiIds.includes(Number(item.id))
-          })) || []
-
-      // 按品牌分组并标记已上传状态
-      const options = filterAndGroupByBrand(res.data || [], asopVersion, adiIds)
-
-      // 更新品牌选项
-      brandOptions.value = options
-
-      // 如果选择自定义，更新品牌选项
-      if (createCloudForm.machine_mode === 'custom') {
-        // 1️⃣ 确定最终 brand（找得到用自己的，找不到用第一个）
-        const currentBrand =
-          options.find((item) => item.brand === createCloudForm.brand) ?? options[0]
-
-        createCloudForm.brand = currentBrand?.brand ?? ''
-        modelOptions.value = currentBrand?.list ?? []
-
-        const defaultModel = modelOptions.value?.[0]
-
-        // 2️⃣ 在当前品牌下查找机型
-        const selectedModel = modelOptions.value.find((item) => item.id === createCloudForm.adiID)
-
-        if (selectedModel) {
-          // 找得到 → 用用户的
-          updateAdiResolutionOptions(selectedModel)
-        } else if (defaultModel) {
-          // 找不到 → 回退第一个
-          createCloudForm.adiID = defaultModel.id
-          createCloudForm.resolutionStr = defaultModel.layout
-          updateAdiResolutionOptions(defaultModel)
-        } else {
-          // 没有任何机型
-          createCloudForm.adiID = ''
-          createCloudForm.resolutionStr = ''
-          adiResolutionOptions.value = []
-        }
-      } else {
-        randomizeModel()
-      }
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || t('cloudPhone.getAdiListFailed'))
-  }
 }
 
 // Methods
@@ -1121,10 +911,7 @@ const handleClose = () => {
     timezone: '',
     country: ''
   }
-  brandOptions.value = []
-  modelOptions.value = []
   adiResolutionOptions.value = []
-  fixedResolutionOptions.value = []
   currentAndroidVersion.value = ''
   formRef.value?.resetFields?.()
 }
@@ -1142,10 +929,17 @@ const handleSubmit = async () => {
     createLoading()
     // 2️⃣ 校验 ADI / Image 是否已上传
     const uploads: {
-      adi?: Adi
+      adi?: AdiWithUpload
       image?: Image
     } = {}
-    const adi = modelOptions.value.find((item: any) => item.id === createCloudForm.adiID)
+    const adi = machineSelectorRef.value?.getSelectedModel() ?? null
+
+    if (createCloudForm.device_type === 'real' && !adi) {
+      if (createCloudForm.machine_mode === 'random') {
+        throw new Error(t('cloudPhone.noAvailableModelTemplates'))
+      }
+      throw new Error(t('cloudPhone.selectModel'))
+    }
 
     if (adi && !adi.isUploaded) {
       uploads.adi = adi
@@ -1202,7 +996,8 @@ const handleSubmit = async () => {
     // 5️⃣ 构造提交数据
     const submitData: any = {
       // 品牌机型（仅云真机需要）
-      adiID: createCloudForm.device_type === 'real' ? Number(createCloudForm.adiID) : undefined,
+      adiName: createCloudForm.device_type === 'real' ? adi?.name : undefined,
+      adiPass: createCloudForm.device_type === 'real' ? adi?.pwd : undefined,
       // GMS和网络配置
       bool_gms_disabled: !createCloudForm.enableGms,
       bool_gms_upgrade_enable: createCloudForm.enableGms
@@ -1479,3 +1274,4 @@ defineExpose({
   width: 120px;
 }
 </style>
+

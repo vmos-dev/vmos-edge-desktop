@@ -6,11 +6,14 @@ export default {
     profile: 'Profile',
     settings: 'Settings',
     generalSettings: 'General Settings',
-    machineSettings: 'ADI Settings'
+    machineSettings: 'ADI Settings',
+    helpDocs: 'Help Documentation'
   },
   cloud: 'Cloud Phone',
   host: 'Host',
   image: 'Image',
   proxy: 'Proxy',
-  phone: 'Phone'
+  phone: 'Phone',
+  automation: 'AI Workflow',
+  aiAgent: 'AI Agent'
 }

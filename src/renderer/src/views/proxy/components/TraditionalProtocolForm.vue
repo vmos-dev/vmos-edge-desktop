@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import parseUri from '@renderer/utils/uri-parser'
+import { parseUri } from '@vmosedge/proxy-sdk/parser'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 
@@ -57,6 +57,7 @@ const parseTraditionalLink = (link: string) => {
     modelValue.value = {
       ...modelValue.value,
       ...(result as IProxyShadowsocksConfig),
+      //@ts-ignore
       host: result.server
     }
   } catch (error: any) {

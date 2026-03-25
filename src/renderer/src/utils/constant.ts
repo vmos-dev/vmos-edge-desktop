@@ -5,6 +5,9 @@ export const DeviceStateMap = {
   stopped: 'stopped',
   creating: 'creating',
   starting: 'starting',
+  pending_backup: 'pending_backup',
+  backing_up: 'backing_up',
+  downloading: 'downloading',
   paused: 'paused',
   exited: 'exited',
   stopping: 'stopping',
@@ -33,6 +36,9 @@ export const DeviceTypeMap = {
 export const DeviceStateColorMap = {
   creating: '#67C23A', // success - 绿色
   starting: '#409EFF', // primary - 蓝色
+  pending_backup: '#409EFF', // primary - 蓝色
+  backing_up: '#409EFF', // primary - 蓝色
+  downloading: '#409EFF', // primary - 蓝色
   running: '#67C23A', // success - 绿色
   stopping: '#F56C6C', // danger - 红色
   stopped: '#F56C6C', // danger - 红色

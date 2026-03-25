@@ -1,6 +1,6 @@
 <template>
   <el-dialog
-    v-if="modelValue"
+    v-if="renderDialog"
     v-model="modelValue"
     modal-class="vmos-dialog-modal"
     :class="randomClass"
@@ -8,11 +8,12 @@
     align-center
     v-bind="$attrs"
     :draggable="draggable"
+    :show-close="showClose"
     :width="width"
     :close-on-click-modal="false"
-    :close-on-press-escape="false"
-    @close="emits('close')"
-    @closed="emits('closed')"
+    :close-on-press-escape="showClose"
+    @close="handleClose"
+    @closed="handleClosed"
   >
     <template v-for="(_, name) in $slots" v-slot:[name]>
       <slot :name="name" />
@@ -21,10 +22,10 @@
 </template>
 
 <script setup lang="ts">
-import { useSlots } from 'vue'
+import { ref, useSlots, watch } from 'vue'
 defineOptions({ name: 'VmosDialog' })
 
-const props = defineProps({
+defineProps({
   width: {
     type: String,
     default: '30%'
@@ -32,27 +33,40 @@ const props = defineProps({
   draggable: {
     type: Boolean,
     default: true
+  },
+  showClose: {
+    type: Boolean,
+    default: true
   }
 })
 
 const emits = defineEmits(['close', 'closed'])
-const modelValue = defineModel<boolean>()
-// 生成随机 id
+const modelValue = defineModel<boolean>({ default: false })
+const renderDialog = ref(!!modelValue.value)
+
+// Generate stable class name for each dialog instance.
 const randomId = `vmos-dialog-${Math.random().toString(36).substring(2, 15)}`
-// 生成随机 class
 const randomClass = `vmos-dialog ${randomId}`
 const $slots = useSlots()
 
-// const handleOpen = async () => {
-//   await nextTick()
-//   const dialogEl = document.querySelector(`.${randomId}`) as HTMLElement | undefined
-//   if (!dialogEl) return
+watch(
+  () => modelValue.value,
+  (val) => {
+    if (val) {
+      renderDialog.value = true
+    }
+  }
+)
 
-//   // 重置拖拽残留状态，确保每次打开都居中
-//   dialogEl.style.transform = 'none'
-//   dialogEl.style.left = ''
-//   dialogEl.style.top = ''
-// }
+const handleClose = () => {
+  emits('close')
+}
+
+const handleClosed = () => {
+  // Destroy after close transition so `closed` always fires.
+  renderDialog.value = false
+  emits('closed')
+}
 </script>
 
 <style lang="scss">

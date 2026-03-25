@@ -1,77 +1,130 @@
 <template>
   <div class="adi-container">
-    <!-- 头部区域 -->
-    <div class="header-section">
-      <div class="header-content">
-        <div class="header-title">{{ t('adi.deviceList') }}</div>
-        <!-- 筛选按钮 -->
-        <div class="filter-buttons">
-          <div
-            v-for="filter in filters"
-            :key="filter.value"
-            :class="['filter-btn', { active: activeFilter === filter.value }]"
-            @click="handleFilterChange(filter.value)"
-          >
-            {{ filter.label }}
+    <el-tabs v-model="activeTab" class="adi-tabs" @tab-change="handleTabChange">
+      <el-tab-pane :label="t('adi.generalModels')" name="general">
+        <div class="header-section">
+          <div class="header-content">
+            <div class="header-title">{{ t('adi.deviceList') }}</div>
+            <!-- 筛选按钮 -->
+            <div class="filter-buttons">
+              <div
+                v-for="filter in filters"
+                :key="filter.value"
+                :class="['filter-btn', { active: activeFilter === filter.value }]"
+                @click="handleFilterChange(filter.value)"
+              >
+                {{ filter.label }}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- 表格区域 -->
-    <div class="table-container">
-      <VmosTable
-        :data="filteredAdis"
-        :columns="columns"
-        :row-height="42"
-        :header-height="45"
-        row-key="id"
-        border
-      />
-    </div>
+        <!-- 表格区域 -->
+        <div class="table-container">
+          <VmosTable
+            :data="filteredGeneralAdis"
+            :columns="generalColumns"
+            :row-height="42"
+            :header-height="45"
+            row-key="id"
+            border
+          />
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane :label="t('adi.customModels')" name="custom">
+        <div class="header-section">
+          <div class="header-content">
+            <div class="header-title">{{ t('adi.customModels') }}</div>
+            <!-- 筛选按钮 -->
+            <div class="filter-buttons">
+              <div
+                v-for="filter in filters"
+                :key="filter.value"
+                :class="['filter-btn', { active: activeFilter === filter.value }]"
+                @click="handleFilterChange(filter.value)"
+              >
+                {{ filter.label }}
+              </div>
+            </div>
+            <div class="header-actions">
+              <el-button @click="handleOpenCollectionTool">
+                {{ t('adi.getCollectionTool') }}
+              </el-button>
+              <el-button type="primary" @click="handleImport">
+                {{ t('adi.importSettings') }}
+              </el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 表格区域 -->
+        <div class="table-container">
+          <VmosTable
+            :data="filteredCustomAdis"
+            :columns="customColumns"
+            :row-height="42"
+            :header-height="45"
+            row-key="id"
+            border
+          />
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+
+    <ImportAdiDialog ref="importAdiDialogRef" @success="getCustomAdis" />
   </div>
 </template>
 
 <script setup lang="tsx">
 defineOptions({ name: 'Adi' })
-import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, ElTag, ElLink, ElButton } from 'element-plus'
 import type { Column } from 'element-plus'
-import { Adi } from '@shared/ipc/adi.types'
+import { Adi, CustomAdi, ADI_EVENTS } from '@shared/ipc/adi.types'
 import { ipc } from '@renderer/core/ipc'
-import { ADI_EVENTS } from '@shared/ipc/adi.types'
-import { ElTag, ElLink } from 'element-plus'
+import {
+  ANDROID_VERSION_OPTIONS,
+  formatAndroidVersionLabel
+} from '@shared/constant/androidVersions'
 import { useI18n } from 'vue-i18n'
+import ImportAdiDialog from './components/ImportAdiDialog.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
-// 数据
-const adis = ref<Adi[]>([])
-const activeFilter = ref<string | number>('all')
+// 状态
+const activeTab = ref('general')
+const generalAdis = ref<Adi[]>([])
+const customAdis = ref<CustomAdi[]>([])
+const activeFilter = ref('all')
+const importAdiDialogRef = ref<InstanceType<typeof ImportAdiDialog>>()
+const collectionToolDocUrl = computed(() =>
+  locale.value === 'zh-CN'
+    ? 'https://help.vmosedge.com/zh/operationguides/model-settings'
+    : 'https://help.vmosedge.com/en/operationguides/model-settings'
+)
 
 // 筛选选项
-const filters = computed(() => [
-  { label: t('adi.all'), value: 'all' },
-  { label: t('adi.android10'), value: 10 },
-  { label: t('adi.android13'), value: 13 },
-  { label: t('adi.android14'), value: 14 },
-  { label: t('adi.android15'), value: 15 }
-])
+const filters = computed(() => [{ label: t('adi.all'), value: 'all' }, ...ANDROID_VERSION_OPTIONS])
 
-// 筛选后的数据
-const filteredAdis = computed(() => {
+// 筛选后的通用机型数据
+const filteredGeneralAdis = computed(() => {
   if (activeFilter.value === 'all') {
-    return adis.value
+    return generalAdis.value
   }
-  // 直接匹配数字
-  return adis.value.filter((item) => {
-    const version = Number(item.asopVersion)
-    return version === activeFilter.value
-  })
+  return generalAdis.value.filter((item) => item.asopVersion === activeFilter.value)
 })
 
-// 表格列定义
-const columns = computed<Column<Adi>[]>(() => [
+// 筛选后的自定义机型数据
+const filteredCustomAdis = computed(() => {
+  if (activeFilter.value === 'all') {
+    return customAdis.value
+  }
+  return customAdis.value.filter((item) => item.asopVersion == activeFilter.value)
+})
+
+// 通用列定义
+const commonColumns = computed(() => [
   {
     key: 'brand',
     dataKey: 'brand',
@@ -100,40 +153,131 @@ const columns = computed<Column<Adi>[]>(() => [
     width: 150,
     cellRenderer: ({ cellData }: { cellData: any }) => (
       <ElTag effect="light" round>
-        <ElLink type="primary" underline={false}>
-          Android {cellData}
+        <ElLink type="primary" underline="never">
+          {formatAndroidVersionLabel(cellData)}
         </ElLink>
       </ElTag>
     )
-  },
+  }
 ])
 
+// 通用机型表格列
+const generalColumns = computed<Column<Adi>[]>(() => [...commonColumns.value])
+
+// 自定义机型表格列
+const customColumns = computed<Column<CustomAdi>[]>(() => [
+  ...commonColumns.value,
+  {
+    key: 'actions',
+    title: t('common.action'),
+    width: 100,
+    align: 'center',
+    cellRenderer: ({ rowData }: { rowData: CustomAdi }) => (
+      <ElButton type="danger" link onClick={() => handleDelete(rowData)}>
+        {t('common.delete')}
+      </ElButton>
+    )
+  }
+])
+
+// 标签页切换
+const handleTabChange = (name: any) => {
+  if (name === 'general' && generalAdis.value.length === 0) {
+    getGeneralAdis()
+  } else if (name === 'custom' && customAdis.value.length === 0) {
+    getCustomAdis()
+  }
+}
+
 // 筛选变化
-const handleFilterChange = (value: string | number) => {
+const handleFilterChange = (value: string) => {
   activeFilter.value = value
 }
 
-// 获取数据
-const getAdis = async () => {
+// 获取通用机型数据
+const getGeneralAdis = async () => {
   const res = await ipc.invoke<any>(ADI_EVENTS.GET_ADIS)
   if (res.success) {
-    adis.value = res.data || []
+    generalAdis.value = res.data || []
   } else {
     ElMessage.error(res.error || t('common.loadFailed'))
   }
 }
 
-getAdis()
+// 获取自定义机型数据
+const getCustomAdis = async () => {
+  const res = await ipc.invoke<any>(ADI_EVENTS.GET_CUSTOM_ADIS)
+  if (res.success) {
+    customAdis.value = res.data || []
+  } else {
+    ElMessage.error(res.error || t('common.loadFailed'))
+  }
+}
+
+// 导入设置
+const handleImport = () => {
+  importAdiDialogRef.value?.init()
+}
+
+const handleOpenCollectionTool = () => {
+  window.open(collectionToolDocUrl.value, '_blank')
+}
+
+// 删除自定义机型
+const handleDelete = async (row: CustomAdi) => {
+  try {
+    await ElMessageBox.confirm(t('common.deleteConfirm'), t('common.warning'), {
+      type: 'warning'
+    })
+    const res = await ipc.invoke<any>(ADI_EVENTS.DELETE_CUSTOM_ADI, row.id)
+    if (res.success) {
+      ElMessage.success(t('common.deleteSuccess'))
+      getCustomAdis()
+    } else {
+      ElMessage.error(res.error || t('common.deleteFailed'))
+    }
+  } catch {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  getGeneralAdis()
+})
 </script>
 
 <style scoped lang="scss">
 .adi-container {
   height: 100%;
-  padding: 20px;
+  padding: 0 20px 20px;
   background-color: var(--el-bg-color);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;
+
+  :deep(.el-tabs__header) {
+    margin-bottom: 20px;
+  }
+
+  :deep(.el-tabs__content) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .el-tab-pane {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
+
+.adi-tabs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -149,6 +293,7 @@ getAdis()
 .header-content {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
 }
 
@@ -168,6 +313,13 @@ getAdis()
     margin-right: 8px;
     border-radius: 2px;
   }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .filter-buttons {

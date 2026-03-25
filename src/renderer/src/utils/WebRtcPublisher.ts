@@ -189,13 +189,29 @@ export class WebRtcPublisher {
       const targetMimeType = `video/${this.config.videoCodec}`;
 
       // 筛选匹配的编码器
-      const preferredCodecs = capabilities.codecs.filter(
+      let preferredCodecs = capabilities.codecs.filter(
         codec => codec.mimeType.toLowerCase() === targetMimeType.toLowerCase()
       );
 
       if (preferredCodecs.length === 0) {
         console.warn(`[WebRTC] Codec ${this.config.videoCodec} not supported by browser`);
         return;
+      }
+
+      // 如果是 H264，优先选择 Constrained Baseline Profile (profile-level-id=42e01f)
+      // 这种 profile 对 RTSP/FFmpeg 的兼容性最好，能解决 "unspecified size" 问题
+      if (this.config.videoCodec === 'H264') {
+        const baselineCodec = preferredCodecs.find(c => 
+          c.sdpFmtpLine && c.sdpFmtpLine.includes('profile-level-id=42e01f')
+        );
+        if (baselineCodec) {
+          // 将 Baseline 放在首位
+          preferredCodecs = [
+            baselineCodec,
+            ...preferredCodecs.filter(c => c !== baselineCodec)
+          ];
+          console.log('[WebRTC] Preferred H264 Constrained Baseline Profile');
+        }
       }
 
       // 将其他编码器放在后面作为备选

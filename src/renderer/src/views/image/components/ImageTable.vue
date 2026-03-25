@@ -1,6 +1,15 @@
 <template>
-  <VmosTable :data="data" :columns="columns" border :row-height="42" :header-height="45">
-  </VmosTable>
+  <VmosTable
+    :data="data"
+    :columns="columns"
+    :selected-ids="selectedIds"
+    border
+    selectable
+    row-key="id"
+    :row-height="42"
+    :header-height="45"
+    @selection-change="handleSelectionChange"
+  />
 </template>
 
 <script setup lang="tsx">
@@ -8,6 +17,7 @@ import { computed } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
 import { ElTag, ElButton, TableV2FixedDir } from 'element-plus'
 import { CopyText } from '@renderer/components'
+import { formatAndroidVersionLabel } from '@shared/constant/androidVersions'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -23,11 +33,17 @@ export interface ImageItem {
 
 defineProps<{
   data: ImageItem[]
+  selectedIds?: string[]
 }>()
 
 const emit = defineEmits<{
   (e: 'delete', row: ImageItem): void
+  (e: 'selection-change', rows: ImageItem[]): void
 }>()
+
+const handleSelectionChange = (rows: ImageItem[]) => {
+  emit('selection-change', rows)
+}
 
 const columns = computed(() => [
   {
@@ -53,7 +69,7 @@ const columns = computed(() => [
     width: 120,
     cellRenderer: ({ cellData }) => (
       <ElTag effect="light" round>
-        Android {cellData}
+        {formatAndroidVersionLabel(cellData)}
       </ElTag>
     )
   },

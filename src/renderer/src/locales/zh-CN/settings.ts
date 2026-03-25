@@ -24,7 +24,8 @@ export default {
   enableHover: '开启安卓悬停（Hover）交互效果',
   videoRenderConfig: '视频与渲染配置',
   disableHardwareAccel: '禁用硬件加速（使用 CPU 渲染）',
-  hardwareAccelDesc: '当设备仅有集成显卡或显卡驱动兼容性较差时，启用硬件加速可能导致画面异常或稳定性问题，禁用后将使用 CPU 进行渲染，稳定性更高，但性能可能有所下降。修改后需重启客户端生效。',
+  hardwareAccelDesc:
+    '当设备仅有集成显卡或显卡驱动兼容性较差时，启用硬件加速可能导致画面异常或稳定性问题，禁用后将使用 CPU 进行渲染，稳定性更高，但性能可能有所下降。修改后需重启客户端生效。',
   proxyCheck: '检测代理',
   checkStrategy: '检测策略',
   apiKey: 'API Key',
@@ -93,5 +94,6 @@ export default {
   streamBitrate: '码率',
   streamBitrateDesc: '设置推流的码率 (范围 1 - 16 MB)',
   mbUnit: 'MB',
-  streamSettingsDesc: '修改后需要在创建实例、启动实例、重启实例、重置实例、升级镜像、一键新机等操作后生效。'
+  streamSettingsDesc:
+    '修改后需要在创建实例、启动实例、重启实例、重置实例、升级镜像、一键新机等操作后生效。'
 }

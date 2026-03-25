@@ -1,5 +1,6 @@
 import { createI18n } from 'vue-i18n'
 import zhCN from './zh-CN'
+import zhTW from './zh-TW'
 import enUS from './en-US'
 
 // 获取浏览器/系统语言
@@ -22,6 +23,7 @@ const i18n = createI18n({
   globalInjection: true, // 允许在模板中直接使用 $t
   messages: {
     'zh-CN': zhCN,
+    'zh-TW': zhTW,
     'en-US': enUS
   }
 })

@@ -12,6 +12,14 @@
 
     <!-- 右侧工具栏 -->
     <div class="header-right">
+      <!-- 帮助文档 -->
+      <a :href="helpDocUrl" target="_blank" class="header-tool-item help-link">
+        <el-icon :size="18">
+          <QuestionFilled />
+        </el-icon>
+        <span class="help-text">{{ t('layout.header.helpDocs') }}</span>
+      </a>
+
       <!-- 语言切换 -->
       <el-dropdown @command="handleLanguageChange">
         <span class="header-tool-item">
@@ -22,11 +30,7 @@
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item
-              v-for="lang in languageList"
-              :key="lang.value"
-              :command="lang.value"
-            >
+            <el-dropdown-item v-for="lang in languageList" :key="lang.value" :command="lang.value">
               {{ lang.label }}
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -91,29 +95,45 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Setting, Minus, CopyDocument, Close, ArrowDown } from '@element-plus/icons-vue'
+import {
+  Setting,
+  Minus,
+  CopyDocument,
+  Close,
+  ArrowDown,
+  QuestionFilled
+} from '@element-plus/icons-vue'
 import TabBar from './TabBar.vue'
 import { ipc, WINDOW_TOP } from '@renderer/core/ipc'
 import icon from '@renderer/assets/logo.png'
 import { useRouter } from 'vue-router'
 import { useLocale } from '@renderer/hooks/useLocale'
 import { useI18n } from 'vue-i18n'
+import { copyToClipboard } from '@renderer/utils'
 
 const version = __APP_VERSION__
 const versionCode = __APP_VERSION_CODE__
 const versionHash = __APP_VERSION_HASH__
 
 const showVersionTooltip = ref(false)
+
 const handleVersionDblClick = () => {
-  showVersionTooltip.value = true
-  setTimeout(() => {
-    showVersionTooltip.value = false
-  }, 2500)
+  const textToCopy = `v${version} ${versionCode}@${versionHash}`
+  copyToClipboard(textToCopy, () => {
+    showVersionTooltip.value = true
+    setTimeout(() => {
+      showVersionTooltip.value = false
+    }, 2500)
+  })
 }
 
 const router = useRouter()
 const { changeLocale, currentLanguageLabel, languageList } = useLocale()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+const helpDocUrl = computed(() => {
+  return locale.value === 'zh-CN' ? 'https://help.vmosedge.com/' : 'https://help.vmosedge.com/en/'
+})
 
 const isTop = ref(false)
 
@@ -209,6 +229,7 @@ const handleClose = () => {
   line-height: 1; /* 避免行高导致文字垂直偏移 */
   position: relative;
   top: 1px; /* 微调文字垂直位置 */
+  white-space: nowrap;
 }
 
 .header-right {
@@ -227,10 +248,22 @@ const handleClose = () => {
   transition: background-color 0.3s;
   color: var(--el-text-color-regular);
   font-size: 14px;
+  white-space: nowrap;
 }
 
 .header-tool-item:hover {
   background-color: var(--el-bg-color-page);
+}
+
+.help-link {
+  text-decoration: none;
+  color: var(--el-text-color-regular);
+  display: flex;
+  align-items: center;
+}
+
+.help-text {
+  margin-left: 6px;
 }
 
 .version {

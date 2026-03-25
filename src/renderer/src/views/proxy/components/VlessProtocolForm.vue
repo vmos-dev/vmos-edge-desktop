@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import parseUri from '@renderer/utils/uri-parser'
+import { parseUri } from '@vmosedge/proxy-sdk/parser'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()

@@ -111,7 +111,7 @@
               class="window-phone-controls-item"
               :class="{
                 active: activeTool === item.action,
-                disabled: item.disabled || !isClientReady
+                disabled: item.disabled || !isClientReady || isActionPending(item.action)
               }"
               @click="handleToolClick(item.action)"
             >
@@ -125,17 +125,29 @@
         </div>
 
         <div class="window-phone-bottom">
-          <div class="window-phone-bottom-item" @click="handleToolClick('back')">
+          <div
+            class="window-phone-bottom-item"
+            :class="{ disabled: !isClientReady || isActionPending('back') }"
+            @click="handleToolClick('back')"
+          >
             <el-icon>
               <ArrowLeft />
             </el-icon>
           </div>
-          <div class="window-phone-bottom-item" @click="handleToolClick('home')">
+          <div
+            class="window-phone-bottom-item"
+            :class="{ disabled: !isClientReady || isActionPending('home') }"
+            @click="handleToolClick('home')"
+          >
             <el-icon>
               <HomeFilled />
             </el-icon>
           </div>
-          <div class="window-phone-bottom-item" @click="handleToolClick('menu')">
+          <div
+            class="window-phone-bottom-item"
+            :class="{ disabled: !isClientReady || isActionPending('menu') }"
+            @click="handleToolClick('menu')"
+          >
             <el-icon>
               <MenuIcon />
             </el-icon>
@@ -158,12 +170,12 @@
           :allowed-extensions="['apk', 'xapk']"
         />
 
-        <upload-file
+        <file-transfer
           v-show="activeTool === 'import'"
           :host="phoneDevice?.host_ip || ''"
           :device-id="deviceId"
-          :title="t('phone.fileUpload')"
-          :url="buildApiUrl(phoneDevice?.host_ip || '', API_CONFIG.PATHS.UPLOAD_SINGLE)"
+          :device="phoneDevice"
+          :upload-url="buildApiUrl(phoneDevice?.host_ip || '', API_CONFIG.PATHS.UPLOAD_SINGLE)"
         />
 
         <!-- 群控日志面板 -->
@@ -212,7 +224,17 @@
 </template>
 <script setup lang="ts">
 import { WINDOW_RESIZE, WINDOW_TOP } from '@renderer/core/ipc'
-import { onMounted, ref, onUnmounted, watch, computed, toRaw, nextTick, provide } from 'vue'
+import {
+  onMounted,
+  ref,
+  reactive,
+  onUnmounted,
+  watch,
+  computed,
+  toRaw,
+  nextTick,
+  provide
+} from 'vue'
 import { ElMessage, ElTag } from 'element-plus'
 import { MacvlanPortMap } from '@renderer/utils/constant'
 import { useRoute } from 'vue-router'
@@ -221,7 +243,7 @@ import { buildDeviceApiUrl, API_CONTROL_CONFIG } from '@shared/api/controlConfig
 import { request } from '@shared/api'
 import {
   Download,
-  Upload,
+  Document,
   Plus,
   Minus,
   RefreshRight,
@@ -254,6 +276,7 @@ import { ipc } from '@renderer/core/ipc'
 import { API_CONFIG, buildApiUrl } from '@shared/api'
 import { ElMessageBox } from 'element-plus'
 import uploadFile from './modules/uploadFile.vue'
+import fileTransfer from './modules/fileTransfer.vue'
 import { DATA_EVENTS, Device, DeviceState, Host } from '@shared/ipc/data.types'
 import { copyToClipboard, getAndroidKeyCode, buildMetaState, formatTime } from '@renderer/utils'
 import { getErrorMessage } from '@shared/api'
@@ -261,10 +284,48 @@ import newMachine from '@renderer/views/cloudPhone/modules/newMachine.vue'
 import simulation from './modules/simulation.vue'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
-import { logger } from '@renderer/utils/logger'
+import { logVmosEdgeClientInternalError } from '@renderer/utils/vmosEdgeClientLogger'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+/** SCD 配置查询接口返回结构 */
+interface ScdConfigResponse {
+  code?: number
+  data?: {
+    config?: { audio?: string; [k: string]: string | undefined }
+    db_id?: string
+    host_ip?: string
+  }
+  msg?: string
+}
+
+/** 查询 SCD 配置（含 config.audio 等） */
+async function getScdConfig(hostIp: string, dbId: string): Promise<ScdConfigResponse | null> {
+  const url = buildApiUrl(hostIp, `${API_CONFIG.PATHS.GET_SCD_CONFIG}/${dbId}`)
+  try {
+    return await request.get<ScdConfigResponse>(url)
+  } catch (e) {
+    console.warn('[Phone] GET scd_config failed:', e)
+    return null
+  }
+}
+
+/** 设置 SCD 配置（只传 config 对象） */
+async function setScdConfig(
+  hostIp: string,
+  dbId: string,
+  config: Record<string, string>
+): Promise<void> {
+  const url = buildApiUrl(hostIp, `${API_CONFIG.PATHS.POST_SCD_CONFIG}/${dbId}`)
+  await request.post(url, config)
+}
+
+/** 重启 SCD 推流服务 */
+async function restartScd(hostIp: string, dbId: string): Promise<void> {
+  const url = buildApiUrl(hostIp, `${API_CONFIG.PATHS.POST_SCD_RESTART}/${dbId}`)
+  await request.post(url)
+}
 
 const getDeviceStateLabel = (s?: string) => {
   if (!s) return ''
@@ -305,6 +366,8 @@ const clientError = ref<string | null>(null)
 const phoneDevice = ref<Device>()
 const newMachineRef = ref<InstanceType<typeof newMachine>>()
 const isFirstSizeChange = ref(true)
+const isAudioEnabled = ref(false)
+const pendingActions = reactive(new Set<string>())
 let client: VmosEdgeClient | null = null
 
 // 提供设备信息给子组件
@@ -362,6 +425,9 @@ const stateConfig = computed(() => {
     // 加载/处理类状态
     case DeviceState.StateCreating:
     case DeviceState.StateStarting:
+    case DeviceState.StatePendingBackup:
+    case DeviceState.StateBackingUp:
+    case DeviceState.StateDownloading:
     case DeviceState.StateRebooting:
     case DeviceState.StateRebuilding:
     case DeviceState.StateRenewing:
@@ -693,6 +759,7 @@ const startClient = () => {
       }
     },
     container,
+    mediaType: isAudioEnabled.value ? 2 : 1,
     // 开启群控
     isGroupControl: isMaster.value,
     retryCount: 10,
@@ -701,14 +768,17 @@ const startClient = () => {
     // renderPreference: renderPreference.value,
     scrollSpeedRatio: wheelSpeed.value,
     hoverMoveKeep: keepHoverMove.value,
-    onInternalError: (error, info) => {
-      logger.error('VmosEdgeClient ERROR', error, info)
+    onInternalError: (error, info: any) => {
+      logVmosEdgeClientInternalError('Phone', error, info)
     }
   })
 
   client.on(VmosEdgeClientEvents.STARTED, () => {
     console.log('[Phone] VmosEdge client started')
     isClientReady.value = true
+    if (!isAudioEnabled.value) {
+      client?.disableAudio()
+    }
   })
 
   client.on(VmosEdgeClientEvents.VIDEO_DECODER_STATS, (stats) => {
@@ -744,10 +814,6 @@ const startClient = () => {
     } else if (error.type === VmosEdgeErrorType.TOUCH) {
       // 触控通道错误，不影响视频显示，只记录错误
       clientError.value = `[${VmosEdgeErrorType.TOUCH}]${errorMessage || t('phone.touchChannelFailed')}`
-      isClientReady.value = false
-    } else {
-      // 其他错误（连接、音频等），根据实际情况处理
-      clientError.value = `[${VmosEdgeErrorType.CONNECTION}]${errorMessage || t('phone.connectionError')}`
       isClientReady.value = false
     }
   })
@@ -831,12 +897,19 @@ const initListener = () => {
 ---------------------- */
 const toolbarItems = computed(() => [
   { icon: Download, label: t('phone.app'), action: 'install', panelWidth: 550, disabled: false },
-  { icon: Upload, label: t('phone.import'), action: 'import', panelWidth: 550, disabled: false },
+  { icon: Document, label: t('phone.file'), action: 'import', panelWidth: 550, disabled: false },
   { icon: Plus, label: t('phone.volumeUp'), action: 'volumeUp', panelWidth: 0, disabled: false },
   {
     icon: Minus,
     label: t('phone.volumeDown'),
     action: 'volumeDown',
+    panelWidth: 0,
+    disabled: false
+  },
+  {
+    svgIcon: isAudioEnabled.value ? 'noplay' : 'play',
+    label: isAudioEnabled.value ? t('phone.disableSound') : t('phone.enableSound'),
+    action: 'toggleAudio',
     panelWidth: 0,
     disabled: false
   },
@@ -930,65 +1003,150 @@ const setWindowSize = (width: number, height: number) => {
   ipc.send(WINDOW_RESIZE, { width, height })
 }
 
+const ACTION_LOCK_DELAY = 300
+
+const isActionPending = (action: string) => pendingActions.has(action)
+
+const runWithActionLock = async (
+  action: string,
+  handler: () => void | Promise<void>,
+  delay = ACTION_LOCK_DELAY
+) => {
+  if (pendingActions.has(action)) return
+
+  pendingActions.add(action)
+
+  try {
+    await handler()
+  } finally {
+    window.setTimeout(() => {
+      pendingActions.delete(action)
+    }, delay)
+  }
+}
+
 /* ---------------------
    工具栏点击行为
 ---------------------- */
 
-const handleToolClick = (action: string) => {
-  if (!client || !isClientReady.value) return // 如果 client 未运行或未就绪，禁用点击
+const handleToggleAudio = async () => {
+  if (!client) return
 
+  const hostIp = phoneDevice.value?.host_ip || ''
+  const dbId = phoneDevice.value?.db_id || phoneDevice.value?.id || ''
+
+  try {
+    // 开启/关闭都先获取一次 config，再按需设置
+    let res: ScdConfigResponse | null = null
+    if (hostIp && dbId) {
+      res = await getScdConfig(hostIp, dbId)
+      if (res == null) {
+        ElMessage.warning(t('phone.audioQueryFailed'))
+        return
+      }
+    }
+
+    const config = res?.data?.config || {}
+
+    if (isAudioEnabled.value) {
+      // 关闭音频：覆盖 audio 后只传 config 给设置接口，再调 SDK 关闭
+      if (hostIp && dbId) {
+        try {
+          await setScdConfig(hostIp, dbId, { scdArgs: JSON.stringify({ ...config, audio: 'false' }) })
+        } catch (e) {
+          ElMessage.warning(t('phone.audioSetFailed'))
+          return
+        }
+      }
+      client.disableAudio()
+      isAudioEnabled.value = false
+      return
+    }
+
+    // 开启音频：配置里未开启则覆盖 audio、只传 config 给设置接口、重启推流，再调 SDK
+    if (hostIp && dbId && config.audio !== 'true') {
+      try {
+        await setScdConfig(hostIp, dbId, { scdArgs: JSON.stringify({ ...config, audio: 'true' }) })
+      } catch (e) {
+        ElMessage.warning(t('phone.audioSetFailed'))
+        return
+      }
+      try {
+        await restartScd(hostIp, dbId)
+      } catch (e) {
+        ElMessage.warning(t('phone.audioRestartScdTip'))
+        return
+      }
+    }
+
+    await client.enableAudio()
+    isAudioEnabled.value = true
+  } catch (error) {
+    console.error('[Phone] Toggle audio failed:', error)
+    ElMessage.error(t('phone.enableSoundFailed'))
+  }
+}
+
+const handleToolClick = async (action: string) => {
+  if (!client || !isClientReady.value || isActionPending(action)) return
+
+  const currentClient = client
   console.log('Tool clicked:', action)
   const item = toolbarItems.value.find((i) => i.action === action)
   if (item?.disabled) return
 
-  switch (action) {
-    case 'install':
-      toggleTool(action)
-      client.clickKey(AndroidKeyCode.ControlLeft)
-      break
-    case 'import':
-      toggleTool(action)
-      break
-    case 'groupLog':
-      toggleTool(action)
-      break
-    case 'rotate':
-      // 切换旋转（竖屏 ↔ 横屏）
-      client.setRotation(rotationType.value === 0 ? 1 : 0)
-      break
-    case 'shutDown':
-      handleShutDownDevice()
-      break
-    case 'volumeUp':
-      client.volumeUp()
-      break
-    case 'volumeDown':
-      client.volumeDown()
-      break
-    case 'screenshot':
-      handleScreenshotDevice(item)
-      break
-    case 'screenshotFolder':
-      break
-    case 'restart':
-      handleRestartDevice()
-      break
-    case 'resetDevice':
-      handleResetDevice()
-      break
-    case 'home':
-      client.home()
-      break
-    case 'menu':
-      client.menu()
-      break
-    case 'back':
-      client.back()
-      break
-    case 'simulation':
-      handleSimulation(action)
-      break
-  }
+  await runWithActionLock(action, async () => {
+    switch (action) {
+      case 'install':
+        toggleTool(action)
+        currentClient.clickKey(AndroidKeyCode.ControlLeft)
+        break
+      case 'import':
+        toggleTool(action)
+        break
+      case 'groupLog':
+        toggleTool(action)
+        break
+      case 'rotate':
+        currentClient.setRotation(rotationType.value === 0 ? 1 : 0)
+        break
+      case 'shutDown':
+        await handleShutDownDevice()
+        break
+      case 'volumeUp':
+        currentClient.volumeUp()
+        break
+      case 'volumeDown':
+        currentClient.volumeDown()
+        break
+      case 'toggleAudio':
+        await handleToggleAudio()
+        break
+      case 'screenshot':
+        await handleScreenshotDevice(item)
+        break
+      case 'screenshotFolder':
+        break
+      case 'restart':
+        await handleRestartDevice()
+        break
+      case 'resetDevice':
+        await handleResetDevice()
+        break
+      case 'home':
+        currentClient.home()
+        break
+      case 'menu':
+        currentClient.menu()
+        break
+      case 'back':
+        currentClient.back()
+        break
+      case 'simulation':
+        await handleSimulation(action)
+        break
+    }
+  })
 }
 
 const handleSimulation = async (action: string) => {
@@ -997,40 +1155,39 @@ const handleSimulation = async (action: string) => {
     phoneDevice.value?.id || '',
     API_CONTROL_CONFIG.PATHS.GET_API_VERSION
   )
-  request
-    .get(url)
-    .then((res) => {
-      if (res?.data?.version_code >= 10400) {
-        toggleTool(action)
-      } else {
-        ElMessage.error(t('phone.simulatorNotSupported'))
-      }
-    })
-    .catch((error) => {
-      // 判断是否404
-      if (error?.code == 404) {
-        ElMessage.error(t('phone.simulatorNotSupported'))
-      } else {
-        ElMessage.error(getErrorMessage(error))
-      }
-    })
+  try {
+    const res = await request.get(url)
+    if (res?.data?.version_code >= 10400) {
+      toggleTool(action)
+    } else {
+      ElMessage.error(t('phone.simulatorNotSupported'))
+    }
+  } catch (error: any) {
+    if (error?.code == 404) {
+      ElMessage.error(t('phone.simulatorNotSupported'))
+    } else {
+      ElMessage.error(getErrorMessage(error))
+    }
+  }
 }
 
 const handleRestartDevice = async () => {
-  ElMessageBox.confirm(t('phone.restartConfirm'), t('common.tips'), {
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel'),
-    type: 'warning'
-  }).then(() => {
-    // 重启设备
-    ipc.invoke(DATA_EVENTS.DEVICE_RESTARTED, [toRaw(phoneDevice.value)]).then((res) => {
-      if (res.success) {
-        ElMessage.success(t('common.operationSuccess'))
-      } else {
-        ElMessage.error(getErrorMessage(res.error) || t('phone.restartFailed'))
-      }
+  try {
+    await ElMessageBox.confirm(t('phone.restartConfirm'), t('common.tips'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
     })
-  })
+  } catch {
+    return
+  }
+
+  const res = await ipc.invoke(DATA_EVENTS.DEVICE_RESTARTED, [toRaw(phoneDevice.value)])
+  if (res.success) {
+    ElMessage.success(t('common.operationSuccess'))
+  } else {
+    ElMessage.error(getErrorMessage(res.error) || t('phone.restartFailed'))
+  }
 }
 const handleResetDevice = async () => {
   const host = await ipc.invoke<Host>(DATA_EVENTS.GET_HOST_BY_IP, phoneDevice.value?.host_ip || '')
@@ -1043,19 +1200,22 @@ const handleResetDevice = async () => {
   }
 }
 const handleShutDownDevice = async () => {
-  ElMessageBox.confirm(t('phone.shutdownConfirm'), t('common.tips'), {
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel'),
-    type: 'warning'
-  }).then(() => {
-    ipc.invoke(DATA_EVENTS.DEVICE_SHUTDOWNED, [toRaw(phoneDevice.value)]).then((res) => {
-      if (res.success) {
-        ElMessage.success(t('common.operationSuccess'))
-      } else {
-        ElMessage.error(getErrorMessage(res.error) || t('phone.shutdownFailed'))
-      }
+  try {
+    await ElMessageBox.confirm(t('phone.shutdownConfirm'), t('common.tips'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
     })
-  })
+  } catch {
+    return
+  }
+
+  const res = await ipc.invoke(DATA_EVENTS.DEVICE_SHUTDOWNED, [toRaw(phoneDevice.value)])
+  if (res.success) {
+    ElMessage.success(t('common.operationSuccess'))
+  } else {
+    ElMessage.error(getErrorMessage(res.error) || t('phone.shutdownFailed'))
+  }
 }
 
 const handleStartDevice = async () => {
@@ -1500,6 +1660,13 @@ $controls-width: 42px;
 
         &:active {
           transform: scale(0.96);
+        }
+
+        &.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          filter: grayscale(1);
+          pointer-events: none;
         }
 
         .el-icon {

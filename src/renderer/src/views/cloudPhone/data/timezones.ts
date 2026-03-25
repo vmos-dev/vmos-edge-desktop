@@ -829,6 +829,12 @@ export const timeZones = [
     displayTextEnglish: 'India Standard Time (Asia/Kolkata GMT+06:00)'
   },
   {
+    countryCode: 'ID',
+    timeZone: 'Asia/Jakarta',
+    displayText: '印度尼西亚时间 (Asia/Jakarta UTC+07:00)',
+    displayTextEnglish: 'Western Indonesia Time (Asia/Jakarta UTC+07:00)'
+  },
+  {
     countryCode: 'IQ',
     timeZone: 'Asia/Baghdad',
     displayText: '阿拉伯标准时间 (Asia/Baghdad GMT+03:00)',

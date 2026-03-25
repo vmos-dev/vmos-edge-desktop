@@ -1,5 +1,5 @@
 export default {
-  title: 'ADI Settings',
+  title: 'Model Settings',
   templateName: 'Template Name',
   deviceList: 'Device List',
   all: 'All',
@@ -7,8 +7,14 @@ export default {
   model: 'Model',
   screenResolution: 'Screen Resolution',
   androidVersion: 'Android Version',
-  android10: 'Android 10',
-  android13: 'Android 13',
-  android14: 'Android 14',
-  android15: 'Android 15'
+  generalModels: 'General Models',
+  customModels: 'Custom Models',
+  getCollectionTool: 'Get Capture Tool',
+  importSettings: 'Import Settings',
+  selectAdiFile: 'Select Model Archive',
+  selectAdiFileRequired: 'Please select a model archive file',
+  clickToBrowse: 'Click here',
+  browseFile: 'browse file',
+  supportedFormat: 'Only .zip format is supported',
+  clickToReselect: 'Click to reselect'
 }

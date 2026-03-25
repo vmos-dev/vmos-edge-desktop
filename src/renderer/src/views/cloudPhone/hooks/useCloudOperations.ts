@@ -13,6 +13,7 @@ import { useI18n } from 'vue-i18n'
 export interface OperationRefs {
   updateDeviceNameRef: any // 具体类型可以在使用处定义
   deviceInfoRef: any // 具体类型可以在使用处定义
+  backupDialogRef: any
   updateImageRef: any
   newMachineRef: any
   deviceCloneRef: any
@@ -20,8 +21,11 @@ export interface OperationRefs {
   setTimeZoneLanguageRef: any
   execCommandRef: any
   batchInstallRef: any
+  batchExecuteScriptRef: any
+  batchCloseScriptRef: any
   modifyPositionRef: any
   modifySystemPropertiesRef: any
+  copyInfoRef: any
   // 其他弹窗 Ref 可以根据需要添加
 }
 
@@ -93,6 +97,8 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
       { label: t('cloudPhone.startDevice'), command: 'start' },
       { label: t('cloudPhone.restartDevice'), command: 'restart' },
       { label: t('cloudPhone.shutdownDevice'), command: 'shutdown' },
+      // 备份
+      { label: t('cloudPhone.backup'), command: 'backup' },
 
       // 镜像与系统操作
       { label: t('cloudPhone.renewDevice'), command: 'renew', divided: true },
@@ -101,12 +107,15 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
 
       // 工具和功能操作
       { label: t('cloudPhone.executeCommand'), command: 'execute-command', divided: true },
+      { label: t('cloudPhone.batchExecuteScript'), command: 'batch-execute-script' },
+      { label: t('cloudPhone.closeScriptExecution'), command: 'close-script-execution' },
       { label: t('cloudPhone.batchInstall'), command: 'batch-install' },
       { label: t('cloudPhone.batchUpload'), command: 'batch-upload' },
       { label: t('cloudPhone.modifyLocation'), command: 'modify-location' },
       { label: t('cloudPhone.modifySystemProperties'), command: 'modify-system-properties' },
 
       // 其它便利功能
+      { label: t('cloudPhone.copyInfo'), command: 'copy-info', divided: true },
       { label: t('cloudPhone.cast'), command: 'cast', divided: true },
       { label: t('cloudPhone.sort'), command: 'sort' },
       { label: t('cloudPhone.closeWindow'), command: 'close-window' }
@@ -153,8 +162,8 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
 
   const requireSingle =
     (msg: string = t('cloudPhone.singleDeviceOnly')) =>
-      (devices: Device[]) =>
-        devices.length !== 1 ? msg : undefined
+    (devices: Device[]) =>
+      devices.length !== 1 ? msg : undefined
 
   /**
    * 获取设备的实际类型
@@ -186,15 +195,22 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
   const commandConfigs = computed<Record<string, CommandConfig>>(() => ({
     reset: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.reset') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.reset') })
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningState', { action: t('cloudPhone.reset'), state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningState', {
+            action: t('cloudPhone.reset'),
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          t('cloudPhone.resetConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
+          t('cloudPhone.resetConfirm', {
+            count:
+              devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : ''
+          }),
         type: 'warning'
       },
       action: async (devices) => {
@@ -206,7 +222,10 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
           const { resetDevices, failedDevices } = res.data
           if (failedDevices.length > 0) {
             ElMessage.warning(
-              t('cloudPhone.operationCompleted', { success: resetDevices.length, fail: failedDevices.length })
+              t('cloudPhone.operationCompleted', {
+                success: resetDevices.length,
+                fail: failedDevices.length
+              })
             )
           } else {
             ElMessage.success(t('cloudPhone.resetSuccess', { count: resetDevices.length }))
@@ -218,15 +237,22 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     shutdown: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.shutdown') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.shutdown') })
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningState', { action: t('cloudPhone.shutdown'), state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningState', {
+            action: t('cloudPhone.shutdown'),
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          t('cloudPhone.shutdownConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
+          t('cloudPhone.shutdownConfirm', {
+            count:
+              devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : ''
+          }),
         type: 'warning'
       },
       action: async (devices) => {
@@ -238,7 +264,10 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
           const { shutdownDevices, failedDevices } = res.data
           if (failedDevices.length > 0) {
             ElMessage.warning(
-              t('cloudPhone.operationCompleted', { success: shutdownDevices.length, fail: failedDevices.length })
+              t('cloudPhone.operationCompleted', {
+                success: shutdownDevices.length,
+                fail: failedDevices.length
+              })
             )
           } else {
             ElMessage.success(t('cloudPhone.shutdownSuccess', { count: shutdownDevices.length }))
@@ -248,9 +277,26 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
         }
       }
     },
+    backup: {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.backup') })
+        return requireState(
+          DeviceState.StateStopped,
+          t('cloudPhone.onlyRunningState', {
+            action: t('cloudPhone.backup'),
+            state: getDeviceStateText(DeviceState.StateStopped)
+          })
+        )(devices)
+      },
+      action: (devices) => {
+        refs.backupDialogRef.value?.init(devices)
+      }
+    },
     start: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.start') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.startDevice') })
 
         const invalidDevice = devices.find(
           (d) => d.state !== DeviceState.StateStopped && d.state !== DeviceState.StateFailed
@@ -277,7 +323,12 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
           const currentRunningCount = getRunningCountByHostIp(ip)
 
           if (currentRunningCount + countToStart > LIMIT_PER_HOST) {
-            return t('cloudPhone.hostResourceInsufficient', { ip, limit: LIMIT_PER_HOST, current: currentRunningCount, count: countToStart })
+            return t('cloudPhone.hostResourceInsufficient', {
+              ip,
+              limit: LIMIT_PER_HOST,
+              current: currentRunningCount,
+              count: countToStart
+            })
           }
         }
         return undefined
@@ -296,7 +347,10 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
           const { startedDevices, failedDevices } = res.data
           if (failedDevices.length > 0) {
             ElMessage.warning(
-              t('cloudPhone.operationCompleted', { success: startedDevices.length, fail: failedDevices.length })
+              t('cloudPhone.operationCompleted', {
+                success: startedDevices.length,
+                fail: failedDevices.length
+              })
             )
           } else {
             ElMessage.success(t('cloudPhone.startSuccess', { count: startedDevices.length }))
@@ -308,7 +362,8 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     delete: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('common.delete') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevicesFirst', { action: t('common.delete') })
         return requireNotState(
           DeviceState.StateDeleting,
           t('cloudPhone.operationException')
@@ -316,7 +371,10 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
       },
       confirm: {
         message: (devices) =>
-          t('cloudPhone.deleteConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
+          t('cloudPhone.deleteConfirm', {
+            count:
+              devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : ''
+          }),
         type: 'warning'
       },
       action: async (devices) => {
@@ -328,7 +386,10 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
           const { deletedDevices, failedDevices } = res.data
           if (failedDevices.length > 0) {
             ElMessage.warning(
-              t('cloudPhone.operationCompleted', { success: deletedDevices.length, fail: failedDevices.length })
+              t('cloudPhone.operationCompleted', {
+                success: deletedDevices.length,
+                fail: failedDevices.length
+              })
             )
           } else {
             ElMessage.success(t('cloudPhone.deleteSuccess', { count: deletedDevices.length }))
@@ -340,15 +401,22 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     restart: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.restart') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevicesFirst', { action: t('cloudPhone.restart') })
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningState', { action: t('cloudPhone.restart'), state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningState', {
+            action: t('cloudPhone.restart'),
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       confirm: {
         message: (devices) =>
-          t('cloudPhone.restartConfirm', { count: devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : '' }),
+          t('cloudPhone.restartConfirm', {
+            count:
+              devices.length > 1 ? t('cloudPhone.selectedCount', { count: devices.length }) : ''
+          }),
         type: 'warning'
       },
       action: async (devices) => {
@@ -360,7 +428,10 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
           const { restartedDevices, failedDevices } = res.data
           if (failedDevices.length > 0) {
             ElMessage.warning(
-              t('cloudPhone.operationCompleted', { success: restartedDevices.length, fail: failedDevices.length })
+              t('cloudPhone.operationCompleted', {
+                success: restartedDevices.length,
+                fail: failedDevices.length
+              })
             )
           } else {
             ElMessage.success(t('cloudPhone.restartSuccess', { count: restartedDevices.length }))
@@ -372,15 +443,21 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     rename: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.rename') })
-        return requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.rename') }))(devices)
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.rename') })
+        return requireSingle(
+          t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.rename') })
+        )(devices)
       },
       action: (devices) => refs.updateDeviceNameRef.value?.init(devices[0])
     },
     'modify-config': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifyImage') })
-        return requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.modifyImage') }))(devices)
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifyImage') })
+        return requireSingle(
+          t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.modifyImage') })
+        )(devices)
       },
       action: (devices) => {
         const device = devices[0]
@@ -393,8 +470,11 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     'set-proxy': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.setProxy') })
-        const singleError = requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.setProxy') }))(devices)
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.setProxy') })
+        const singleError = requireSingle(
+          t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.setProxy') })
+        )(devices)
         if (singleError) return singleError
         return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForProxy'))(devices)
       },
@@ -406,10 +486,16 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     'close-proxy': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeProxy') })
-        const singleError = requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.closeProxy') }))(devices)
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeProxy') })
+        const singleError = requireSingle(
+          t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.closeProxy') })
+        )(devices)
         if (singleError) return singleError
-        return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForCloseProxy'))(devices)
+        return requireState(
+          DeviceState.StateRunning,
+          t('cloudPhone.onlyRunningForCloseProxy')
+        )(devices)
       },
       action: (devices) => {
         handleCloseProxy(devices)
@@ -417,10 +503,16 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     'set-timezone-language': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.setTimezoneLanguage') })
-        const singleError = requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.setTimezoneLanguage') }))(devices)
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.setTimezoneLanguage') })
+        const singleError = requireSingle(
+          t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.setTimezoneLanguage') })
+        )(devices)
         if (singleError) return singleError
-        return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForTimezone'))(devices)
+        return requireState(
+          DeviceState.StateRunning,
+          t('cloudPhone.onlyRunningForTimezone')
+        )(devices)
       },
       action: (devices) => {
         if (refs.setTimeZoneLanguageRef && refs.setTimeZoneLanguageRef.value) {
@@ -435,7 +527,9 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
         // 状态必须是运行中
         const stateError = requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForRenew', { state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningForRenew', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
         if (stateError) return stateError
 
@@ -471,15 +565,20 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
       }
     },
     'api-interface': {
-      validator: requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.apiInterface') })),
+      validator: requireSingle(
+        t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.apiInterface') })
+      ),
       action: DATA_EVENTS.HOST_OPEN_API_DETAIL
     },
     'execute-command': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.executeCommand') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.executeCommand') })
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForCommand', { state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningForCommand', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       action: (devices) => {
@@ -488,8 +587,44 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
         }
       }
     },
+    'batch-execute-script': {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.batchExecuteScript') })
+        return requireState(
+          DeviceState.StateRunning,
+          t('cloudPhone.onlyRunningForScript', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
+        )(devices)
+      },
+      action: (devices) => {
+        if (refs.batchExecuteScriptRef && refs.batchExecuteScriptRef.value) {
+          refs.batchExecuteScriptRef.value.init(devices)
+        }
+      }
+    },
+    'close-script-execution': {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeScriptExecution') })
+        return requireState(
+          DeviceState.StateRunning,
+          t('cloudPhone.onlyRunningForCloseScript', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
+        )(devices)
+      },
+      action: (devices) => {
+        if (refs.batchCloseScriptRef && refs.batchCloseScriptRef.value) {
+          refs.batchCloseScriptRef.value.init(devices)
+        }
+      }
+    },
     'cloud-details': {
-      validator: requireSingle(t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.deviceDetails') })),
+      validator: requireSingle(
+        t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.deviceDetails') })
+      ),
       action: (devices) => {
         console.log('cloud-details action triggered', devices, refs.deviceInfoRef)
         if (refs.deviceInfoRef && refs.deviceInfoRef.value) {
@@ -527,11 +662,14 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     cast: {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.cast') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.cast') })
 
         const stateError = requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForCast', { state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningForCast', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
         if (stateError) return stateError
 
@@ -565,10 +703,13 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     'batch-install': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.batchInstall') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.batchInstall') })
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForInstall', { state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningForInstall', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       action: (devices) => {
@@ -580,7 +721,9 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
         if (devices.length === 0) return t('cloudPhone.selectDevicesForBatchUpload')
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.batchUploadOnlyRunning', { state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.batchUploadOnlyRunning', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       action: (devices) => {
@@ -589,10 +732,13 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     'modify-location': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifyLocation') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifyLocation') })
         return requireState(
           DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForLocation', { state: getDeviceStateText(DeviceState.StateRunning) })
+          t('cloudPhone.onlyRunningForLocation', {
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
         )(devices)
       },
       action: (devices) => {
@@ -601,7 +747,8 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     },
     'modify-system-properties': {
       validator: (devices) => {
-        if (devices.length === 0) return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifySystemProperties') })
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.modifySystemProperties') })
 
         const invalidDevice = devices.find(
           (d) => d.state !== DeviceState.StateRunning && d.state !== DeviceState.StateStopped
@@ -617,6 +764,16 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
       },
       action: (devices) => {
         refs.modifySystemPropertiesRef.value?.init(devices)
+      }
+    },
+    'copy-info': {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.copyInfo') })
+        return undefined
+      },
+      action: (devices) => {
+        refs.copyInfoRef.value?.init(devices)
       }
     }
   }))

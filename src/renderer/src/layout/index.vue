@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import LayoutHeader from './components/Header.vue'
-const cachedComponents = ref(['Cloud'])
+const cachedComponents = ref(['Cloud', 'Automation'])
 </script>
 
 <style scoped>

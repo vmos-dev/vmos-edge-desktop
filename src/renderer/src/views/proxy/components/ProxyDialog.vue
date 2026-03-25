@@ -266,6 +266,7 @@ import SsrProtocolForm from './SsrProtocolForm.vue'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
 import { CONFIG_KEYS } from '@shared/constant'
 import { ProxyCheckStrategyList } from '@renderer/utils/constant'
+import { parseUri } from '@vmosedge/proxy-sdk/parser'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -281,7 +282,7 @@ const parsedInfo = ref<any>(null)
 let lastCheckTime = 0
 const CHECK_THROTTLE_MS = 500
 const emit = defineEmits<{
-  success: []
+  success: [data: { protocol: string }]
 }>()
 
 const formRef = ref<InstanceType<typeof ElForm>>()
@@ -544,9 +545,13 @@ const buildUpdateData = () => {
 
   const cfg = { ...entry.config }
 
+  // 优先存原始 URI，检测时由 SDK parseUri 解析，保证解析逻辑统一
+  const originalUri = parseInput.value.trim()
+  const isUri = /^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(originalUri)
+
   return {
     ...base,
-    rawLink: JSON.stringify(cfg),
+    rawLink: isUri ? originalUri : JSON.stringify(cfg),
     host: cfg[entry.serverKey!] || '',
     port: cfg[entry.portKey!] || 0
   }
@@ -572,7 +577,7 @@ const handleSave = async () => {
     if (res.success) {
       ElMessage.success(t('common.operationSuccess'))
       visible.value = false
-      emit('success')
+      emit('success', { protocol: formData.value.protocol })
     } else {
       ElMessage.error(res.error || t('common.operationFailed'))
     }
@@ -587,6 +592,17 @@ const handleSave = async () => {
 }
 const parseAndMerge = <T extends object>(target: T, rawLink?: string, errorMsg?: string) => {
   if (!rawLink) return
+  // URI 格式 (vmess://..., vless://...) 用 SDK parseUri 解析
+  if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(rawLink)) {
+    try {
+      const config = parseUri(rawLink)
+      Object.assign(target, config)
+    } catch {
+      throw new Error(errorMsg || t('proxy.parseFailed'))
+    }
+    return
+  }
+  // JSON 格式（手动编辑保存的配置）
   try {
     const config = JSON.parse(rawLink)
     Object.assign(target, config)

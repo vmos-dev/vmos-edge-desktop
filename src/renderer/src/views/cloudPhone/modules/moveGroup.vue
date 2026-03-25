@@ -1,18 +1,51 @@
 <template>
-  <VmosDialog v-model="visible" :title="t('cloudPhone.moveToGroup', { type: mode === 'host' ? t('cloudPhone.host') : t('cloudPhone.cloudDevice'), group: groupName || '' })" width="400px"
-    @closed="handleClose">
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="auto" label-position="top" @submit.prevent>
-      <el-form-item :label="mode === 'host' ? t('host.title') : t('cloudPhone.deviceName')" prop="selectedIds">
-        <el-select v-model="form.selectedIds" multiple filterable collapse-tags :max-collapse-tags="2"
-          :placeholder="mode === 'host' ? t('cloudPhone.selectHost') : t('cloudPhone.selectDevice')" clearable>
-          <el-option v-for="item in candidates" :key="item.id" :label="item.label" :value="item.id" />
+  <VmosDialog
+    v-model="visible"
+    :title="
+      t('cloudPhone.moveToGroup', {
+        type: mode === 'host' ? t('cloudPhone.host') : t('cloudPhone.cloudDevice'),
+        group: groupName || ''
+      })
+    "
+    width="400px"
+    @closed="handleClose"
+  >
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-width="auto"
+      label-position="top"
+      @submit.prevent
+    >
+      <el-form-item
+        :label="mode === 'host' ? t('host.title') : t('cloudPhone.deviceName')"
+        prop="selectedIds"
+      >
+        <el-select
+          v-model="form.selectedIds"
+          multiple
+          filterable
+          collapse-tags
+          :max-collapse-tags="2"
+          :placeholder="mode === 'host' ? t('cloudPhone.selectHost') : t('cloudPhone.selectDevice')"
+          clearable
+        >
+          <el-option
+            v-for="item in candidates"
+            :key="item.id"
+            :label="item.label"
+            :value="item.id"
+          />
         </el-select>
       </el-form-item>
     </el-form>
 
     <template #footer>
       <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
-      <el-button type="primary" :loading="loading" @click="handleMove">{{ t('common.confirm') }}</el-button>
+      <el-button type="primary" :loading="loading" @click="handleMove">{{
+        t('common.confirm')
+      }}</el-button>
     </template>
   </VmosDialog>
 </template>
@@ -33,7 +66,11 @@ const mode = ref<'host' | 'device'>('host')
 
 const rules = computed(() => ({
   selectedIds: [
-    { required: true, message: mode.value === 'host' ? t('cloudPhone.selectHost') : t('cloudPhone.selectDevice'), trigger: 'change' }
+    {
+      required: true,
+      message: mode.value === 'host' ? t('cloudPhone.selectHost') : t('cloudPhone.selectDevice'),
+      trigger: 'change'
+    }
   ]
 }))
 
@@ -44,6 +81,42 @@ const form = ref({
 const groupName = ref('')
 const candidates = ref<Array<{ id: string; label: string }>>([])
 
+const compareText = (a: string, b: string) =>
+  a.localeCompare(b, 'zh-CN', {
+    numeric: true,
+    sensitivity: 'base'
+  })
+
+const toIpv4Segments = (value: string) => {
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) {
+    return null
+  }
+
+  const segments = value.split('.').map((item) => Number(item))
+  if (segments.some((segment) => segment < 0 || segment > 255)) {
+    return null
+  }
+
+  return segments
+}
+
+const compareIpOrText = (a: string, b: string) => {
+  const aSegments = toIpv4Segments(a)
+  const bSegments = toIpv4Segments(b)
+
+  if (aSegments && bSegments) {
+    for (let index = 0; index < 4; index += 1) {
+      const diff = aSegments[index] - bSegments[index]
+      if (diff !== 0) {
+        return diff
+      }
+    }
+    return 0
+  }
+
+  return compareText(a, b)
+}
+
 const getData = async () => {
   const res = await ipc.invoke<FlatData>(DATA_EVENTS.GET_FLAT_DATA)
   if (res.success && res.data) {
@@ -53,10 +126,25 @@ const getData = async () => {
     if (mode.value === 'host') {
       candidates.value = hosts
         .filter((h) => h.groupId !== form.value.groupId)
-        .map((h) => ({
-          id: h.id,
-          label: `${h.ip || h.name} (${groupMap.get(h.groupId || 'default') || t('cloudPhone.defaultGroup')})`
-        }))
+        .map((h) => {
+          const groupLabel = groupMap.get(h.groupId || 'default') || t('cloudPhone.defaultGroup')
+          const ipOrName = h.ip || h.name || h.id
+
+          return {
+            id: h.id,
+            groupSort: groupLabel,
+            ipSort: ipOrName,
+            label: `${ipOrName} (${groupLabel})`
+          }
+        })
+        .sort((a, b) => {
+          const groupCompare = compareText(a.groupSort, b.groupSort)
+          if (groupCompare !== 0) {
+            return groupCompare
+          }
+          return compareIpOrText(a.ipSort, b.ipSort)
+        })
+        .map(({ id, label }) => ({ id, label }))
     } else {
       const validHostIds = new Set(hosts.map((h) => h.id))
       const validHostIps = new Set(hosts.map((h) => h.ip).filter((ip) => !!ip))
@@ -73,10 +161,25 @@ const getData = async () => {
           }
           return (d.groupId || 'device_default') !== form.value.groupId
         })
-        .map((d) => ({
-          id: d.id,
-          label: `${d.user_name || d.id} (${groupMap.get(d.groupId || 'device_default') || t('cloudPhone.defaultGroup')})`
-        }))
+        .map((d) => {
+          const groupLabel =
+            groupMap.get(d.groupId || 'device_default') || t('cloudPhone.defaultGroup')
+          const name = d.user_name || d.id
+          return {
+            id: d.id,
+            groupSort: groupLabel,
+            nameSort: name,
+            label: `${name} (${groupLabel})`
+          }
+        })
+        .sort((a, b) => {
+          const groupCompare = compareText(a.groupSort, b.groupSort)
+          if (groupCompare !== 0) {
+            return groupCompare
+          }
+          return compareText(a.nameSort, b.nameSort)
+        })
+        .map(({ id, label }) => ({ id, label }))
     }
   }
 }
@@ -112,7 +215,7 @@ const handleMove = () => {
         ElMessage.error(res.error)
       }
       loading.value = false
-    } catch (err) {
+    } catch {
       loading.value = false
     }
   })

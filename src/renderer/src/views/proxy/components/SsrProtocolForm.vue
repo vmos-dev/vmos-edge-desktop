@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import parseUri from '@renderer/utils/uri-parser'
+import { parseUri } from '@vmosedge/proxy-sdk/parser'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 

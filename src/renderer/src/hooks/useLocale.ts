@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import zhTw from 'element-plus/es/locale/lang/zh-tw'
 import en from 'element-plus/es/locale/lang/en'
 import { ipc } from '@renderer/core/ipc'
 import { CONFIG_EVENTS } from '@shared/ipc/config.types'
@@ -9,12 +10,14 @@ import { CONFIG_KEYS } from '@shared/constant'
 // 定义语言列表，方便后续扩展
 export const languageList = [
   { label: '简体中文', value: 'zh-CN' },
+  { label: '繁體中文', value: 'zh-TW' },
   { label: 'English', value: 'en-US' }
 ]
 
 // Element Plus 语言包映射
 const elLocaleMap = {
   'zh-CN': zhCn,
+  'zh-TW': zhTw,
   'en-US': en
 }
 

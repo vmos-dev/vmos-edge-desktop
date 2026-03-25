@@ -262,12 +262,16 @@
     <DeviceClone ref="deviceCloneRef" />
     <CreateCloud ref="createCloudRef" />
     <DeviceInfo ref="deviceInfoRef" />
+    <BackupDialog ref="backupDialogRef" />
     <SetProxy ref="setProxyRef" />
     <SetTimeZoneLanguage ref="setTimeZoneLanguageRef" />
     <ExecCommand ref="execCommandRef" />
+    <BatchExecuteScript ref="batchExecuteScriptRef" />
+    <BatchCloseScript ref="batchCloseScriptRef" />
     <BatchInstall ref="batchInstallRef" />
     <ModifyPosition ref="modifyPositionRef" />
     <ModifySystemProperties ref="modifySystemPropertiesRef" />
+    <CopyInfoDialog ref="copyInfoRef" />
   </div>
 </template>
 
@@ -300,7 +304,8 @@ import {
   ElMessage,
   ElMessageBox,
   ElSelect,
-  ElOption
+  ElOption,
+  ElCheckbox
 } from 'element-plus'
 import VmosTable from '@renderer/components/table/index.vue'
 import CloudGrid from './components/CloudGrid.vue'
@@ -330,12 +335,16 @@ import { useCloudOperations } from './hooks/useCloudOperations'
 import { useGroupControl } from './hooks/useGroupControl'
 import { CopyText } from '@renderer/components'
 import DeviceInfo from './modules/deviceInfo.vue'
+import BackupDialog from './modules/backupDialog.vue'
 import SetTimeZoneLanguage from './modules/setTimeZoneLanguage.vue'
 import ExecCommand from './modules/execCommand.vue'
+import BatchExecuteScript from './modules/batchExecuteScript.vue'
+import BatchCloseScript from './modules/batchCloseScript.vue'
 import { MacvlanPortMap, DeviceType } from '@renderer/utils/constant'
 import { useModeView } from './hooks/useModeView'
 import ModifyPosition from './modules/modifyPosition.vue'
 import ModifySystemProperties from './modules/modifySystemProperties.vue'
+import CopyInfoDialog from './modules/copyInfoDialog.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -357,12 +366,16 @@ const newMachineRef = ref<InstanceType<typeof NewMachine>>()
 const deviceCloneRef = ref<InstanceType<typeof DeviceClone>>()
 const createCloudRef = ref<InstanceType<typeof CreateCloud>>()
 const deviceInfoRef = ref<InstanceType<typeof DeviceInfo>>()
+const backupDialogRef = ref<InstanceType<typeof BackupDialog>>()
 const setProxyRef = ref<InstanceType<typeof SetProxy>>()
 const modifyPositionRef = ref<InstanceType<typeof ModifyPosition>>()
 const setTimeZoneLanguageRef = ref<InstanceType<typeof SetTimeZoneLanguage>>()
 const modifySystemPropertiesRef = ref<InstanceType<typeof ModifySystemProperties>>()
 const execCommandRef = ref<InstanceType<typeof ExecCommand>>()
+const batchExecuteScriptRef = ref<InstanceType<typeof BatchExecuteScript>>()
+const batchCloseScriptRef = ref<InstanceType<typeof BatchCloseScript>>()
 const batchInstallRef = ref<InstanceType<typeof BatchInstall>>()
+const copyInfoRef = ref<InstanceType<typeof CopyInfoDialog>>()
 // 表格引用
 const tableRef = ref<InstanceType<typeof VmosTable>>()
 const sidebarTreeRef = ref<HTMLElement>()
@@ -378,6 +391,9 @@ const DeviceStateMap = computed(() => {
     [DeviceState.StateCreating]: getDeviceStateText(DeviceState.StateCreating),
     [DeviceState.StateStarting]: getDeviceStateText(DeviceState.StateStarting),
     [DeviceState.StateRunning]: getDeviceStateText(DeviceState.StateRunning),
+    [DeviceState.StatePendingBackup]: getDeviceStateText(DeviceState.StatePendingBackup),
+    [DeviceState.StateBackingUp]: getDeviceStateText(DeviceState.StateBackingUp),
+    [DeviceState.StateDownloading]: getDeviceStateText(DeviceState.StateDownloading),
     [DeviceState.StateStopping]: getDeviceStateText(DeviceState.StateStopping),
     [DeviceState.StateStopped]: getDeviceStateText(DeviceState.StateStopped),
     [DeviceState.StatePaused]: getDeviceStateText(DeviceState.StatePaused),
@@ -483,6 +499,7 @@ const {
   {
     updateDeviceNameRef,
     deviceInfoRef,
+    backupDialogRef,
     updateImageRef,
     newMachineRef,
     deviceCloneRef,
@@ -491,7 +508,10 @@ const {
     modifySystemPropertiesRef,
     execCommandRef,
     batchInstallRef,
-    modifyPositionRef
+    batchExecuteScriptRef,
+    batchCloseScriptRef,
+    modifyPositionRef,
+    copyInfoRef
   }
 )
 
@@ -499,26 +519,54 @@ const { isGroupControl } = useGroupControl(selectedRows)
 
 const setGroupControl = (value: boolean) => {
   if (value) {
-    ElMessageBox.confirm(
-      t('cloudPhone.groupControlWarning'),
-      t('common.tips'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning'
+    // 检查是否勾选了下次不在提示
+    const skipWarning = localStorage.getItem('skipGroupControlWarning') === 'true'
+    if (skipWarning) {
+      executeGroupControl()
+      return
+    }
+
+    const doNotShowAgain = ref(false)
+    ElMessageBox({
+      title: t('common.tips'),
+      message: () => (
+        <div>
+          <div>{t('cloudPhone.groupControlWarning')}</div>
+          <div style="margin-top: 10px">
+            <ElCheckbox
+              modelValue={doNotShowAgain.value}
+              onUpdate:modelValue={(val: boolean) => (doNotShowAgain.value = val)}
+            >
+              {t('common.doNotShowAgain')}
+            </ElCheckbox>
+          </div>
+        </div>
+      ),
+      showCancelButton: true,
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
+    }).then(() => {
+      if (doNotShowAgain.value) {
+        localStorage.setItem('skipGroupControlWarning', 'true')
       }
-    ).then(() => {
-      // 调用一键关闭
-      ipc.send(CLOUD_CLOSE, { closeAll: true })
-      // 通知后端开启群控
-      ipc.send(DATA_EVENTS.SET_GROUP_CONTROL, true)
-      isGroupControl.value = true
+      executeGroupControl()
+    }).catch(() => {
+      // 用户点击取消或关闭弹窗
     })
   } else {
     // 通知后端关闭群控
     ipc.send(DATA_EVENTS.SET_GROUP_CONTROL, false)
     isGroupControl.value = false
   }
+}
+
+const executeGroupControl = () => {
+  // 调用一键关闭
+  ipc.send(CLOUD_CLOSE, { closeAll: true })
+  // 通知后端开启群控
+  ipc.send(DATA_EVENTS.SET_GROUP_CONTROL, true)
+  isGroupControl.value = true
 }
 
 // ==========================================

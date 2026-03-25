@@ -41,4 +41,3 @@ export const MEDIAMTX_STOP = 'mediamtx:stop'
 export const MEDIAMTX_GET_STATUS = 'mediamtx:getStatus'
 export const MEDIAMTX_STATUS_CHANGE = 'mediamtx:statusChange'
 export const MEDIAMTX_LOG = 'mediamtx:log'
-

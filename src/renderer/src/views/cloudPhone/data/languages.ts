@@ -385,6 +385,12 @@ export const languages = [
     countryCode: 'IN'
   },
   {
+    languageCode: 'id',
+    displayText: '印尼语',
+    displayTextEnglish: 'Indonesian',
+    countryCode: 'ID'
+  },
+  {
     languageCode: 'ar',
     displayText: '阿拉伯语',
     displayTextEnglish: 'Arabic',

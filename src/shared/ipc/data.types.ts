@@ -17,20 +17,23 @@ export interface Host {
 }
 
 export const enum DeviceState {
-  StateCreating = 'creating', // 创建中
-  StateStarting = 'starting', // 启动中
-  StateRunning = 'running', // 运行中
-  StateStopping = 'stopping', // 停止中
-  StateStopped = 'stopped', // 已停止
-  StatePaused = 'paused', // 已暂停
-  StateExited = 'exited', // 已退出
-  StateDeleting = 'deleting', // 删除中
-  StateUpgrading = 'upgrading', // 升级中
-  StateFailed = 'failed', // 失败
-  StateRebooting = 'rebooting', // 重启中
-  StateRebuilding = 'rebuilding', // 重置中
-  StateRenewing = 'renewing', // 一键新机中
-  StateOffline = 'offline' // 离线
+  StateCreating = 'creating',
+  StateStarting = 'starting',
+  StateRunning = 'running',
+  StateStopping = 'stopping',
+  StateStopped = 'stopped',
+  StatePaused = 'paused',
+  StateExited = 'exited',
+  StateDeleting = 'deleting',
+  StateUpgrading = 'upgrading',
+  StateFailed = 'failed',
+  StateRebooting = 'rebooting',
+  StateRebuilding = 'rebuilding',
+  StateRenewing = 'renewing',
+  StatePendingBackup = 'pending_backup',
+  StateBackingUp = 'backing_up',
+  StateDownloading = 'downloading',
+  StateOffline = 'offline'
 }
 
 export const HostState = {
@@ -56,8 +59,7 @@ export interface Device {
   device_type?: string
   db_id?: string
   db_version?: number
-  dns?: string[] // 存储为 JSON 字符串
-  dpi?: string
+  dns?: string[] // 存储�?JSON 字符�?  dpi?: string
   exit_code?: number
   fps?: string
   gateway?: string
@@ -66,8 +68,8 @@ export interface Device {
   image_id?: string
   ip?: string
   groupId?: string // 设备独立分组ID
-  is_macvlan?: boolean // 布尔值 (0/1)
-  is_symlink?: boolean // 布尔值 (0/1)
+  is_macvlan?: boolean // 布尔�?(0/1)
+  is_symlink?: boolean // 布尔�?(0/1)
   locale?: string
   mac?: string
   macvlan_ip?: string
@@ -86,6 +88,7 @@ export interface Device {
   updated_at?: string
   user_name?: string
   width?: string
+  dpi?: string
   host_ip?: string
   hostId?: string // 关联的主机ID
   lastActiveTime: number
@@ -100,7 +103,7 @@ export interface TreeNode {
   isLeaf?: boolean
 }
 
-// 扁平化数据结构
+// 扁平化数据结
 export interface FlatData {
   groups: Group[]
   hosts: Host[]
@@ -126,7 +129,7 @@ export interface Proxy {
   port: number
   username?: string
   password?: string
-  // 对于 vmess 和 ss 协议，存储原始链接字符串
+  // 对于 vmess �?ss 协议，存储原始链接字符串
   rawLink?: string
   lastCheckStatus: 'success' | 'failed'
   createTime: number
@@ -155,6 +158,7 @@ export const DATA_EVENTS = {
   RESTART_HOST: 'DATA:RESTART_HOST',
   RESET_HOST: 'DATA:RESET_HOST',
   CLEAN_HOST_IMAGE: 'DATA:CLEAN_HOST_IMAGE',
+  CLEAR_HOST_OFFLINE_DEVICES: 'DATA:CLEAR_HOST_OFFLINE_DEVICES',
 
   // Device Events
   DEVICE_ADDED: 'DATA:DEVICE_ADDED',
@@ -173,6 +177,7 @@ export const DATA_EVENTS = {
   UPDATE_GROUP: 'DATA:UPDATE_GROUP',
   DELETE_GROUP: 'DATA:DELETE_GROUP',
   UPDATE_HOST: 'DATA:UPDATE_HOST',
+  DELETE_HOSTS: 'DATA:DELETE_HOSTS',
   MOVE_HOST: 'DATA:MOVE_HOST', // 单个移动
   MOVE_HOSTS: 'DATA:MOVE_HOSTS', // 批量移动
   MOVE_DEVICES: 'DATA:MOVE_DEVICES', // 批量移动云机

@@ -1,0 +1,543 @@
+/**
+ * AI 对话 UI 样式
+ * 所有 class 使用 aic- 前缀避免命名冲突
+ */
+
+/* ===== 按钮 ===== */
+.aic-btn-link {
+  border: none;
+  background: none;
+  color: var(--aic-color-primary, #409eff);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.aic-btn-link:hover {
+  opacity: 0.8;
+}
+
+/* ===== 空状态 ===== */
+.aic-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: var(--aic-text-color-placeholder, #a8abb2);
+  gap: 12px;
+}
+
+.aic-empty-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+}
+
+.aic-empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--aic-text-color-primary, #303133);
+  margin: 0;
+}
+
+.aic-empty-desc {
+  font-size: 14px;
+  color: var(--aic-text-color-secondary, #909399);
+  margin: 0;
+}
+
+.aic-quick-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.aic-quick-action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--aic-border-color-lighter, #ebeef5);
+  background: var(--aic-bg-color, #ffffff);
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 200px;
+}
+
+.aic-quick-action-card:hover {
+  border-color: var(--aic-color-primary-light-5, #79bbff);
+  background: var(--aic-color-primary-light-9, #ecf5ff);
+}
+
+.aic-quick-action-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+
+.aic-quick-action-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.aic-quick-action-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--aic-text-color-primary, #303133);
+  margin-bottom: 4px;
+}
+
+.aic-quick-action-desc {
+  font-size: 12px;
+  color: var(--aic-text-color-secondary, #909399);
+  line-height: 1.4;
+}
+
+/* ===== 消息样式 ===== */
+.aic-message-row {
+  margin-bottom: 16px;
+  max-width: 85%;
+}
+
+.aic-user-message {
+  margin-left: auto;
+}
+
+.aic-message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.aic-user-header {
+  justify-content: flex-end;
+}
+
+.aic-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.aic-ai-avatar {
+  object-fit: cover;
+}
+
+.aic-user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--aic-color-primary, #409eff);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.aic-message-label {
+  font-size: 12px;
+  color: var(--aic-text-color-placeholder, #a8abb2);
+}
+
+.aic-message-bubble {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.aic-user-bubble {
+  background: var(--aic-color-primary, #409eff);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.aic-ai-bubble {
+  background: var(--aic-fill-color-light, #f5f7fa);
+  color: var(--aic-text-color-primary, #303133);
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--aic-border-color-lighter, #ebeef5);
+}
+
+/* ===== Markdown ===== */
+.aic-markdown-body p {
+  margin: 0 0 8px;
+}
+
+.aic-markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.aic-markdown-body pre {
+  background: var(--aic-fill-color, #f0f2f5);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 13px;
+}
+
+.aic-markdown-body code {
+  font-size: 13px;
+  background: var(--aic-fill-color, #f0f2f5);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+}
+
+.aic-markdown-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.aic-markdown-body ul,
+.aic-markdown-body ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+/* ===== 轮次分隔线 ===== */
+.aic-turn-divider {
+  margin: 16px 0;
+  max-width: 100%;
+}
+
+.aic-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--aic-text-color-placeholder, #a8abb2);
+}
+
+.aic-divider::before,
+.aic-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--aic-border-color-lighter, #ebeef5);
+}
+
+.aic-divider-text {
+  font-size: 12px;
+  color: var(--aic-text-color-placeholder, #a8abb2);
+  white-space: nowrap;
+}
+
+/* ===== 折叠/展开动画（通用） ===== */
+.aic-collapsible-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease-out;
+}
+
+.aic-collapsible-content.expanded {
+  grid-template-rows: 1fr;
+}
+
+.aic-collapsible-inner {
+  overflow: hidden;
+}
+
+.aic-collapse-arrow {
+  color: var(--aic-text-color-placeholder, #a8abb2);
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.aic-collapse-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.aic-collapse-arrow.small {
+  width: 11px;
+  height: 11px;
+}
+
+/* ===== 思考链（紫色主题） ===== */
+.aic-thinking-item {
+  margin-bottom: 8px;
+  max-width: 85%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-7);
+}
+
+.aic-thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  min-height: 30px;
+}
+
+.aic-thinking-header:hover {
+  background: var(--el-color-primary-light-8);
+}
+
+.aic-thinking-icon-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.aic-thinking-sparkle {
+  font-size: 13px;
+  color: var(--el-color-primary);
+}
+
+.aic-thinking-sparkle.is-loading {
+  animation: aic-sparkle-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes aic-sparkle-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.aic-thinking-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-color-primary);
+}
+
+.aic-thinking-body {
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  border-top: 1px solid var(--el-color-primary-light-7);
+  color: var(--aic-text-color-secondary, #909399);
+  max-height: 300px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+/* ===== 工具调用分组 ===== */
+.aic-tool-group {
+  margin-bottom: 8px;
+  max-width: 85%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--aic-fill-color-lighter, #fafafa);
+  border: 1px solid var(--aic-border-color-lighter, #ebeef5);
+}
+
+.aic-ai-bubble > .aic-tool-group {
+  max-width: 100%;
+  margin-bottom: 0;
+  margin-top: 8px;
+}
+
+.aic-tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  min-height: 34px;
+}
+
+.aic-tool-group-header:hover {
+  background: var(--aic-fill-color-light, #f5f7fa);
+}
+
+.aic-tool-group-icon {
+  font-size: 14px;
+  color: var(--aic-text-color-secondary, #909399);
+  flex-shrink: 0;
+}
+
+.aic-tool-group-summary {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--aic-text-color-regular, #606266);
+}
+
+.aic-tool-group-list {
+  border-top: 1px solid var(--aic-border-color-extra-light, #f2f6fc);
+}
+
+.aic-tool-entry {
+  border-bottom: 1px solid var(--aic-border-color-extra-light, #f2f6fc);
+}
+
+.aic-tool-entry:last-child {
+  border-bottom: none;
+}
+
+.aic-tool-entry-error {
+  background: var(--aic-color-danger-light-9, #fef0f0);
+}
+
+.aic-tool-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  min-height: 30px;
+}
+
+.aic-tool-entry-header:hover {
+  background: var(--aic-fill-color-light, #f5f7fa);
+}
+
+.aic-tool-status-icon {
+  flex-shrink: 0;
+}
+
+.aic-tool-status-icon.ok {
+  color: var(--aic-color-success, #67c23a);
+}
+
+.aic-tool-status-icon.fail {
+  color: var(--aic-color-danger, #f56c6c);
+}
+
+.aic-tool-status-icon.is-loading {
+  color: var(--aic-color-primary, #409eff);
+  animation: aic-spin 1s linear infinite;
+}
+
+@keyframes aic-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.aic-tool-entry-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--aic-text-color-regular, #606266);
+  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+}
+
+.aic-tool-detail-content {
+  padding: 8px 12px 8px 32px;
+  font-size: 12px;
+  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--aic-border-color-extra-light, #f2f6fc);
+  color: var(--aic-text-color-secondary, #909399);
+  line-height: 1.5;
+}
+
+.aic-tool-detail-result {
+  border-top: 1px dashed var(--aic-border-color-lighter, #ebeef5);
+}
+
+/* ===== 原始数据块 ===== */
+.aic-raw-block {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 240px;
+  overflow-y: auto;
+  border-top: 1px solid var(--aic-border-color-lighter, #ebeef5);
+  background: var(--aic-fill-color-blank, #ffffff);
+  color: var(--aic-text-color-secondary, #909399);
+}
+
+/* ===== 状态条 ===== */
+.aic-status-bar {
+  margin: 16px 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-width: 100%;
+}
+
+.aic-status-bar.aic-completed {
+  background: var(--aic-color-success-light-9, #f0f9eb);
+  border: 1px solid var(--aic-color-success-light-5, #95d475);
+}
+
+.aic-status-bar.aic-failed {
+  background: var(--aic-color-danger-light-9, #fef0f0);
+  border: 1px solid var(--aic-color-danger-light-5, #f89898);
+}
+
+.aic-status-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--aic-text-color-primary, #303133);
+}
+
+.aic-status-icon.success {
+  color: var(--aic-color-success, #67c23a);
+}
+
+.aic-status-icon.danger {
+  color: var(--aic-color-danger, #f56c6c);
+}
+
+.aic-status-detail {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--aic-text-color-regular, #606266);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.aic-error-text {
+  color: var(--aic-color-danger, #f56c6c);
+}
+
+/* ===== 思考中指示器 ===== */
+.aic-thinking-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--aic-text-color-secondary, #909399);
+  font-size: 13px;
+}
+
+.aic-typing-indicator {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.aic-typing-indicator .aic-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--aic-color-primary, #409eff);
+  animation: aic-typing-fade 1.4s infinite ease-in-out;
+}
+
+.aic-typing-indicator .aic-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.aic-typing-indicator .aic-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.aic-typing-indicator .aic-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes aic-typing-fade {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

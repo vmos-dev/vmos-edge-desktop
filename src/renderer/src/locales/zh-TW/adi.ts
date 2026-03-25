@@ -1,0 +1,20 @@
+export default {
+  title: '機型設定',
+  templateName: '範本名稱',
+  deviceList: '機型列表',
+  all: '全部',
+  brand: '品牌',
+  model: '機型',
+  screenResolution: '螢幕解析度',
+  androidVersion: 'Android 版本',
+  generalModels: '通用機型',
+  customModels: '自訂機型',
+  getCollectionTool: '取得採集工具',
+  importSettings: '匯入設定',
+  selectAdiFile: '選擇機型壓縮檔',
+  selectAdiFileRequired: '請選擇機型壓縮檔檔案',
+  clickToBrowse: '點擊此處',
+  browseFile: '瀏覽檔案',
+  supportedFormat: '僅支援 .zip 格式',
+  clickToReselect: '點擊重新選擇'
+}

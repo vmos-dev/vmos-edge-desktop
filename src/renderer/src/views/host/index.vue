@@ -57,6 +57,9 @@
                 <el-dropdown-item command="clean-image">{{
                   t('host.cleanImage')
                 }}</el-dropdown-item>
+                <el-dropdown-item command="delete" divided>{{
+                  t('host.batchDelete')
+                }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -93,17 +96,29 @@ import {
   RefreshRight,
   View,
   Delete,
-  Document
+  Document,
+  Upload
 } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox, ElForm, ElTag, ElButton, TableV2FixedDir } from 'element-plus'
+import {
+  ElMessage,
+  ElMessageBox,
+  ElForm,
+  ElTag,
+  ElButton,
+  ElUpload,
+  TableV2FixedDir
+} from 'element-plus'
+import type { UploadInstance, UploadRawFile, UploadRequestOptions } from 'element-plus'
 import { ipc } from '@renderer/core/ipc'
 import { DATA_EVENTS } from '@shared/ipc/data.types'
 import type { Host } from '@shared/ipc/data.types'
-import { formatTime } from '@renderer/utils/index'
+import { formatBytes, formatTime } from '@renderer/utils/index'
+import { API_CONFIG, buildApiUrl, getErrorMessage, isCancel, request } from '@shared/api'
 import HostDetail from './components/detail.vue'
 import { CopyText } from '@renderer/components'
 import Update from './components/update.vue'
 import { useI18n } from 'vue-i18n'
+import { onBeforeRouteLeave } from 'vue-router'
 
 const { t } = useI18n()
 
@@ -122,6 +137,12 @@ let requestCounter = 0 // 请求计数器，用于确保只处理最后一次查
 // 为每个主机维护一个简单的 loading 状态
 // 格式: Map<hostId, boolean> - 只要主机有任何操作在进行，就是 true
 const operationLoadingStates = ref<Map<string, boolean>>(new Map())
+const importProgressStates = ref<Map<string, number>>(new Map())
+const importUploadRefMap = ref<Map<string, UploadInstance | null>>(new Map())
+/** 正在导入备份的主机 id 集合，用于路由离开时提示 */
+const importingHostIds = ref<Set<string>>(new Set())
+/** 导入请求的 AbortController，用于取消 */
+const importAbortControllerMap = ref<Map<string, AbortController>>(new Map())
 
 /**
  * 获取指定主机的 loading 状态（只要有任何操作在进行就返回 true）
@@ -139,6 +160,112 @@ const setOperationLoading = (hostId: string, loading: boolean) => {
   } else {
     operationLoadingStates.value.delete(hostId)
   }
+}
+
+const getImportProgress = (hostId: string): number => {
+  return importProgressStates.value.get(hostId) ?? 0
+}
+
+const setImportProgress = (hostId: string, progress: number) => {
+  const normalized = Math.max(0, Math.min(100, progress))
+  if (normalized <= 0) {
+    importProgressStates.value.delete(hostId)
+    return
+  }
+  importProgressStates.value.set(hostId, normalized)
+}
+
+const setImportUploadRef = (hostId: string, instance: UploadInstance | null) => {
+  if (instance) {
+    importUploadRefMap.value.set(hostId, instance)
+  } else {
+    importUploadRefMap.value.delete(hostId)
+  }
+}
+
+const clearImportUploadFiles = (hostId: string) => {
+  importUploadRefMap.value.get(hostId)?.clearFiles()
+}
+
+/** 取消所有进行中的导入任务（切换路由时调用） */
+const cancelAllImportTasks = () => {
+  const hostIds = Array.from(importingHostIds.value)
+  hostIds.forEach((hostId) => {
+    importAbortControllerMap.value.get(hostId)?.abort()
+    setOperationLoading(hostId, false)
+    setImportProgress(hostId, 0)
+    clearImportUploadFiles(hostId)
+    importingHostIds.value.delete(hostId)
+    importAbortControllerMap.value.delete(hostId)
+  })
+}
+
+const MB_TO_BYTES = 1024 * 1024
+const MIN_BACKUP_IMPORT_AVAILABLE_BYTES = 10 * 1024 * 1024 * 1024
+
+const toNumericValue = (value: unknown): number => {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+    const fallback = parseFloat(value)
+    if (Number.isFinite(fallback)) return fallback
+  }
+  return NaN
+}
+
+const calculateAvailableBytes = (
+  totalMbRaw: unknown,
+  usedPercentRaw: unknown
+): number | null => {
+  const totalMb = toNumericValue(totalMbRaw)
+  const usedPercent = toNumericValue(usedPercentRaw)
+
+  if (!Number.isFinite(totalMb) || totalMb <= 0) return null
+  if (!Number.isFinite(usedPercent)) return null
+
+  const normalizedPercent = Math.min(100, Math.max(0, usedPercent))
+  const availableMb = (totalMb * (100 - normalizedPercent)) / 100
+
+  return Math.max(0, availableMb * MB_TO_BYTES)
+}
+
+const getHostAvailableStorageBytes = (systemInfo: Record<string, unknown>): number | null => {
+  const ssdTotal = toNumericValue(systemInfo.ssd_total)
+  const useSsdStorage = Number.isFinite(ssdTotal) && ssdTotal > 0
+
+  if (useSsdStorage) {
+    return calculateAvailableBytes(systemInfo.ssd_total, systemInfo.ssd_percent)
+  }
+
+  return calculateAvailableBytes(systemInfo.mmc_total, systemInfo.mmc_percent)
+}
+
+const ensureBackupImportSpace = async (row: Host): Promise<boolean> => {
+  const systemInfoUrl = buildApiUrl(row.ip, API_CONFIG.PATHS.GET_SYSTEM_INFO)
+  const systemInfoResponse = await request.get(systemInfoUrl, {})
+  const availableBytes = getHostAvailableStorageBytes(systemInfoResponse?.data || {})
+
+  if (availableBytes === null) {
+    throw new Error(t('host.importBackupSpaceCheckFailed'))
+  }
+
+  if (availableBytes <= 0) {
+    ElMessage.error(t('host.importBackupHostFull'))
+    return false
+  }
+
+  if (availableBytes < MIN_BACKUP_IMPORT_AVAILABLE_BYTES) {
+    ElMessage.error(
+      t('host.importBackupInsufficientSpace', {
+        available: formatBytes(availableBytes),
+        required: formatBytes(MIN_BACKUP_IMPORT_AVAILABLE_BYTES)
+      })
+    )
+    return false
+  }
+
+  return true
 }
 
 /**
@@ -220,7 +347,7 @@ const columns = computed(() => [
     title: t('host.columnAction'),
     fixed: TableV2FixedDir.RIGHT,
     align: 'left' as const,
-    width: 520,
+    width: 760,
     flexGrow: 1,
     cellRenderer: ({ rowData }) => {
       return (
@@ -244,6 +371,34 @@ const columns = computed(() => [
           >
             {t('host.apiDoc')}
           </ElButton>
+          <ElUpload
+            action="#"
+            autoUpload={true}
+            multiple={false}
+            limit={1}
+            showFileList={false}
+            accept=".tar"
+            ref={(instance: UploadInstance | null) => setImportUploadRef(rowData.id, instance)}
+            disabled={rowData.status === 'offline' || getOperationLoading(rowData.id)}
+            beforeUpload={(file) => handleImportBackupBeforeUpload(file)}
+            onExceed={() => ElMessage.warning(t('host.importBackupOnlySingle'))}
+            httpRequest={(options) => handleImportBackupUpload(rowData, options)}
+          >
+            <ElButton
+              type="primary"
+              size="small"
+              loading={getOperationLoading(rowData.id)}
+              disabled={rowData.status === 'offline'}
+              icon={Upload}
+              link
+            >
+              {getOperationLoading(rowData.id) && getImportProgress(rowData.id) > 0
+                ? t('host.importBackupProgress', {
+                    percent: getImportProgress(rowData.id).toFixed(0)
+                  })
+                : t('host.importBackup')}
+            </ElButton>
+          </ElUpload>
           <ElButton
             type="warning"
             size="small"
@@ -277,6 +432,17 @@ const columns = computed(() => [
           >
             {t('host.cleanImage')}
           </ElButton>
+          <ElButton
+            type="danger"
+            loading={getOperationLoading(rowData.id)}
+            size="small"
+            disabled={rowData.status !== 'online'}
+            icon={Delete}
+            link
+            onClick={() => handleClearOfflineDevices(rowData)}
+          >
+            {t('host.clearOfflineDevices')}
+          </ElButton>
           {rowData.status === 'offline' && (
             <ElButton
               type="danger"
@@ -305,6 +471,66 @@ const columns = computed(() => [
  */
 const handleOpenHostApi = (ip: string) => {
   ipc.invoke(DATA_EVENTS.HOST_OPEN_API_DETAIL, [{ host_ip: ip }])
+}
+
+const handleImportBackupBeforeUpload = (file: UploadRawFile) => {
+  if (!/\.tar$/i.test(file.name)) {
+    ElMessage.warning(t('host.importBackupOnlyTar'))
+    return false
+  }
+  return true
+}
+
+const handleImportBackupUpload = async (row: Host, options: UploadRequestOptions) => {
+  if (getOperationLoading(row.id)) return
+  const file = options.file as File
+
+  const controller = new AbortController()
+  importAbortControllerMap.value.set(row.id, controller)
+  importingHostIds.value.add(row.id)
+  setOperationLoading(row.id, true)
+  setImportProgress(row.id, 0)
+
+  try {
+    const hasEnoughSpace = await ensureBackupImportSpace(row)
+    if (!hasEnoughSpace) {
+      options.onError?.(new Error(t('host.importBackupFailed')) as any)
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    await request.post(buildApiUrl(row.ip, API_CONFIG.PATHS.IMPORT_BACKUP), formData, {
+      timeout: 0,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (event) => {
+        if (!event.total) return
+        const percent = (event.loaded / event.total) * 100
+        setImportProgress(row.id, percent)
+        options.onProgress?.({ percent } as any)
+      }
+    })
+
+    setImportProgress(row.id, 100)
+    options.onSuccess?.({})
+    ElMessage.success(t('host.importBackupSuccess'))
+    loadHosts()
+  } catch (error) {
+    options.onError?.(error as any)
+    if (!isCancel(error)) {
+      ElMessage.error(getErrorMessage(error, t('host.importBackupFailed')))
+    }
+  } finally {
+    importingHostIds.value.delete(row.id)
+    importAbortControllerMap.value.delete(row.id)
+    setOperationLoading(row.id, false)
+    setImportProgress(row.id, 0)
+    clearImportUploadFiles(row.id)
+  }
 }
 
 /**
@@ -346,7 +572,10 @@ const loadHosts = async () => {
 
     // 这是最后一次请求，处理结果
     if (res.success && res.data) {
-      hostList.value = res.data as unknown as Host[]
+      const nextHostList = res.data as unknown as Host[]
+      const nextIds = new Set(nextHostList.map((host) => host.id))
+      hostList.value = nextHostList
+      selectedHosts.value = selectedHosts.value.filter((host) => nextIds.has(host.id))
     } else {
       ElMessage.error(res.error || t('host.loadFailed'))
       hostList.value = []
@@ -396,6 +625,11 @@ const handleSelectionChange = (selection: Host[]) => {
  * 批量操作
  */
 const handleBatchOperation = async (command: string) => {
+  if (command === 'delete') {
+    await handleBatchDeleteHosts()
+    return
+  }
+
   // 选中的主机
   const selected = selectedHosts.value
 
@@ -498,6 +732,83 @@ const handleBatchOperation = async (command: string) => {
   } finally {
     // 清除所有主机的 loading 状态
     onlineHosts.forEach((host) => {
+      setOperationLoading(host.id, false)
+    })
+  }
+}
+
+const handleBatchDeleteHosts = async () => {
+  const selected = selectedHosts.value
+
+  if (!selected.length) {
+    ElMessage.warning(t('host.selectHostsToDelete'))
+    return
+  }
+
+  const deletableHosts = selected.filter(
+    (host) => host.status === 'offline' && !getOperationLoading(host.id)
+  )
+  const excludedCount = selected.length - deletableHosts.length
+
+  if (!deletableHosts.length) {
+    ElMessage.warning(t('host.selectOfflineHostsToDelete'))
+    return
+  }
+
+  if (excludedCount > 0) {
+    ElMessage.warning(
+      t('host.excludedUndeletableHosts', {
+        excludedCount,
+        remainingCount: deletableHosts.length
+      })
+    )
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('host.batchDeleteConfirm', { count: deletableHosts.length }),
+      t('host.operationConfirm'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+
+    deletableHosts.forEach((host) => {
+      setOperationLoading(host.id, true)
+    })
+
+    const res = await ipc.invoke<number>(
+      DATA_EVENTS.DELETE_HOSTS,
+      deletableHosts.map((host) => toRaw(host))
+    )
+
+    if (!res.success) {
+      ElMessage.error(res.error || t('host.deleteFailed'))
+      return
+    }
+
+    const deletedCount = res.data ?? 0
+    if (deletedCount === deletableHosts.length) {
+      ElMessage.success(t('host.batchDeleteSuccess', { count: deletedCount }))
+    } else {
+      ElMessage.warning(
+        t('host.batchDeletePartial', {
+          success: deletedCount,
+          fail: deletableHosts.length - deletedCount
+        })
+      )
+    }
+
+    selectedHosts.value = []
+    await loadHosts()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || t('host.deleteFailed'))
+    }
+  } finally {
+    deletableHosts.forEach((host) => {
       setOperationLoading(host.id, false)
     })
   }
@@ -632,6 +943,73 @@ const handleCleanImage = async (row: Host) => {
     setOperationLoading(row.id, false)
   }
 }
+
+const handleClearOfflineDevices = async (row: Host) => {
+  if (getOperationLoading(row.id)) {
+    return
+  }
+
+  if (row.status !== 'online') {
+    ElMessage.warning(t('host.clearOfflineOnlyOnline'))
+    return
+  }
+
+  await ElMessageBox.confirm(
+    t('host.clearOfflineDevicesConfirm', { ip: row.ip }),
+    t('common.tips'),
+    {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
+    }
+  )
+
+  setOperationLoading(row.id, true)
+  try {
+    const res = await ipc.invoke<{ deletedCount: number }>(
+      DATA_EVENTS.CLEAR_HOST_OFFLINE_DEVICES,
+      toRaw(row)
+    )
+    if (res.success) {
+      ElMessage.success(
+        t('host.clearOfflineDevicesSuccess', { count: Number(res.data?.deletedCount || 0) })
+      )
+      loadHosts()
+    } else {
+      ElMessage.error(res.error || t('common.operationFailed'))
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || t('common.operationFailed'))
+    }
+  } finally {
+    setOperationLoading(row.id, false)
+  }
+}
+/** 路由离开守卫：有导入任务时提示，确认则取消所有导入并离开 */
+onBeforeRouteLeave((_to, _from, next) => {
+  if (importingHostIds.value.size === 0) {
+    next()
+    return
+  }
+  ElMessageBox.confirm(
+    t('host.switchRouteWithImportConfirm'),
+    t('common.tips'),
+    {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
+    }
+  )
+    .then(() => {
+      cancelAllImportTasks()
+      next()
+    })
+    .catch(() => {
+      next(false)
+    })
+})
+
 let refreshTimer: NodeJS.Timeout
 
 onMounted(async () => {

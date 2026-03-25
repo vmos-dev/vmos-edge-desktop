@@ -7,8 +7,14 @@ export default {
   model: '机型',
   screenResolution: '屏幕分辨率',
   androidVersion: 'Android版本',
-  android10: 'Android 10',
-  android13: 'Android 13',
-  android14: 'Android 14',
-  android15: 'Android 15'
+  generalModels: '通用机型',
+  customModels: '自定义机型',
+  getCollectionTool: '获取采集工具',
+  importSettings: '导入设置',
+  selectAdiFile: '选择机型压缩包',
+  selectAdiFileRequired: '请选择机型压缩包文件',
+  clickToBrowse: '点击此处',
+  browseFile: '浏览文件',
+  supportedFormat: '仅支持 .zip 格式',
+  clickToReselect: '点击重新选择'
 }
