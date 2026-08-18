@@ -23,26 +23,16 @@
 </p>
 <p align="center"><em>统一管理多台云机，集中查看运行状态并批量执行任务</em></p>
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="./assets/readme/hero-workflow.png" alt="VMOS Edge 自动化工作流界面" />
-      <br />
-      <sub><strong>自动化工作流</strong>：通过可编辑的流程步骤组织和执行重复任务，适合稳定、可复用的批量操作</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="./assets/readme/hero-ai-agent.png" alt="VMOS Edge AI Agent 界面" />
-      <br />
-      <sub><strong>AI Agent</strong>：根据云机界面实时判断并执行操作，适合步骤动态变化的复杂任务</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="./assets/readme/hero-workflow.png" alt="VMOS Edge 自动化工作流界面" width="100%" />
+</p>
+<p align="center"><em>通过可编辑的流程步骤组织和执行重复任务，适合稳定、可复用的批量操作</em></p>
 
 ## 项目简介
 
 [VMOS Edge Desktop](https://www.vmosedge.com/) 是 VMOS Edge 本地部署 Android 云机平台的桌面控制端，依托 Android 虚拟化引擎与本地边缘设备，为开发者和高性能用户提供低延迟、稳定的云机管理与自动化控制体验。
 
-通过桌面端，你可以统一完成多宿主机、多云机的批量管理与投屏控制，并使用镜像管理、代理配置、自动化工作流、任务中心、AI Agent、FRP 和共享文件夹等能力。本仓库提供桌面客户端的开源实现，可用于学习、二次开发和 VMOS Edge 生态集成。
+通过桌面端，你可以统一完成多宿主机、多云机的批量管理与投屏控制，并使用镜像管理、代理配置、自动化工作流、任务中心、FRP 和共享文件夹等能力。本仓库提供桌面客户端的开源实现，可用于学习、二次开发和 VMOS Edge 生态集成。
 
 ## 快速开始
 
