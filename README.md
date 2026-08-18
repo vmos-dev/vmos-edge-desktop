@@ -19,11 +19,6 @@
 ## 界面预览
 
 <p align="center">
-  <img src="./assets/readme/hero-cloud-list.png" alt="VMOS Edge 云机管理界面" width="100%" />
-</p>
-<p align="center"><em>统一管理多台云机，集中查看运行状态并批量执行任务</em></p>
-
-<p align="center">
   <img src="./assets/readme/hero-workflow.png" alt="VMOS Edge 自动化工作流界面" width="100%" />
 </p>
 <p align="center"><em>通过可编辑的流程步骤组织和执行重复任务，适合稳定、可复用的批量操作</em></p>
