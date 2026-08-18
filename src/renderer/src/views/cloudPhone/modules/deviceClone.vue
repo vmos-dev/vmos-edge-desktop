@@ -109,8 +109,8 @@ const rules = computed(() => ({
     { required: true, message: t('cloudPhone.cloneNamePrefixPlaceholder'), trigger: 'blur' },
     { min: 2, max: 100, message: t('cloudPhone.cloneNamePrefixLength'), trigger: 'blur' },
     {
-      // 允许字母（大小写）、数字、下划线、点、短横线和中文字符
-      pattern: /^[a-zA-Z0-9_.\-\u4e00-\u9fa5]+$/,
+      // 允许字母（大小写）、数字、下划线、点、短横线、@符号和中文字符
+      pattern: /^[a-zA-Z0-9_.@\-\u4e00-\u9fa5]+$/,
       message: t('cloudPhone.cloneNamePrefixFormat'),
       trigger: 'blur'
     }

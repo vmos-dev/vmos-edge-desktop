@@ -7,10 +7,13 @@ import adi from './adi'
 import settings from './settings'
 import layout from './layout'
 import phone from './phone'
-import aiAssistant from './aiAssistant'
+import aiWorkflow from './aiWorkflow'
 import automation from './automation'
 import aiAgent from './aiAgent'
 import skill from './skill'
+import workflow from './workflow'
+import taskCenter from './taskCenter'
+import frp from './frp'
 
 export default {
   common,
@@ -22,8 +25,11 @@ export default {
   settings,
   layout,
   phone,
-  aiAssistant,
+  aiWorkflow,
   automation,
   aiAgent,
-  skill
+  skill,
+  workflow,
+  taskCenter,
+  frp
 }

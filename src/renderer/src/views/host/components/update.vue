@@ -24,10 +24,19 @@
               <el-icon class="upload-icon"><upload-filled /></el-icon>
               <div class="upload-text">
                 <p class="upload-primary-text">
-                  {{ t('host.clickUploadOrDrag', { type: operationType === 'cbs' ? t('host.cbs') : t('host.kernel') }) }}
+                  {{
+                    t('host.clickUploadOrDrag', {
+                      type: operationType === 'cbs' ? t('host.cbs') : t('host.kernel')
+                    })
+                  }}
                 </p>
                 <p class="upload-secondary-text">
-                  {{ t('host.supportedFormats', { formats: allowedExtensions.map((ext) => `.${ext}`).join(', ') || t('host.allFiles') }) }}
+                  {{
+                    t('host.supportedFormats', {
+                      formats:
+                        allowedExtensions.map((ext) => `.${ext}`).join(', ') || t('host.allFiles')
+                    })
+                  }}
                 </p>
               </div>
             </div>
@@ -263,9 +272,9 @@ const title = computed(() => {
     return props.title
   }
   const hostCount = new Set(targetHosts.value.map((host) => host.ip)).size
-  return t('host.batchUpgradeTitle', { 
+  return t('host.batchUpgradeTitle', {
     type: operationType.value === 'cbs' ? t('host.cbs') : t('host.kernel'),
-    count: hostCount 
+    count: hostCount
   })
 })
 

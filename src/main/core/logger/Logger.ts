@@ -66,10 +66,7 @@ class Logger {
     }
     const errorRecord = error as unknown as Record<string, unknown>
 
-    const keys = new Set([
-      ...Object.getOwnPropertyNames(error),
-      ...Object.keys(errorRecord)
-    ])
+    const keys = new Set([...Object.getOwnPropertyNames(error), ...Object.keys(errorRecord)])
 
     for (const key of keys) {
       if (key === 'name' || key === 'message' || key === 'stack') {
@@ -93,12 +90,27 @@ class Logger {
     return String(error)
   }
 
-  private write(level: 'debug' | 'info' | 'warn' | 'error', message: string, args: any[]): void {
+  // winston 未启用 format.splat():基本类型 / 数组 / 多参数若直接透传,会被丢进
+  // info[Symbol(splat)],而 printf 的 `...meta` 只能取字符串键 → 这些参数被静默吞掉
+  // (历史上 `logger.error('x:', errMsgString)` 的内容因此完全不进日志)。这里统一兜底。
+  private isMergeableMeta(value: unknown): value is object {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+  }
+
+  private write(
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    args: unknown[]
+  ): void {
     try {
-      if (args.length > 0) {
-        this.logger.log(level, message, ...args)
-      } else {
+      if (args.length === 0) {
         this.logger.log(level, message)
+      } else if (args.length === 1 && this.isMergeableMeta(args[0])) {
+        // 单个普通对象 / Error:保持原有行为(winston 合并对象键、errors 格式提取 stack)
+        this.logger.log(level, message, args[0])
+      } else {
+        // 其余(字符串等基本类型 / 数组 / 多参数)包进 { args },保证不被静默丢弃
+        this.logger.log(level, message, { args: args.length === 1 ? args[0] : args })
       }
     } catch (error) {
       // 日志系统本身不能再把主进程带崩，退化到控制台输出。
@@ -164,17 +176,17 @@ class Logger {
         // 开发环境也输出到控制台
         ...(process.env.NODE_ENV === 'development'
           ? [
-            new winston.transports.Console({
-              format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                  return this.formatLogLine(appVersion, timestamp, level, message, meta, {
-                    uppercaseLevel: false
+              new winston.transports.Console({
+                format: winston.format.combine(
+                  winston.format.colorize(),
+                  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+                    return this.formatLogLine(appVersion, timestamp, level, message, meta, {
+                      uppercaseLevel: false
+                    })
                   })
-                })
-              )
-            })
-          ]
+                )
+              })
+            ]
           : [])
       ],
       exceptionHandlers: [
@@ -275,28 +287,28 @@ class Logger {
   /**
    * 记录 debug 级别日志
    */
-  public debug(message: string, ...args: any[]): void {
+  public debug(message: string, ...args: unknown[]): void {
     this.write('debug', message, args)
   }
 
   /**
    * 记录 info 级别日志
    */
-  public info(message: string, ...args: any[]): void {
+  public info(message: string, ...args: unknown[]): void {
     this.write('info', message, args)
   }
 
   /**
    * 记录 warn 级别日志
    */
-  public warn(message: string, ...args: any[]): void {
+  public warn(message: string, ...args: unknown[]): void {
     this.write('warn', message, args)
   }
 
   /**
    * 记录 error 级别日志
    */
-  public error(message: string, ...args: any[]): void {
+  public error(message: string, ...args: unknown[]): void {
     this.write('error', message, args)
   }
 

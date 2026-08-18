@@ -1,6 +1,9 @@
 export default {
   confirm: '确定',
   cancel: '取消',
+  close: '关闭',
+  back: '返回',
+  moreOperations: '更多操作',
   save: '保存',
   delete: '删除',
   loading: '加载中...',
@@ -22,6 +25,7 @@ export default {
   waiting: '等待',
   unknownError: '未知错误',
   clearAll: '清空全部',
+  selectAll: '全选',
   total: '总计',
   doNotShowAgain: '下次不再提示',
   online: '在线',
@@ -49,6 +53,11 @@ export default {
   ignoreThisVersion: '忽略此版本',
   gotIt: '我知道了',
   viewReleaseHistory: '查看完整更新日志',
+  hostStates: {
+    online: '在线',
+    offline: '离线',
+    unknown: '未知'
+  },
   deviceStates: {
     running: '运行中',
     stopped: '已关机',
@@ -72,6 +81,10 @@ export default {
     virtual: '虚拟机',
     real: '云真机'
   },
+  sortAsc: '升序',
+  sortDesc: '降序',
+  sortReset: '默认',
+  retry: '重试',
   proxyStrategies: {
     default: '默认(不支持获取出口信息)'
   }

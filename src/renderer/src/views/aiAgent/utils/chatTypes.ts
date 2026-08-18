@@ -19,7 +19,7 @@ export const MESSAGE_TYPES = {
   TOOL_GROUP: 'tool_group',
   TURN_DIVIDER: 'turn_divider',
   COMPLETED: 'completed',
-  FAILED: 'failed',
+  FAILED: 'failed'
 } as const
 
 /** 工具调用状态 */

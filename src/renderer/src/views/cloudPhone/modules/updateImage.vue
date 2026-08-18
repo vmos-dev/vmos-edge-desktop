@@ -272,7 +272,6 @@ const handleSubmit = async () => {
           }
           throw new Error(t('cloudPhone.selectModel'))
         }
-
       }
 
       const uploads: {
@@ -457,4 +456,3 @@ defineExpose({
   }
 }
 </style>
-

@@ -2,6 +2,7 @@
   <el-config-provider :locale="currentElLocale">
     <router-view />
     <DesktopUpdateChecker />
+    <CbsUpdateChecker />
   </el-config-provider>
 </template>
 
@@ -12,9 +13,11 @@ import { useLocale } from './hooks/useLocale'
 import { useTheme } from './hooks/useTheme'
 import { ipc, MEDIAMTX_LOG } from '@renderer/core/ipc'
 import DesktopUpdateChecker from './components/DesktopUpdateChecker.vue'
+import CbsUpdateChecker from './components/CbsUpdateChecker.vue'
 
 const { currentElLocale, setupStorageListener } = useLocale()
 const { initTheme, setupThemeListener } = useTheme()
+
 
 onMounted(() => {
   initTheme()

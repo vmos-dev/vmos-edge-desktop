@@ -22,7 +22,9 @@ function handleError(error: unknown): { success: false; error: string } {
 }
 
 function normalizeAIVendor(vendor: string): AIVendor {
-  const normalized = String(vendor || '').trim().toLowerCase()
+  const normalized = String(vendor || '')
+    .trim()
+    .toLowerCase()
 
   if (normalized.includes('deepseek')) return 'deepseek'
   if (normalized.includes('openai')) return 'openai'
@@ -136,22 +138,22 @@ export function registerAgentHandlers(): void {
   })
 
   // 智能优化用户意图描述
-  handle<
-    { input: string; provider: AIProviderConfig },
-    { optimizedText: string }
-  >(AGENT_EVENTS.OPTIMIZE_INTENT, async ({ input, provider }) => {
-    logger.info('[AgentHandler] OPTIMIZE_INTENT:', { input: input.substring(0, 50) })
-    try {
-      const optimizedText = await optimizeIntent(input, normalizeProviderConfig(provider))
-      if (!optimizedText) {
-        return { success: false, error: '优化结果为空' }
+  handle<{ input: string; provider: AIProviderConfig }, { optimizedText: string }>(
+    AGENT_EVENTS.OPTIMIZE_INTENT,
+    async ({ input, provider }) => {
+      logger.info('[AgentHandler] OPTIMIZE_INTENT:', { input: input.substring(0, 50) })
+      try {
+        const optimizedText = await optimizeIntent(input, normalizeProviderConfig(provider))
+        if (!optimizedText) {
+          return { success: false, error: '优化结果为空' }
+        }
+        return { success: true, data: { optimizedText } }
+      } catch (error) {
+        logger.error('[AgentHandler] OPTIMIZE_INTENT error:', error)
+        return handleError(error)
       }
-      return { success: true, data: { optimizedText } }
-    } catch (error) {
-      logger.error('[AgentHandler] OPTIMIZE_INTENT error:', error)
-      return handleError(error)
     }
-  })
+  )
 
   logger.info('[AgentHandler] ✅ Agent 处理器已注册')
 }

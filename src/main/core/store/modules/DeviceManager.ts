@@ -7,17 +7,76 @@ import { API_CONFIG, buildApiUrl, formatTime } from '@shared/api'
 import { logger } from '../../logger'
 import { ConfigManager } from './ConfigManager'
 import { CONFIG_KEYS } from '@shared/constant'
+import { DeviceStateCache } from './DeviceStateCache'
 import path from 'path'
 import fs from 'fs'
 
 export class DeviceManager extends BaseManager {
   private configManager: ConfigManager
   private deviceDao: DeviceDao
+  private stateCache = new DeviceStateCache()
 
   constructor(config: ConfigManager) {
     super()
     this.configManager = config
     this.deviceDao = new DeviceDao(this.dbInstance)
+    this.initStateCache()
+  }
+
+  private initStateCache(): void {
+    try {
+      const allDevices = this.deviceDao.getAll()
+      const byHost = new Map<string, Device[]>()
+      for (const d of allDevices) {
+        const ip = d.host_ip || ''
+        let list = byHost.get(ip)
+        if (!list) {
+          list = []
+          byHost.set(ip, list)
+        }
+        list.push(d)
+      }
+      for (const [ip, devices] of byHost) {
+        this.stateCache.set(ip, devices)
+      }
+      logger.info(
+        `[DeviceManager] stateCache initialized: ${byHost.size} hosts, ${allDevices.length} devices`
+      )
+    } catch (error) {
+      logger.error('[DeviceManager] stateCache init failed, will rebuild on first sync:', error)
+    }
+  }
+
+  private applyDeviceUpdates(hostIp: string, devices: any[]): void {
+    const valid = devices.filter((d) => d?.db_id)
+    if (!valid.length) return
+    this.dbInstance.transaction(() => {
+      for (const d of valid) this.deviceDao.update(d.db_id, d)
+    })
+    for (const d of valid) this.stateCache.update(hostIp, d as Device)
+  }
+
+  /**
+   * 应用 API 返回的删除结果到本地 DB / cache，并返回规范化后的 Device 列表。
+   * API raw 数据可能缺 id 字段（Device 类型契约要求 id 必填，对应 db_id 或 UUID），
+   * 此方法是规范化的唯一入口：所有下游消费者（前端事件、FrpManager 等）只接触规范化数据。
+   */
+  private applyDeviceDeletes(hostIp: string, devices: any[]): Device[] {
+    const normalized = devices
+      .filter((d) => d?.db_id)
+      .map((d) => ({ ...d, id: d.id || d.db_id }) as Device)
+    if (!normalized.length) return []
+    this.dbInstance.transaction(() => {
+      for (const d of normalized) this.deviceDao.delete(d.id)
+    })
+    for (const d of normalized) this.stateCache.remove(hostIp, d.id)
+    return normalized
+  }
+
+  private applyPartialUpdate(hostIp: string, deviceId: string, fields: Partial<Device>): void {
+    this.deviceDao.update(deviceId, fields)
+    const cached = this.stateCache.get(hostIp, deviceId)
+    if (cached) this.stateCache.update(hostIp, { ...cached, ...fields } as Device)
   }
 
   /**
@@ -76,9 +135,10 @@ export class DeviceManager extends BaseManager {
         throw new Error(`Device not found or no changes: id=${id}`)
       }
       logger.info(`[DeviceManager] updateDevice success: id=${id}, duration=${duration}ms`)
-      // 获取完整的设备对象发送给前端
       const updatedDevice = this.deviceDao.getById(id)
       if (updatedDevice) {
+        const hostIp = updatedDevice.host_ip || ''
+        this.stateCache.update(hostIp, updatedDevice)
         this.notifyFrontend(DATA_EVENTS.DEVICE_UPDATED, [updatedDevice])
       }
     } catch (error) {
@@ -145,13 +205,7 @@ export class DeviceManager extends BaseManager {
             logger.info(
               `[DeviceManager] restartDevice: API returned ${data.list.length} devices for host ${hostIp}`
             )
-            this.dbInstance.transaction(() => {
-              data.list.forEach((item: any) => {
-                if (item?.db_id) {
-                  this.deviceDao.update(item.db_id, item)
-                }
-              })
-            })
+            this.applyDeviceUpdates(hostIp, data.list)
             restartedDevices.push(...(data?.list || []))
             const hostDuration = Date.now() - hostStartTime
             logger.info(
@@ -206,7 +260,8 @@ export class DeviceManager extends BaseManager {
    */
   public async syncHostDevices(ip: string, hostId?: string): Promise<void> {
     const startTime = Date.now()
-    logger.info(`[DeviceManager] syncHostDevices called: hostIp=${ip}, hostId=${hostId}`)
+    // called 日志降为 debug，避免每 3 秒刷屏
+    logger.debug(`[DeviceManager] syncHostDevices called: hostIp=${ip}, hostId=${hostId}`)
 
     try {
       // 1️⃣ 请求 Host 侧设备数据
@@ -224,7 +279,7 @@ export class DeviceManager extends BaseManager {
         return
       }
 
-      logger.info(
+      logger.debug(
         `[DeviceManager] syncHostDevices: API returned ${data.list.length} devices for host ${ip}`
       )
 
@@ -243,53 +298,60 @@ export class DeviceManager extends BaseManager {
       const updatedDevices: Device[] = []
       const deletedDevices: Device[] = []
 
-      // 3️⃣ 事务：只做数据库层面的变更
-      this.dbInstance.transaction(() => {
-        // --- 新增 / 更新 ---
-        for (const rd of data.list) {
-          const deviceId = rd.db_id
-          if (!deviceId) {
-            logger.warn(`[DeviceManager] skip device without db_id`, rd)
-            continue
-          }
+      // 3️⃣ 用内存缓存做真正的变更检测，再写入数据库
+      const now = Date.now()
 
-          apiIdSet.add(deviceId)
-
-          const deviceData: Device = {
-            ...rd,
-            id: deviceId,
-            host_ip: ip,
-            hostId: hostId, // 写入 hostId
-            lastActiveTime: Date.now()
-          }
-
-          const existing = existingMap.get(deviceId)
-
-          if (!existing) {
-            // 新设备
-            this.deviceDao.insert(deviceData)
-            addedDevices.push(deviceData)
-          } else {
-            // 已存在设备 → 判断是否真的需要更新
-            const changed = this.deviceDao.update(deviceId, deviceData)
-            if (changed) {
-              updatedDevices.push(deviceData)
-            }
-          }
+      for (const rd of data.list) {
+        const deviceId = rd.db_id
+        if (!deviceId) {
+          logger.warn(`[DeviceManager] skip device without db_id`, rd)
+          continue
         }
 
-        // --- 删除（本地有，但接口已不存在）---
-        for (const local of existingDevices) {
-          if (!apiIdSet.has(local.id)) {
-            this.deviceDao.delete(local.id)
-            deletedDevices.push(local)
-          }
+        apiIdSet.add(deviceId)
+
+        const deviceData: Device = {
+          ...rd,
+          id: deviceId,
+          host_ip: ip,
+          hostId: hostId,
+          lastActiveTime: now
         }
-      })
+
+        const existing = existingMap.get(deviceId)
+
+        if (!existing) {
+          addedDevices.push(deviceData)
+        } else if (this.stateCache.hasChanged(ip, deviceData)) {
+          updatedDevices.push(deviceData)
+        }
+      }
+
+      for (const local of existingDevices) {
+        if (!apiIdSet.has(local.id)) {
+          deletedDevices.push(local)
+        }
+      }
+
+      const hasChanges =
+        addedDevices.length > 0 || updatedDevices.length > 0 || deletedDevices.length > 0
+
+      if (hasChanges) {
+        this.dbInstance.transaction(() => {
+          for (const d of addedDevices) this.deviceDao.insert(d)
+          for (const d of updatedDevices) this.deviceDao.update(d.id, d)
+          for (const d of deletedDevices) this.deviceDao.delete(d.id)
+        })
+
+        for (const d of addedDevices) this.stateCache.update(ip, d)
+        for (const d of updatedDevices) this.stateCache.update(ip, d)
+        for (const d of deletedDevices) this.stateCache.remove(ip, d.id)
+      }
 
       const duration = Date.now() - startTime
-      logger.info(
-        `[DeviceManager] syncHostDevices success: hostIp=${ip}, added=${addedDevices.length}, updated=${updatedDevices.length}, deleted=${deletedDevices.length}, duration=${duration}ms`
+      const logFn = hasChanges ? logger.info.bind(logger) : logger.debug.bind(logger)
+      logFn(
+        `[DeviceManager] syncHostDevices: hostIp=${ip}, added=${addedDevices.length}, updated=${updatedDevices.length}, deleted=${deletedDevices.length}, duration=${duration}ms`
       )
 
       // 4️⃣ 批量通知前端（事务外）
@@ -301,6 +363,14 @@ export class DeviceManager extends BaseManager {
       }
       if (deletedDevices.length) {
         this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, deletedDevices)
+      }
+
+      // 通知 FRP 模块
+      try {
+        const { frpManager } = await import('../managers')
+        frpManager.onDevicesSynced(ip, [...addedDevices, ...updatedDevices], deletedDevices)
+      } catch {
+        // frpManager may not be initialized yet
       }
     } catch (error) {
       const duration = Date.now() - startTime
@@ -331,6 +401,9 @@ export class DeviceManager extends BaseManager {
       this.deviceDao.markAllOfflineByHost(ip)
 
       const updatedDevices = this.deviceDao.getByHostIp(ip)
+      if (updatedDevices.length > 0) {
+        this.stateCache.set(ip, updatedDevices)
+      }
       const duration = Date.now() - startTime
       logger.info(
         `[DeviceManager] markAllOfflineByHost success: hostIp=${ip}, deviceCount=${updatedDevices.length}, duration=${duration}ms`
@@ -386,12 +459,16 @@ export class DeviceManager extends BaseManager {
       })
 
       if (deletedDevices.length > 0) {
+        if (ip) this.stateCache.clearHost(ip)
         const duration = Date.now() - startTime
         logger.info(
           `[DeviceManager] deleteByHostIp success: deleted ${deletedDevices.length} devices, duration=${duration}ms`
         )
-        // 通知前端删除的设备
         this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, deletedDevices)
+
+        import('../managers')
+          .then(({ frpManager }) => frpManager.onDevicesSynced(ip || '', [], deletedDevices))
+          .catch(() => {})
       }
 
       return deletedDevices
@@ -450,11 +527,18 @@ export class DeviceManager extends BaseManager {
       })
 
       if (offlineDevices.length > 0) {
+        for (const d of offlineDevices) {
+          this.stateCache.remove(d.host_ip || '', d.id)
+        }
         const duration = Date.now() - startTime
         logger.info(
           `[DeviceManager] clearOfflineByHost success: deleted ${offlineDevices.length} offline devices, duration=${duration}ms`
         )
         this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, offlineDevices)
+
+        import('../managers')
+          .then(({ frpManager }) => frpManager.onDevicesSynced(ip || '', [], offlineDevices))
+          .catch(() => {})
       }
 
       return offlineDevices
@@ -496,7 +580,7 @@ export class DeviceManager extends BaseManager {
       // 验证响应数据
       if (data && data.db_id) {
         // 更新数据库
-        this.deviceDao.update(db_id, { user_name: user_name })
+        this.applyPartialUpdate(host_ip, db_id, { user_name } as Partial<Device>)
         const duration = Date.now() - startTime
         logger.info(
           `[DeviceManager] updateDeviceName success: db_id=${db_id}, user_name=${user_name}, duration=${duration}ms`
@@ -570,14 +654,9 @@ export class DeviceManager extends BaseManager {
             logger.info(
               `[DeviceManager] deleteDevice: API returned ${data.list.length} devices for host ${hostIp}`
             )
-            this.dbInstance.transaction(() => {
-              data.list.forEach((item: any) => {
-                if (item?.db_id) {
-                  this.deviceDao.delete(item.db_id)
-                }
-              })
-            })
-            deletedDevices.push(...(data?.list || []))
+            // 用规范化后的返回值，保证 deletedDevices 里每个对象 id 都有值
+            const normalized = this.applyDeviceDeletes(hostIp, data.list)
+            deletedDevices.push(...normalized)
             const hostDuration = Date.now() - hostStartTime
             logger.info(
               `[DeviceManager] deleteDevice: host ${hostIp} success, deleted=${data.list.length}, duration=${hostDuration}ms`
@@ -606,6 +685,21 @@ export class DeviceManager extends BaseManager {
       // 只有成功删除的设备才通知前端
       if (deletedDevices.length > 0) {
         this.notifyFrontend(DATA_EVENTS.DEVICE_DELETED, deletedDevices)
+
+        try {
+          const { frpManager } = await import('../managers')
+          const byHost = new Map<string, Device[]>()
+          for (const d of deletedDevices) {
+            const ip = d.host_ip || ''
+            if (!byHost.has(ip)) byHost.set(ip, [])
+            byHost.get(ip)!.push(d)
+          }
+          for (const [hostIp, devs] of byHost) {
+            frpManager.onDevicesSynced(hostIp, [], devs)
+          }
+        } catch {
+          // frpManager 可能尚未初始化
+        }
       }
 
       return {
@@ -675,13 +769,7 @@ export class DeviceManager extends BaseManager {
             logger.info(
               `[DeviceManager] resetDevice: API returned ${data.list.length} devices for host ${hostIp}`
             )
-            this.dbInstance.transaction(() => {
-              data.list.forEach((item: any) => {
-                if (item?.db_id) {
-                  this.deviceDao.update(item.db_id, item)
-                }
-              })
-            })
+            this.applyDeviceUpdates(hostIp, data.list)
             resetDevices.push(...(data?.list || []))
             const hostDuration = Date.now() - hostStartTime
             logger.info(
@@ -804,13 +892,7 @@ export class DeviceManager extends BaseManager {
             logger.info(
               `[DeviceManager] renewDevice: API returned ${data.list.length} devices for host ${hostIp}`
             )
-            this.dbInstance.transaction(() => {
-              data.list.forEach((item: any) => {
-                if (item?.db_id) {
-                  this.deviceDao.update(item.db_id, item)
-                }
-              })
-            })
+            this.applyDeviceUpdates(hostIp, data.list)
             renewedDevices.push(...(data?.list || []))
             const hostDuration = Date.now() - hostStartTime
             logger.info(
@@ -908,13 +990,7 @@ export class DeviceManager extends BaseManager {
             logger.info(
               `[DeviceManager] shutdownDevice: API returned ${data.list.length} devices for host ${hostIp}`
             )
-            this.dbInstance.transaction(() => {
-              data.list.forEach((item: any) => {
-                if (item?.db_id) {
-                  this.deviceDao.update(item.db_id, item)
-                }
-              })
-            })
+            this.applyDeviceUpdates(hostIp, data.list)
             shutdownDevices.push(...(data?.list || []))
             const hostDuration = Date.now() - hostStartTime
             logger.info(
@@ -1015,13 +1091,7 @@ export class DeviceManager extends BaseManager {
             logger.info(
               `[DeviceManager] startDevice: API returned ${data.list.length} devices for host ${hostIp}`
             )
-            this.dbInstance.transaction(() => {
-              data.list.forEach((item: any) => {
-                if (item?.db_id) {
-                  this.deviceDao.update(item.db_id, item)
-                }
-              })
-            })
+            this.applyDeviceUpdates(hostIp, data.list)
             startedDevices.push(...(data?.list || []))
             const hostDuration = Date.now() - hostStartTime
             logger.info(

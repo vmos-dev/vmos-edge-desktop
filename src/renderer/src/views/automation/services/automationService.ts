@@ -48,7 +48,7 @@ export class AutomationService {
         return result.data.packages
           .map(
             (app: any) =>
-              `${app.app_name || t('automation.service.unknown')}=${app.package_name || ''}`
+              `${app.app_name || t('aiWorkflow.service.unknown')}=${app.package_name || ''}`
           )
           .join(', ')
       }
@@ -79,10 +79,10 @@ export class AutomationService {
       if (result.code === 200 && result.data && typeof result.data === 'string') {
         return this.simplifyUiDump(result.data)
       }
-      return t('automation.service.uiStateUnavailable')
+      return t('aiWorkflow.service.uiStateUnavailable')
     } catch (error) {
       console.error('[AutomationService] 获取 UI 状态失败:', error)
-      return t('automation.service.uiStateFailed')
+      return t('aiWorkflow.service.uiStateFailed')
     }
   }
 
@@ -93,7 +93,7 @@ export class AutomationService {
     const result: string[] = []
     const packageMatch = xml.match(/package="([^"]+)"/)
     result.push(
-      `${t('automation.service.currentApp')}${packageMatch ? packageMatch[1] : t('automation.service.unknown')}\n\n${t('automation.service.uiTree')}`
+      `${t('aiWorkflow.service.currentApp')}${packageMatch ? packageMatch[1] : t('aiWorkflow.service.unknown')}\n\n${t('aiWorkflow.service.uiTree')}`
     )
 
     const nodeRegex = /<node\s+([^>]*)>/g
@@ -126,7 +126,7 @@ export class AutomationService {
       }
       lastIndex = match.index
     }
-    return result.length > 1 ? result.join('\n') : t('automation.service.noInteractiveElements')
+    return result.length > 1 ? result.join('\n') : t('aiWorkflow.service.noInteractiveElements')
   }
 
   /**
@@ -167,7 +167,7 @@ export class AutomationService {
     })
     const result = await response.json()
     if (result.code !== 200) {
-      throw new Error(result.msg || t('automation.service.queryDebugFailed'))
+      throw new Error(result.msg || t('aiWorkflow.service.queryDebugFailed'))
     }
     return result?.data?.debug ?? false
   }
@@ -184,7 +184,7 @@ export class AutomationService {
     })
     const result = await response.json()
     if (result.code !== 200) {
-      throw new Error(result.msg || t('automation.service.setDebugFailed'))
+      throw new Error(result.msg || t('aiWorkflow.service.setDebugFailed'))
     }
     return result?.data?.debug ?? false
   }

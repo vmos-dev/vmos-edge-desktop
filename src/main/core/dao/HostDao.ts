@@ -18,7 +18,9 @@ export class HostDao extends BaseDao<Host> {
   }
   /** 根据ip 查询主机信息 */
   public getByIp(ip: string): Host | undefined {
-    const row = this.dbInstance.db.prepare(`SELECT * FROM ${this.tableName} WHERE trim(ip) = trim(?)`).get(ip)
+    const row = this.dbInstance.db
+      .prepare(`SELECT * FROM ${this.tableName} WHERE trim(ip) = trim(?)`)
+      .get(ip)
     return row ? this.deserialize(row) : undefined
   }
   /**
@@ -50,7 +52,11 @@ export class HostDao extends BaseDao<Host> {
    * 根据 IP 或 ID 模糊匹配 + 状态过滤
    * 并统计每台主机的设备数量
    */
-  public searchHostsByIdentifierAndStatusWithDeviceCount(keyword: string, status: string) {
+  public searchHostsByIdentifierAndStatusWithDeviceCount(
+    keyword: string,
+    status: string,
+    groupId: string
+  ) {
     const conditions: string[] = []
     const params: any[] = []
 
@@ -66,16 +72,25 @@ export class HostDao extends BaseDao<Host> {
       params.push(status)
     }
 
+    // GroupId 条件
+    if (groupId && groupId.trim() !== '') {
+      conditions.push('h.groupId = ?')
+      params.push(groupId)
+    }
+
     // 如果都没有条件，就设置为 true
     const whereClause = conditions.length > 0 ? conditions.join(' AND ') : '1=1'
 
     const sql = `
-      SELECT 
-        h.*, 
+      SELECT
+        h.*,
+        g.name AS groupName,
         COUNT(d.id) AS deviceCount
       FROM hosts h
-      LEFT JOIN devices d 
+      LEFT JOIN devices d
         ON trim(h.ip) = trim(d.host_ip)
+      LEFT JOIN groups g
+        ON h.groupId = g.id
       WHERE ${whereClause}
       GROUP BY h.id
     `

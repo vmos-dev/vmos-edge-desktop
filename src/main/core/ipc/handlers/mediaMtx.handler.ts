@@ -1,9 +1,5 @@
 import { handle } from '../IpcBus'
-import {
-  MEDIAMTX_START,
-  MEDIAMTX_STOP,
-  MEDIAMTX_GET_STATUS
-} from '@shared/ipc/channels'
+import { MEDIAMTX_START, MEDIAMTX_STOP, MEDIAMTX_GET_STATUS } from '@shared/ipc/channels'
 import {
   StartMediaServerOptions,
   StartMediaServerResult,
@@ -46,6 +42,6 @@ export function registerMediaMtxHandlers(): void {
       data: mediaMtxManager.getStatus()
     }
   })
-  
+
   logger.info('[MediaMtxHandler] Handlers registered')
 }

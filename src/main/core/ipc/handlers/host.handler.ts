@@ -1,9 +1,9 @@
 ﻿/**
  * 主机相关的 IPC 处理器
  */
-import { handle } from '../IpcBus'
+import { handle, on, sendToMain } from '../IpcBus'
 import { DATA_EVENTS, type Host, type Device } from '@shared/ipc/data.types'
-import { hostManager } from '../../store/managers'
+import { hostManager, udpScanner } from '../../store/managers'
 import { logger } from '../../logger'
 import { isAxiosError } from '@shared/api/request'
 import dns from 'dns'
@@ -160,17 +160,21 @@ export function registerHostHandlers() {
     }
   })
 
-  // 根据 IP 或 ID 模糊匹配 + 状态过滤
-  handle<{ keyword: string; status: string }, Host[]>(
+  // 根据 IP 或 ID 模糊匹配 + 状态过滤 + 分组过滤
+  handle<{ keyword: string; status: string; groupId: string }, Host[]>(
     DATA_EVENTS.SEARCH_HOSTS_BY_IDENTIFIER_AND_STATUS_WITH_DEVICE_COUNT,
-    async ({ keyword, status }) => {
+    async ({ keyword, status, groupId }) => {
       const startTime = Date.now()
       try {
         logger.info(
-          `[HostHandler] SEARCH_HOSTS_BY_IDENTIFIER_AND_STATUS_WITH_DEVICE_COUNT request: keyword=${keyword}, status=${status}`
+          `[HostHandler] SEARCH_HOSTS_BY_IDENTIFIER_AND_STATUS_WITH_DEVICE_COUNT request: keyword=${keyword}, status=${status}, groupId=${groupId}`
         )
 
-        const hosts = hostManager.searchHostsByIdentifierAndStatusWithDeviceCount(keyword, status)
+        const hosts = hostManager.searchHostsByIdentifierAndStatusWithDeviceCount(
+          keyword,
+          status,
+          groupId
+        )
         const duration = Date.now() - startTime
         logger.info(
           `[HostHandler] SEARCH_HOSTS_BY_IDENTIFIER_AND_STATUS_WITH_DEVICE_COUNT success: count=${hosts.length}, duration=${duration}ms`
@@ -323,6 +327,48 @@ export function registerHostHandlers() {
     } catch (error) {
       logger.error(`[HostHandler] RESOLVE_DOMAIN failed: domain=${domain}`, error)
       return handleError(error)
+    }
+  })
+
+  // 开始扫描
+  handle<void, void>(DATA_EVENTS.START_HOST_SCAN, async () => {
+    logger.info('[HostHandler] START_HOST_SCAN request received')
+
+    try {
+      // 异步扫描，不阻塞 invoke 返回
+      // 不过滤已入库主机，重复添加时通过 id 做 upsert 更新
+      udpScanner
+        .discoverUdpDevices((device) => {
+          try {
+            sendToMain(DATA_EVENTS.HOST_SCAN_FOUND, device)
+          } catch (err) {
+            logger.error('[HostHandler] Error sending scan found event:', err)
+          }
+        })
+        .then(() => {
+          sendToMain(DATA_EVENTS.HOST_SCAN_COMPLETE)
+          logger.info('[HostHandler] HOST_SCAN_COMPLETE sent')
+        })
+        .catch((err) => {
+          logger.error('[HostHandler] Scan error:', err)
+          sendToMain(DATA_EVENTS.HOST_SCAN_COMPLETE)
+        })
+    } catch (err) {
+      logger.error('[HostHandler] START_HOST_SCAN failed:', err)
+      sendToMain(DATA_EVENTS.HOST_SCAN_COMPLETE)
+      return handleError(err)
+    }
+
+    return { success: true }
+  })
+
+  // 取消扫描
+  on<void>(DATA_EVENTS.CANCEL_HOST_SCAN, () => {
+    try {
+      logger.info('[HostHandler] CANCEL_HOST_SCAN received')
+      udpScanner.cancel()
+    } catch (err) {
+      logger.error('[HostHandler] CANCEL_HOST_SCAN failed:', err)
     }
   })
 

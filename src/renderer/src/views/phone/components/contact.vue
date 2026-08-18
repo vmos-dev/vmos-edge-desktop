@@ -14,13 +14,28 @@
         label-position="top"
       >
         <el-form-item :label="t('phone.contact.name')" prop="name" required>
-          <el-input v-model.trim="formData.name" :placeholder="t('phone.contact.enter')" maxlength="50" clearable />
+          <el-input
+            v-model.trim="formData.name"
+            :placeholder="t('phone.contact.enter')"
+            maxlength="50"
+            clearable
+          />
         </el-form-item>
         <el-form-item :label="t('phone.contact.phoneNumber')" prop="phone" required>
-          <el-input v-model.trim="formData.phone" :placeholder="t('phone.contact.enter')" maxlength="20" clearable />
+          <el-input
+            v-model.trim="formData.phone"
+            :placeholder="t('phone.contact.enter')"
+            maxlength="20"
+            clearable
+          />
         </el-form-item>
         <el-form-item :label="t('phone.contact.email')" prop="email">
-          <el-input v-model.trim="formData.email" :placeholder="t('phone.contact.enter')" maxlength="100" clearable />
+          <el-input
+            v-model.trim="formData.email"
+            :placeholder="t('phone.contact.enter')"
+            maxlength="100"
+            clearable
+          />
         </el-form-item>
         <el-form-item :label="t('phone.contact.organization')" prop="organization">
           <el-input
@@ -31,7 +46,12 @@
           />
         </el-form-item>
         <el-form-item :label="t('phone.contact.title')" prop="title">
-          <el-input v-model.trim="formData.title" :placeholder="t('phone.contact.enter')" maxlength="100" clearable />
+          <el-input
+            v-model.trim="formData.title"
+            :placeholder="t('phone.contact.enter')"
+            maxlength="100"
+            clearable
+          />
         </el-form-item>
         <el-form-item :label="t('phone.contact.note')" prop="note">
           <el-input
@@ -44,7 +64,9 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting"> {{ t('phone.contact.confirm') }} </el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitting">
+            {{ t('phone.contact.confirm') }}
+          </el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -62,7 +84,8 @@
             @click="handleBatchDelete"
             :disabled="selectedIds.length === 0"
           >
-            {{ t('phone.contact.delete') }}{{ selectedIds.length > 0 ? `(${selectedIds.length})` : '' }}
+            {{ t('phone.contact.delete')
+            }}{{ selectedIds.length > 0 ? `(${selectedIds.length})` : '' }}
           </el-button>
         </div>
       </div>
@@ -76,7 +99,9 @@
         >
           {{ t('phone.contact.selectAll') }}
         </el-checkbox>
-        <span class="selected-count">{{ t('phone.contact.selectedCount', { count: selectedIds.length }) }}</span>
+        <span class="selected-count">{{
+          t('phone.contact.selectedCount', { count: selectedIds.length })
+        }}</span>
       </div>
       <div class="contact-list">
         <div class="contact-list-content">
@@ -248,7 +273,11 @@ const loadContactList = async () => {
     const { hostIp, dbId } = getDeviceInfo()
 
     const url = buildDeviceApiUrl(hostIp, dbId, API_CONTROL_CONFIG.PATHS.GET_CONTACT_LIST)
-    const response = await request.get<ContactListApiResponse>(url, { offset: 0, limit: 999 }, { timeout: 5000 })
+    const response = await request.get<ContactListApiResponse>(
+      url,
+      { offset: 0, limit: 999 },
+      { timeout: 5000 }
+    )
 
     // 拦截器返回的是整个响应对象（包含 code、data、msg）
     const list = response?.data?.list || response?.data?.contacts
@@ -283,12 +312,16 @@ const handleBatchDelete = async () => {
   const selectedCount = selectedIds.value.length
 
   try {
-    await ElMessageBox.confirm(t('phone.contact.confirmDeleteContact', { count: selectedCount }), t('phone.contact.confirmDelete'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning',
-      confirmButtonClass: 'el-button--danger'
-    })
+    await ElMessageBox.confirm(
+      t('phone.contact.confirmDeleteContact', { count: selectedCount }),
+      t('phone.contact.confirmDelete'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
 
     const { hostIp, dbId } = getDeviceInfo()
 

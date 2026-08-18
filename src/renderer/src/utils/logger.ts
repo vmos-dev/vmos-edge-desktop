@@ -88,7 +88,10 @@ const parseError = (error: any) => {
 const isIgnorableUnhandledRejection = (reason: any) => {
   const rawMessage =
     typeof reason === 'string' ? reason : reason?.message || reason?.originalMessage || ''
-  const normalizedMessage = rawMessage.trim().replace(/^"+|"+$/g, '').toLowerCase()
+  const normalizedMessage = rawMessage
+    .trim()
+    .replace(/^"+|"+$/g, '')
+    .toLowerCase()
   return normalizedMessage === 'cancel' || normalizedMessage === 'canceled'
 }
 

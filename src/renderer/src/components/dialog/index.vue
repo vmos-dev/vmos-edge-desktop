@@ -15,14 +15,16 @@
     @close="handleClose"
     @closed="handleClosed"
   >
-    <template v-for="(_, name) in $slots" v-slot:[name]>
+    <template v-for="(_, name) in $slots" #[name]>
       <slot :name="name" />
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, useSlots, watch } from 'vue'
+import { useSlots } from 'vue'
+import { useDeferredOverlayRender } from '../overlay/useDeferredOverlayRender'
+
 defineOptions({ name: 'VmosDialog' })
 
 defineProps({
@@ -42,21 +44,13 @@ defineProps({
 
 const emits = defineEmits(['close', 'closed'])
 const modelValue = defineModel<boolean>({ default: false })
-const renderDialog = ref(!!modelValue.value)
+const { renderOverlay: renderDialog, handleClosed: handleOverlayClosed } =
+  useDeferredOverlayRender(modelValue)
 
 // Generate stable class name for each dialog instance.
 const randomId = `vmos-dialog-${Math.random().toString(36).substring(2, 15)}`
 const randomClass = `vmos-dialog ${randomId}`
 const $slots = useSlots()
-
-watch(
-  () => modelValue.value,
-  (val) => {
-    if (val) {
-      renderDialog.value = true
-    }
-  }
-)
 
 const handleClose = () => {
   emits('close')
@@ -64,7 +58,7 @@ const handleClose = () => {
 
 const handleClosed = () => {
   // Destroy after close transition so `closed` always fires.
-  renderDialog.value = false
+  handleOverlayClosed()
   emits('closed')
 }
 </script>

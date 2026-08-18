@@ -1,6 +1,9 @@
 export default {
   confirm: 'Confirm',
   cancel: 'Cancel',
+  close: 'Close',
+  back: 'Back',
+  moreOperations: 'More',
   save: 'Save',
   delete: 'Delete',
   loading: 'Loading...',
@@ -22,6 +25,7 @@ export default {
   waiting: 'Waiting',
   unknownError: 'Unknown Error',
   clearAll: 'Clear All',
+  selectAll: 'Select All',
   total: 'Total',
   doNotShowAgain: "Don't show this again",
   online: 'Online',
@@ -50,6 +54,11 @@ export default {
   ignoreThisVersion: 'Ignore this version',
   gotIt: 'Got it',
   viewReleaseHistory: 'View Full Release Notes',
+  hostStates: {
+    online: 'Online',
+    offline: 'Offline',
+    unknown: 'Unknown'
+  },
   deviceStates: {
     running: 'Running',
     stopped: 'Stopped',
@@ -73,6 +82,10 @@ export default {
     virtual: 'Virtual Device',
     real: 'Real Device'
   },
+  sortAsc: 'Ascending',
+  sortDesc: 'Descending',
+  sortReset: 'Default',
+  retry: 'Retry',
   proxyStrategies: {
     default: 'Default (No exit info support)'
   }

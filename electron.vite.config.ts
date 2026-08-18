@@ -58,7 +58,6 @@ export default defineConfig({
       __APP_VERSION_CODE__: JSON.stringify(versionCode || 0),
       __APP_VERSION_HASH__: JSON.stringify(versionHash || ''),
       __IMAGE_SUPPORT_VERSION_TIME__: imageSupportVersionTime,
-      __GA_MEASUREMENT_ID__: JSON.stringify('')
     },
     resolve: {
       alias: {
@@ -79,6 +78,7 @@ export default defineConfig({
     ],
     server: {
       host: true,
+      port: 9000,
       open: false
     }
   }

@@ -30,6 +30,22 @@
             <el-option :label="t('common.offline')" value="offline" />
           </el-select>
         </el-form-item>
+        <el-form-item :label="t('host.hostGroup')" prop="groupId" class="form-item">
+          <el-select
+            v-model="searchForm.groupId"
+            :placeholder="t('host.hostGroupPlaceholder')"
+            clearable
+            filterable
+            class="search-select"
+          >
+            <el-option
+              v-for="group in groups"
+              :key="group.id"
+              :label="group.name"
+              :value="group.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item class="form-item-actions">
           <el-button type="primary" @click="handleSearch">
             <el-icon class="el-icon--left"><Search /></el-icon>
@@ -39,12 +55,6 @@
             <el-icon class="el-icon--left"><Refresh /></el-icon>
             {{ t('common.reset') }}
           </el-button>
-          <el-button @click="handleUpdate('kernel')">
-            <svg-icon name="kernel" />&nbsp; {{ t('host.upgradeKernel') }}
-          </el-button>
-          <el-button @click="handleUpdate('cbs')" style="margin-right: 10px">
-            <svg-icon name="cbs" />&nbsp; {{ t('host.upgradeCbs') }}
-          </el-button>
           <el-dropdown @command="handleBatchOperation">
             <el-button>
               <el-icon class="el-icon--left"><Operation /></el-icon>
@@ -52,10 +62,27 @@
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="restart">{{ t('host.restart') }}</el-dropdown-item>
+                <el-dropdown-item command="upgrade-kernel">{{
+                  t('host.upgradeKernel')
+                }}</el-dropdown-item>
+                <el-dropdown-item command="upgrade-cbs">{{
+                  t('host.upgradeCbs')
+                }}</el-dropdown-item>
+                <el-dropdown-item command="restart" divided>{{
+                  t('host.restart')
+                }}</el-dropdown-item>
                 <el-dropdown-item command="reset">{{ t('host.resetHost') }}</el-dropdown-item>
                 <el-dropdown-item command="clean-image">{{
                   t('host.cleanImage')
+                }}</el-dropdown-item>
+                <el-dropdown-item command="upload-image">{{
+                  t('host.batchImportImage')
+                }}</el-dropdown-item>
+                <el-dropdown-item command="join-share" divided>{{
+                  t('host.joinShare')
+                }}</el-dropdown-item>
+                <el-dropdown-item command="close-share">{{
+                  t('host.closeShare')
                 }}</el-dropdown-item>
                 <el-dropdown-item command="delete" divided>{{
                   t('host.batchDelete')
@@ -67,6 +94,15 @@
       </el-form>
     </div>
 
+    <SharedFolderPanel
+      v-model:expanded="sharedFolderExpanded"
+      :status="sharedFolderStatus"
+      :loading="sharedFolderLoading"
+      :error-message="sharedFolderError"
+      @pick-directory="selectSharedFolder"
+      @open-directory="openSharedFolder"
+      @toggle="sharedFolderStatus.running ? stopSharedFolder() : startSharedFolder()"
+    />
     <!-- 主机列表表格 -->
     <div class="table-container" v-loading="loading">
       <VmosTable
@@ -83,6 +119,12 @@
     <!-- 主机详情对话框 -->
     <HostDetail ref="hostDetailRef" />
     <Update ref="updateRef" />
+    <ImportImageDialog ref="importImageRef" />
+    <ImportBackupDialog ref="importBackupRef" :concurrency="3" @imported="loadHosts" />
+    <ShareResultDialog ref="shareResultRef" />
+    <SshTunnelDialog ref="sshTunnelRef" />
+    <NetworkConfigDialog ref="networkConfigRef" @success="loadHosts" />
+    <CleanImageDialog ref="cleanImageRef" />
   </div>
 </template>
 
@@ -95,9 +137,9 @@ import {
   Refresh,
   RefreshRight,
   View,
-  Delete,
-  Document,
-  Upload
+  Upload,
+  Connection,
+  MoreFilled
 } from '@element-plus/icons-vue'
 import {
   ElMessage,
@@ -105,44 +147,68 @@ import {
   ElForm,
   ElTag,
   ElButton,
-  ElUpload,
+  ElDropdown,
+  ElDropdownMenu,
+  ElDropdownItem,
+  ElIcon,
   TableV2FixedDir
 } from 'element-plus'
-import type { UploadInstance, UploadRawFile, UploadRequestOptions } from 'element-plus'
 import { ipc } from '@renderer/core/ipc'
 import { DATA_EVENTS } from '@shared/ipc/data.types'
-import type { Host } from '@shared/ipc/data.types'
-import { formatBytes, formatTime } from '@renderer/utils/index'
-import { API_CONFIG, buildApiUrl, getErrorMessage, isCancel, request } from '@shared/api'
+import type { Host, Group } from '@shared/ipc/data.types'
+import { formatTime } from '@renderer/utils/index'
+import { API_CONFIG, buildApiUrl, getErrorMessage, request } from '@shared/api'
 import HostDetail from './components/detail.vue'
 import { CopyText } from '@renderer/components'
 import Update from './components/update.vue'
+import ImportImageDialog from './components/ImportImageDialog.vue'
+import ImportBackupDialog from './components/ImportBackupDialog.vue'
+import ShareResultDialog from './components/ShareResultDialog.vue'
+import SharedFolderPanel from './components/SharedFolderPanel.vue'
+import SshTunnelDialog from './components/SshTunnelDialog.vue'
+import NetworkConfigDialog from './components/NetworkConfigDialog.vue'
+import CleanImageDialog from './components/CleanImageDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave } from 'vue-router'
+import { useSharedFolder } from './composables/useSharedFolder'
 
 const { t } = useI18n()
 
 const searchFormRef = ref<InstanceType<typeof ElForm>>()
 const updateRef = ref<InstanceType<typeof Update>>()
+const importImageRef = ref<InstanceType<typeof ImportImageDialog>>()
+const importBackupRef = ref<InstanceType<typeof ImportBackupDialog>>()
+const shareResultRef = ref<InstanceType<typeof ShareResultDialog>>()
 const searchForm = reactive({
   keyword: '',
-  status: '' as 'online' | 'offline' | 'unknown' | ''
+  status: '' as 'online' | 'offline' | 'unknown' | '',
+  groupId: ''
 })
+const groups = ref<Group[]>([])
 const loading = ref(false)
 const hostList = ref<Host[]>([])
 const selectedHosts = ref<Host[]>([])
 const hostDetailRef = ref<InstanceType<typeof HostDetail>>()
+
+const sharedFolderExpanded = ref(false)
+const sshTunnelRef = ref<InstanceType<typeof SshTunnelDialog>>()
+const networkConfigRef = ref<InstanceType<typeof NetworkConfigDialog>>()
+const cleanImageRef = ref<InstanceType<typeof CleanImageDialog>>()
 let requestCounter = 0 // 请求计数器，用于确保只处理最后一次查询的结果
+const {
+  sharedFolderStatus,
+  sharedFolderLoading,
+  sharedFolderError,
+  loadSharedFolderStatus,
+  selectSharedFolder,
+  startSharedFolder,
+  stopSharedFolder,
+  openSharedFolder
+} = useSharedFolder()
 
 // 为每个主机维护一个简单的 loading 状态
 // 格式: Map<hostId, boolean> - 只要主机有任何操作在进行，就是 true
 const operationLoadingStates = ref<Map<string, boolean>>(new Map())
-const importProgressStates = ref<Map<string, number>>(new Map())
-const importUploadRefMap = ref<Map<string, UploadInstance | null>>(new Map())
-/** 正在导入备份的主机 id 集合，用于路由离开时提示 */
-const importingHostIds = ref<Set<string>>(new Set())
-/** 导入请求的 AbortController，用于取消 */
-const importAbortControllerMap = ref<Map<string, AbortController>>(new Map())
 
 /**
  * 获取指定主机的 loading 状态（只要有任何操作在进行就返回 true）
@@ -160,112 +226,6 @@ const setOperationLoading = (hostId: string, loading: boolean) => {
   } else {
     operationLoadingStates.value.delete(hostId)
   }
-}
-
-const getImportProgress = (hostId: string): number => {
-  return importProgressStates.value.get(hostId) ?? 0
-}
-
-const setImportProgress = (hostId: string, progress: number) => {
-  const normalized = Math.max(0, Math.min(100, progress))
-  if (normalized <= 0) {
-    importProgressStates.value.delete(hostId)
-    return
-  }
-  importProgressStates.value.set(hostId, normalized)
-}
-
-const setImportUploadRef = (hostId: string, instance: UploadInstance | null) => {
-  if (instance) {
-    importUploadRefMap.value.set(hostId, instance)
-  } else {
-    importUploadRefMap.value.delete(hostId)
-  }
-}
-
-const clearImportUploadFiles = (hostId: string) => {
-  importUploadRefMap.value.get(hostId)?.clearFiles()
-}
-
-/** 取消所有进行中的导入任务（切换路由时调用） */
-const cancelAllImportTasks = () => {
-  const hostIds = Array.from(importingHostIds.value)
-  hostIds.forEach((hostId) => {
-    importAbortControllerMap.value.get(hostId)?.abort()
-    setOperationLoading(hostId, false)
-    setImportProgress(hostId, 0)
-    clearImportUploadFiles(hostId)
-    importingHostIds.value.delete(hostId)
-    importAbortControllerMap.value.delete(hostId)
-  })
-}
-
-const MB_TO_BYTES = 1024 * 1024
-const MIN_BACKUP_IMPORT_AVAILABLE_BYTES = 10 * 1024 * 1024 * 1024
-
-const toNumericValue = (value: unknown): number => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-    const fallback = parseFloat(value)
-    if (Number.isFinite(fallback)) return fallback
-  }
-  return NaN
-}
-
-const calculateAvailableBytes = (
-  totalMbRaw: unknown,
-  usedPercentRaw: unknown
-): number | null => {
-  const totalMb = toNumericValue(totalMbRaw)
-  const usedPercent = toNumericValue(usedPercentRaw)
-
-  if (!Number.isFinite(totalMb) || totalMb <= 0) return null
-  if (!Number.isFinite(usedPercent)) return null
-
-  const normalizedPercent = Math.min(100, Math.max(0, usedPercent))
-  const availableMb = (totalMb * (100 - normalizedPercent)) / 100
-
-  return Math.max(0, availableMb * MB_TO_BYTES)
-}
-
-const getHostAvailableStorageBytes = (systemInfo: Record<string, unknown>): number | null => {
-  const ssdTotal = toNumericValue(systemInfo.ssd_total)
-  const useSsdStorage = Number.isFinite(ssdTotal) && ssdTotal > 0
-
-  if (useSsdStorage) {
-    return calculateAvailableBytes(systemInfo.ssd_total, systemInfo.ssd_percent)
-  }
-
-  return calculateAvailableBytes(systemInfo.mmc_total, systemInfo.mmc_percent)
-}
-
-const ensureBackupImportSpace = async (row: Host): Promise<boolean> => {
-  const systemInfoUrl = buildApiUrl(row.ip, API_CONFIG.PATHS.GET_SYSTEM_INFO)
-  const systemInfoResponse = await request.get(systemInfoUrl, {})
-  const availableBytes = getHostAvailableStorageBytes(systemInfoResponse?.data || {})
-
-  if (availableBytes === null) {
-    throw new Error(t('host.importBackupSpaceCheckFailed'))
-  }
-
-  if (availableBytes <= 0) {
-    ElMessage.error(t('host.importBackupHostFull'))
-    return false
-  }
-
-  if (availableBytes < MIN_BACKUP_IMPORT_AVAILABLE_BYTES) {
-    ElMessage.error(
-      t('host.importBackupInsufficientSpace', {
-        available: formatBytes(availableBytes),
-        required: formatBytes(MIN_BACKUP_IMPORT_AVAILABLE_BYTES)
-      })
-    )
-    return false
-  }
-
-  return true
 }
 
 /**
@@ -310,6 +270,17 @@ const columns = computed(() => [
     )
   },
   {
+    key: 'groupName',
+    dataKey: 'groupId',
+    title: t('host.columnGroup'),
+    width: 120,
+    flexGrow: 1,
+    cellRenderer: ({ cellData }) => {
+      const groupName = groups.value.find((g) => g.id === cellData)?.name || '-'
+      return <span style="color: var(--el-text-color-regular);">{groupName}</span>
+    }
+  },
+  {
     key: 'status',
     dataKey: 'status',
     title: t('host.columnStatus'),
@@ -347,115 +318,113 @@ const columns = computed(() => [
     title: t('host.columnAction'),
     fixed: TableV2FixedDir.RIGHT,
     align: 'left' as const,
-    width: 760,
+    width: 480,
     flexGrow: 1,
     cellRenderer: ({ rowData }) => {
+      const isOffline = rowData.status === 'offline'
+      const isLoading = getOperationLoading(rowData.id)
+
+      const handleMoreCommand = (command: string) => {
+        switch (command) {
+          case 'reset':
+            handleResetHost(rowData)
+            break
+          case 'clean-image':
+            cleanImageRef.value?.init(rowData.ip)
+            break
+          case 'clear-offline':
+            handleClearOfflineDevices(rowData)
+            break
+          case 'network-config':
+            networkConfigRef.value?.init(rowData.ip)
+            break
+          case 'delete':
+            handleDeleteHost(rowData)
+            break
+        }
+      }
+
       return (
-        <div style="display: flex; gap: 8px; justify-content: center;">
+        <div style="display: flex; gap: 8px; align-items: center;">
           <ElButton
             type="primary"
             size="small"
             icon={View}
-            disabled={rowData.status === 'offline'}
+            disabled={isOffline}
             link
             onClick={() => handleDetail(rowData)}
           >
             {t('common.detail')}
           </ElButton>
+          <ElButton type="primary" size="small" link onClick={() => handleOpenHostApi(rowData.ip)}>
+            {t('host.apiDoc')}
+          </ElButton>
           <ElButton
             type="primary"
             size="small"
             link
-            icon={Document}
-            onClick={() => handleOpenHostApi(rowData.ip)}
+            icon={Connection}
+            disabled={isOffline}
+            onClick={() => handleSshTunnel(rowData)}
           >
-            {t('host.apiDoc')}
+            {t('host.tunnelTitle')}
           </ElButton>
-          <ElUpload
-            action="#"
-            autoUpload={true}
-            multiple={false}
-            limit={1}
-            showFileList={false}
-            accept=".tar"
-            ref={(instance: UploadInstance | null) => setImportUploadRef(rowData.id, instance)}
-            disabled={rowData.status === 'offline' || getOperationLoading(rowData.id)}
-            beforeUpload={(file) => handleImportBackupBeforeUpload(file)}
-            onExceed={() => ElMessage.warning(t('host.importBackupOnlySingle'))}
-            httpRequest={(options) => handleImportBackupUpload(rowData, options)}
+          <ElButton
+            type="primary"
+            size="small"
+            disabled={isOffline || isLoading}
+            icon={Upload}
+            link
+            onClick={() => importBackupRef.value?.init(rowData)}
           >
-            <ElButton
-              type="primary"
-              size="small"
-              loading={getOperationLoading(rowData.id)}
-              disabled={rowData.status === 'offline'}
-              icon={Upload}
-              link
-            >
-              {getOperationLoading(rowData.id) && getImportProgress(rowData.id) > 0
-                ? t('host.importBackupProgress', {
-                    percent: getImportProgress(rowData.id).toFixed(0)
-                  })
-                : t('host.importBackup')}
-            </ElButton>
-          </ElUpload>
+            {t('host.importBackup')}
+          </ElButton>
           <ElButton
             type="warning"
             size="small"
-            loading={getOperationLoading(rowData.id)}
+            loading={isLoading}
             icon={RefreshRight}
-            disabled={rowData.status === 'offline'}
+            disabled={isOffline}
             link
             onClick={() => handleRestart(rowData)}
           >
             {t('host.restart')}
           </ElButton>
-          <ElButton
-            type="warning"
-            loading={getOperationLoading(rowData.id)}
-            size="small"
-            icon={Refresh}
-            disabled={rowData.status === 'offline'}
-            link
-            onClick={() => handleResetHost(rowData)}
-          >
-            {t('host.resetHost')}
-          </ElButton>
-          <ElButton
-            type="danger"
-            loading={getOperationLoading(rowData.id)}
-            size="small"
-            disabled={rowData.status === 'offline'}
-            icon={Delete}
-            link
-            onClick={() => handleCleanImage(rowData)}
-          >
-            {t('host.cleanImage')}
-          </ElButton>
-          <ElButton
-            type="danger"
-            loading={getOperationLoading(rowData.id)}
-            size="small"
-            disabled={rowData.status !== 'online'}
-            icon={Delete}
-            link
-            onClick={() => handleClearOfflineDevices(rowData)}
-          >
-            {t('host.clearOfflineDevices')}
-          </ElButton>
-          {rowData.status === 'offline' && (
-            <ElButton
-              type="danger"
-              size="small"
-              loading={getOperationLoading(rowData.id)}
-              disabled={getOperationLoading(rowData.id)}
-              icon={Delete}
-              link
-              onClick={() => handleDeleteHost(rowData)}
-            >
-              {t('common.delete')}
-            </ElButton>
-          )}
+          <ElDropdown trigger="click" onCommand={handleMoreCommand}>
+            {{
+              default: () => (
+                <ElButton text circle style="width: 24px; height: 24px; min-height: 24px;">
+                  <ElIcon color="var(--el-text-color-secondary)" size={16}>
+                    <MoreFilled />
+                  </ElIcon>
+                </ElButton>
+              ),
+              dropdown: () => (
+                <ElDropdownMenu>
+                  <ElDropdownItem command="reset" disabled={isOffline || isLoading}>
+                    {t('host.resetHost')}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="clean-image" disabled={isOffline || isLoading}>
+                    {t('host.cleanImage')}
+                  </ElDropdownItem>
+                  <ElDropdownItem
+                    command="clear-offline"
+                    disabled={rowData.status !== 'online' || isLoading}
+                  >
+                    {t('host.clearOfflineDevices')}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="network-config" disabled={isOffline || isLoading}>
+                    {t('host.networkConfig')}
+                  </ElDropdownItem>
+                  {isOffline && (
+                    <ElDropdownItem command="delete" disabled={isLoading} divided>
+                      {t('common.delete')}
+                    </ElDropdownItem>
+                  )}
+                </ElDropdownMenu>
+              )
+            }}
+          </ElDropdown>
         </div>
       )
     }
@@ -471,66 +440,6 @@ const columns = computed(() => [
  */
 const handleOpenHostApi = (ip: string) => {
   ipc.invoke(DATA_EVENTS.HOST_OPEN_API_DETAIL, [{ host_ip: ip }])
-}
-
-const handleImportBackupBeforeUpload = (file: UploadRawFile) => {
-  if (!/\.tar$/i.test(file.name)) {
-    ElMessage.warning(t('host.importBackupOnlyTar'))
-    return false
-  }
-  return true
-}
-
-const handleImportBackupUpload = async (row: Host, options: UploadRequestOptions) => {
-  if (getOperationLoading(row.id)) return
-  const file = options.file as File
-
-  const controller = new AbortController()
-  importAbortControllerMap.value.set(row.id, controller)
-  importingHostIds.value.add(row.id)
-  setOperationLoading(row.id, true)
-  setImportProgress(row.id, 0)
-
-  try {
-    const hasEnoughSpace = await ensureBackupImportSpace(row)
-    if (!hasEnoughSpace) {
-      options.onError?.(new Error(t('host.importBackupFailed')) as any)
-      return
-    }
-
-    const formData = new FormData()
-    formData.append('file', file)
-
-    await request.post(buildApiUrl(row.ip, API_CONFIG.PATHS.IMPORT_BACKUP), formData, {
-      timeout: 0,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
-      onUploadProgress: (event) => {
-        if (!event.total) return
-        const percent = (event.loaded / event.total) * 100
-        setImportProgress(row.id, percent)
-        options.onProgress?.({ percent } as any)
-      }
-    })
-
-    setImportProgress(row.id, 100)
-    options.onSuccess?.({})
-    ElMessage.success(t('host.importBackupSuccess'))
-    loadHosts()
-  } catch (error) {
-    options.onError?.(error as any)
-    if (!isCancel(error)) {
-      ElMessage.error(getErrorMessage(error, t('host.importBackupFailed')))
-    }
-  } finally {
-    importingHostIds.value.delete(row.id)
-    importAbortControllerMap.value.delete(row.id)
-    setOperationLoading(row.id, false)
-    setImportProgress(row.id, 0)
-    clearImportUploadFiles(row.id)
-  }
 }
 
 /**
@@ -553,11 +462,12 @@ const loadHosts = async () => {
   }
 
   try {
-    const res = await ipc.invoke<Host & { deviceCount: number }[]>(
+    const res = await ipc.invoke<Host & { deviceCount: number; groupName: string | null }[]>(
       DATA_EVENTS.SEARCH_HOSTS_BY_IDENTIFIER_AND_STATUS_WITH_DEVICE_COUNT,
       {
         keyword: searchForm.keyword,
-        status: searchForm.status
+        status: searchForm.status,
+        groupId: searchForm.groupId
       }
     )
 
@@ -622,11 +532,172 @@ const handleSelectionChange = (selection: Host[]) => {
 }
 
 /**
+ * 并发队列执行，限制并发数
+ */
+function runConcurrent(
+  tasks: (() => Promise<any>)[],
+  concurrency: number
+): Promise<PromiseSettledResult<any>[]> {
+  const results: PromiseSettledResult<any>[] = new Array(tasks.length)
+  let index = 0
+
+  const run = async () => {
+    while (index < tasks.length) {
+      const i = index++
+      try {
+        const value = await tasks[i]()
+        results[i] = { status: 'fulfilled', value }
+      } catch (reason: any) {
+        results[i] = { status: 'rejected', reason }
+      }
+    }
+  }
+
+  return Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => run())).then(
+    () => results
+  )
+}
+
+/**
+ * 批量加入/关闭共享
+ */
+const handleBatchShare = async (command: 'join-share' | 'close-share') => {
+  const selected = selectedHosts.value
+  const loadingHosts = selected.filter((host) => getOperationLoading(host.id))
+  const onlineHosts = selected.filter(
+    (host) => host.status === 'online' && !getOperationLoading(host.id)
+  )
+
+  if (!onlineHosts.length) {
+    if (loadingHosts.length > 0) {
+      ElMessage.warning(t('host.selectOperatingHosts', { count: loadingHosts.length }))
+    } else {
+      ElMessage.warning(t('host.selectOnlineHostsToOperate'))
+    }
+    return
+  }
+
+  if (onlineHosts.length > 50) {
+    ElMessage.warning(t('host.maxBatchOperation'))
+    return
+  }
+
+  if (loadingHosts.length) {
+    ElMessage.warning(
+      t('host.excludedOperatingHosts', {
+        excludedCount: loadingHosts.length,
+        remainingCount: onlineHosts.length
+      })
+    )
+  }
+
+  let shareUrl = ''
+
+  if (command === 'join-share') {
+    if (!sharedFolderStatus.value.running || !sharedFolderStatus.value.accessUrl) {
+      ElMessage.warning(t('host.joinShareRequiresRunning'))
+      return
+    }
+    shareUrl = sharedFolderStatus.value.accessUrl
+    try {
+      await ElMessageBox.confirm(
+        t('host.joinShareConfirm', { count: onlineHosts.length }),
+        t('common.tips'),
+        {
+          confirmButtonText: t('common.confirm'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning'
+        }
+      )
+    } catch {
+      return
+    }
+  } else {
+    try {
+      await ElMessageBox.confirm(
+        t('host.closeShareConfirm', { count: onlineHosts.length }),
+        t('common.tips'),
+        {
+          confirmButtonText: t('common.confirm'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning'
+        }
+      )
+    } catch {
+      return
+    }
+  }
+
+  onlineHosts.forEach((host) => setOperationLoading(host.id, true))
+
+  try {
+    const apiPath =
+      command === 'join-share' ? API_CONFIG.PATHS.SHARE_OPEN : API_CONFIG.PATHS.SHARE_CLOSE
+
+    const tasks = onlineHosts.map((host) => () => {
+      const url = buildApiUrl(host.ip, apiPath)
+      return command === 'join-share' ? request.post(url, { url: shareUrl }) : request.post(url)
+    })
+
+    const results = await runConcurrent(tasks, 5)
+
+    const failedItems: { ip: string; reason: string }[] = []
+    let successCount = 0
+
+    results.forEach((result, idx) => {
+      if (result.status === 'fulfilled') {
+        successCount++
+      } else {
+        failedItems.push({
+          ip: onlineHosts[idx].ip,
+          reason: getErrorMessage(result.reason, t('host.deleteFailed'))
+        })
+      }
+    })
+
+    if (failedItems.length === 0) {
+      ElMessage.success(t('host.shareResultAllSuccess', { count: successCount }))
+    } else {
+      shareResultRef.value?.init({ successCount, failedItems, operation: command })
+    }
+  } catch (error) {
+    console.error(error)
+  } finally {
+    onlineHosts.forEach((host) => setOperationLoading(host.id, false))
+  }
+}
+
+/**
  * 批量操作
  */
 const handleBatchOperation = async (command: string) => {
+  if (command === 'upgrade-kernel') {
+    handleUpdate('kernel')
+    return
+  }
+
+  if (command === 'upgrade-cbs') {
+    handleUpdate('cbs')
+    return
+  }
+
   if (command === 'delete') {
     await handleBatchDeleteHosts()
+    return
+  }
+
+  if (command === 'upload-image') {
+    const onlineHosts = selectedHosts.value.filter((host) => host.status === 'online')
+    if (!onlineHosts.length) {
+      ElMessage.warning(t('host.selectOnlineHostsForImage'))
+      return
+    }
+    importImageRef.value?.init(onlineHosts)
+    return
+  }
+
+  if (command === 'join-share' || command === 'close-share') {
+    await handleBatchShare(command)
     return
   }
 
@@ -678,15 +749,17 @@ const handleBatchOperation = async (command: string) => {
   const operationNameMap: Record<string, string> = {
     restart: t('host.restart'),
     reset: t('host.resetHost'),
-    'clean-image': t('host.cleanImage')
+    'clean-image': t('host.cleanUnusedImage')
   }
 
   try {
     await ElMessageBox.confirm(
-      t('host.confirmOperation', {
-        operation: operationNameMap[command],
-        count: onlineHosts.length
-      }),
+      command === 'clean-image'
+        ? t('host.batchCleanImageConfirm', { count: onlineHosts.length })
+        : t('host.confirmOperation', {
+            operation: operationNameMap[command],
+            count: onlineHosts.length
+          }),
       t('common.tips'),
       {
         confirmButtonText: t('common.confirm'),
@@ -855,6 +928,10 @@ const handleDetail = (row: Host) => {
   hostDetailRef.value?.init(row)
 }
 
+const handleSshTunnel = (row: Host) => {
+  sshTunnelRef.value?.init(row.ip)
+}
+
 /**
  * 重启主机
  */
@@ -915,35 +992,6 @@ const handleResetHost = async (row: Host) => {
   }
 }
 
-/**
- * 清理镜像
- */
-const handleCleanImage = async (row: Host) => {
-  if (getOperationLoading(row.id)) {
-    return
-  }
-  await ElMessageBox.confirm(t('host.cleanImageConfirm', { ip: row.ip }), t('common.tips'), {
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel'),
-    type: 'warning'
-  })
-  setOperationLoading(row.id, true)
-  try {
-    const res = await ipc.invoke(DATA_EVENTS.CLEAN_HOST_IMAGE, toRaw(row))
-    if (res.success) {
-      ElMessage.success(t('host.cleanImageSent'))
-    } else {
-      ElMessage.error(res.error || t('common.operationFailed'))
-    }
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error?.message || t('common.operationFailed'))
-    }
-  } finally {
-    setOperationLoading(row.id, false)
-  }
-}
-
 const handleClearOfflineDevices = async (row: Host) => {
   if (getOperationLoading(row.id)) {
     return
@@ -988,21 +1036,17 @@ const handleClearOfflineDevices = async (row: Host) => {
 }
 /** 路由离开守卫：有导入任务时提示，确认则取消所有导入并离开 */
 onBeforeRouteLeave((_to, _from, next) => {
-  if (importingHostIds.value.size === 0) {
+  if (!importBackupRef.value?.hasRunningTasks()) {
     next()
     return
   }
-  ElMessageBox.confirm(
-    t('host.switchRouteWithImportConfirm'),
-    t('common.tips'),
-    {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning'
-    }
-  )
+  ElMessageBox.confirm(t('host.switchRouteWithImportConfirm'), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
+    type: 'warning'
+  })
     .then(() => {
-      cancelAllImportTasks()
+      importBackupRef.value?.cancelAll()
       next()
     })
     .catch(() => {
@@ -1012,8 +1056,19 @@ onBeforeRouteLeave((_to, _from, next) => {
 
 let refreshTimer: NodeJS.Timeout
 
+const loadGroups = async () => {
+  try {
+    const res = await ipc.invoke<Group[]>(DATA_EVENTS.GET_GROUPS)
+    if (res.success && res.data) {
+      groups.value = res.data.filter((g) => !g.type || g.type === 'host')
+    }
+  } catch (error) {
+    console.error('[Host] loadGroups failed:', error)
+  }
+}
+
 onMounted(async () => {
-  await loadHosts()
+  await Promise.all([loadHosts(), loadSharedFolderStatus(), loadGroups()])
 
   // 定时器 5秒刷一次
   refreshTimer = setInterval(() => {

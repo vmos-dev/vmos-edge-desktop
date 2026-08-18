@@ -42,8 +42,16 @@ export const API_CONFIG = {
     RESET_HOST: '/v1/reset',
     // 获取主机镜像列表
     GET_HOST_IMG_LIST: '/v1/get_img_list',
-    // 获取主机网络配置
+    // 获取主机网络配置（旧接口）
     GET_HOST_NETWORK_CONFIG: '/v1/net_info',
+    // 获取主机网络配置（新接口）
+    GET_NETWORK_CONFIG: '/sys/network/config',
+    // 修改主机网络配置
+    SET_NETWORK_CONFIG: '/sys/network/config',
+    // 重置主机网络为 DHCP
+    RESET_NETWORK_CONFIG: '/sys/network/config/reset',
+    // 设置 Swap 大小（路径后需追加 /{size_gb}）
+    SET_SWAP_SIZE: '/v1/swap_size',
     // 导出机型模板
     IMPORT_ADI_TEMPLATE: '/v1/import_adi',
     // 导入镜像
@@ -114,7 +122,22 @@ export const API_CONFIG = {
     /** 设置 SCD 配置（开启/关闭音频参数）- POST，路径需拼接 :db_id */
     POST_SCD_CONFIG: '/container_api/v1/scd_config',
     /** 重启 SCD 使音频配置生效 - POST，路径需拼接 :db_id */
-    POST_SCD_RESTART: '/container_api/v1/scd_restart'
+    POST_SCD_RESTART: '/container_api/v1/scd_restart',
+
+    // 加入共享 - POST，参数 { url: string }
+    SHARE_OPEN: '/v1/share/open',
+    // 关闭共享 - POST，无参数
+    SHARE_CLOSE: '/v1/share/close',
+
+    // ==================== SSH 远程调试隧道 ====================
+    /** 开启隧道 - POST */
+    TUNNEL_ENABLE: '/tunnel/enable',
+    /** 查询隧道状态 - GET */
+    TUNNEL_STATUS: '/tunnel/status',
+    /** 关闭隧道（锁定） - POST */
+    TUNNEL_DISABLE: '/tunnel/disable',
+    /** 解锁隧道 - POST */
+    TUNNEL_UNLOCK: '/tunnel/unlock'
   }
 } as const
 

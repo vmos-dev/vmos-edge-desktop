@@ -256,7 +256,9 @@ const groupedApiList = computed(() => {
   }
 
   // 按模块名排序
-  const sortedKeys = Object.keys(groups).sort((a, b) => a.localeCompare(b))
+  const sortedKeys = Object.keys(groups).sort((a, b) =>
+    a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' })
+  )
   const sortedGroups: Record<string, string[]> = {}
   for (const key of sortedKeys) {
     sortedGroups[key] = groups[key]

@@ -75,7 +75,9 @@
                   <span class="device-info">
                     {{ task.meta?.device?.user_name }} - {{ task.meta?.device?.db_id }}
                   </span>
-                  <span v-if="task.status === 'processing'" class="status-text">{{ t('cloudPhone.executing') }}</span>
+                  <span v-if="task.status === 'processing'" class="status-text">{{
+                    t('cloudPhone.executing')
+                  }}</span>
                   <span v-else-if="task.status === 'success'" class="status-text success">
                     {{ t('cloudPhone.executeSuccess') }}
                   </span>
@@ -144,9 +146,9 @@
           >
             {{ t('cloudPhone.confirmExecute') }}
           </el-button>
-          <el-button v-else type="primary" @click="handleReset" :disabled="isProcessing"
-            >{{ t('cloudPhone.reExecute') }}</el-button
-          >
+          <el-button v-else type="primary" @click="handleReset" :disabled="isProcessing">{{
+            t('cloudPhone.reExecute')
+          }}</el-button>
         </div>
       </div>
     </template>
@@ -188,10 +190,19 @@ const commandTemplateGroups = [
       { labelKey: 'cloudPhone.cmdTplInputText', command: 'input text "hello"' },
       { labelKey: 'cloudPhone.cmdTplTapScreen', command: 'input tap 500 500' },
       { labelKey: 'cloudPhone.cmdTplSwipeScreen', command: 'input swipe 300 1000 300 500' },
-      { labelKey: 'cloudPhone.cmdTplOpenSettings', command: 'am start -a android.settings.SETTINGS' },
-      { labelKey: 'cloudPhone.cmdTplOpenDialer', command: 'am start -a android.intent.action.DIAL' },
+      {
+        labelKey: 'cloudPhone.cmdTplOpenSettings',
+        command: 'am start -a android.settings.SETTINGS'
+      },
+      {
+        labelKey: 'cloudPhone.cmdTplOpenDialer',
+        command: 'am start -a android.intent.action.DIAL'
+      },
       { labelKey: 'cloudPhone.cmdTplScreenshot', command: 'screencap -p /sdcard/screenshot.png' },
-      { labelKey: 'cloudPhone.cmdTplScreenRecordStart', command: 'screenrecord /sdcard/record.mp4' },
+      {
+        labelKey: 'cloudPhone.cmdTplScreenRecordStart',
+        command: 'screenrecord /sdcard/record.mp4'
+      },
       { labelKey: 'cloudPhone.cmdTplScreenRecordStop', command: 'killall -INT screenrecord' }
     ]
   },
@@ -201,7 +212,10 @@ const commandTemplateGroups = [
       { labelKey: 'cloudPhone.cmdTplListPackages', command: 'pm list packages' },
       { labelKey: 'cloudPhone.cmdTplListSystem', command: 'pm list packages -s' },
       { labelKey: 'cloudPhone.cmdTplListThirdParty', command: 'pm list packages -3' },
-      { labelKey: 'cloudPhone.cmdTplAppVersion', command: 'dumpsys package <package_name> | grep versionName' },
+      {
+        labelKey: 'cloudPhone.cmdTplAppVersion',
+        command: 'dumpsys package <package_name> | grep versionName'
+      },
       { labelKey: 'cloudPhone.cmdTplAppMemory', command: 'dumpsys meminfo <package_name>' },
       { labelKey: 'cloudPhone.cmdTplClearAppData', command: 'pm clear <package_name>' },
       { labelKey: 'cloudPhone.cmdTplUninstallApp', command: 'pm uninstall <package_name>' },
@@ -219,7 +233,10 @@ const commandTemplateGroups = [
   {
     labelKey: 'cloudPhone.cmdCatDevice',
     templates: [
-      { labelKey: 'cloudPhone.cmdTplCurrentActivity', command: 'dumpsys activity activities | grep mResumedActivity' },
+      {
+        labelKey: 'cloudPhone.cmdTplCurrentActivity',
+        command: 'dumpsys activity activities | grep mResumedActivity'
+      },
       { labelKey: 'cloudPhone.cmdTplSystemVersion', command: 'getprop ro.build.version.release' },
       { labelKey: 'cloudPhone.cmdTplDeviceModel', command: 'getprop ro.product.model' },
       { labelKey: 'cloudPhone.cmdTplDeviceBrand', command: 'getprop ro.product.brand' },

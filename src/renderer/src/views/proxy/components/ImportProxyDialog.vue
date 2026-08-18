@@ -28,7 +28,9 @@
         </el-button>
         <template v-if="proxies.length > 0">
           <div class="button-group">
-            <el-button type="primary" size="small" plain @click="reset">{{ t('proxy.reUpload') }}</el-button>
+            <el-button type="primary" size="small" plain @click="reset">{{
+              t('proxy.reUpload')
+            }}</el-button>
             <el-button
               type="danger"
               size="small"
@@ -45,9 +47,9 @@
               @click="handleDownloadFailed"
               >{{ t('proxy.downloadErrorProxies') }}</el-button
             >
-            <el-button type="danger" size="small" plain @click="handleBatchDelete"
-              >{{ t('proxy.batchDelete') }}</el-button
-            >
+            <el-button type="danger" size="small" plain @click="handleBatchDelete">{{
+              t('proxy.batchDelete')
+            }}</el-button>
           </div>
         </template>
       </div>
@@ -138,7 +140,9 @@
               accept=".txt,.xlsx,.xls"
             >
               <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-              <div class="el-upload__text">{{ t('proxy.dragFileTip') }} <em>{{ t('proxy.clickUpload') }}</em></div>
+              <div class="el-upload__text">
+                {{ t('proxy.dragFileTip') }} <em>{{ t('proxy.clickUpload') }}</em>
+              </div>
               <template #tip>
                 <div class="el-upload__tip">
                   {{ t('proxy.fileFormatTip') }}
@@ -198,7 +202,12 @@
 
           <el-table-column :label="t('proxy.previewName')" width="120" show-overflow-tooltip>
             <template #default="{ row }">
-              <el-input v-model="row.name" size="small" maxlength="20" :placeholder="t('proxy.namePlaceholder')" />
+              <el-input
+                v-model="row.name"
+                size="small"
+                maxlength="20"
+                :placeholder="t('proxy.namePlaceholder')"
+              />
             </template>
           </el-table-column>
           <el-table-column :label="t('proxy.previewStatus')" width="70" align="center">
@@ -207,7 +216,12 @@
               <span v-else class="error-text">{{ t('proxy.statusAbnormal') }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="payload.protocol" :label="t('proxy.previewProtocol')" width="80" align="center">
+          <el-table-column
+            prop="payload.protocol"
+            :label="t('proxy.previewProtocol')"
+            width="80"
+            align="center"
+          >
             <template #default="{ row }">
               <span v-if="row.valid" class="text-gray">{{ row.payload.protocol }}</span>
               <span v-else class="text-gray">-</span>
@@ -225,10 +239,13 @@
               <span v-else>-</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('proxy.previewRaw')" show-overflow-tooltip prop="raw"> </el-table-column>
+          <el-table-column :label="t('proxy.previewRaw')" show-overflow-tooltip prop="raw">
+          </el-table-column>
           <el-table-column :label="t('proxy.previewError')" width="150" align="center">
             <template #default="{ row }">
-              <span v-if="!row.valid" class="error-text">{{ row.error || t('proxy.parseFailed') }}</span>
+              <span v-if="!row.valid" class="error-text">{{
+                row.error || t('proxy.parseFailed')
+              }}</span>
             </template>
           </el-table-column>
         </el-table>
@@ -238,14 +255,18 @@
         <span
           >{{ t('proxy.totalCount', { total: proxies.length }) }}
           <span class="success-text">{{ t('proxy.validCount', { valid: validCount }) }}</span>
-          <span class="error-text">{{ t('proxy.invalidCount', { invalid: failedCount }) }}</span></span
+          <span class="error-text">{{
+            t('proxy.invalidCount', { invalid: failedCount })
+          }}</span></span
         >
       </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="visible = false" :disabled="importing">{{ t('common.cancel') }}</el-button>
+        <el-button @click="visible = false" :disabled="importing">{{
+          t('common.cancel')
+        }}</el-button>
         <el-button
           type="primary"
           @click="handleConfirm"

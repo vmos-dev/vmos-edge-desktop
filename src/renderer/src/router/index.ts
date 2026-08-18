@@ -46,16 +46,34 @@ const router = createRouter({
           meta: { title: 'layout.header.generalSettings' }
         },
         {
-          path: '/automation',
-          name: 'Automation',
-          component: () => import('@renderer/views/automation/index.vue'),
-          meta: { title: 'layout.automation' }
-        },
-        {
           path: '/ai-agent',
           name: 'AiAgent',
           component: () => import('@renderer/views/aiAgent/index.vue'),
           meta: { title: 'layout.aiAgent' }
+        },
+        {
+          path: '/frp',
+          name: 'Frp',
+          component: () => import('@renderer/views/frp/index.vue'),
+          meta: { title: 'layout.frp' }
+        },
+        {
+          path: '/automation',
+          name: 'Automation',
+          component: () => import('@renderer/views/workflow/AutomationView.vue'),
+          meta: { title: 'layout.automation' }
+        },
+        {
+          path: '/automation/workflow/:id',
+          name: 'WorkflowEdit',
+          component: () => import('@renderer/views/workflow/EditView.vue'),
+          meta: { title: 'layout.automation' }
+        },
+        {
+          path: '/automation/task/:id',
+          name: 'TaskDetail',
+          component: () => import('@renderer/views/taskCenter/TaskDetailView.vue'),
+          meta: { title: 'layout.automation' }
         }
       ]
     },

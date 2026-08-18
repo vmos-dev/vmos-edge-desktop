@@ -7,13 +7,16 @@ export default {
     settings: 'Settings',
     generalSettings: 'General Settings',
     machineSettings: 'ADI Settings',
-    helpDocs: 'Help Documentation'
+    helpCenter: 'Help Center',
+    helpDocs: 'Help Documentation',
+    officialWebsite: 'Official Website'
   },
   cloud: 'Cloud Phone',
   host: 'Host',
   image: 'Image',
   proxy: 'Proxy',
   phone: 'Phone',
-  automation: 'AI Workflow',
-  aiAgent: 'AI Agent'
+  automation: 'Automation',
+  aiAgent: 'AI Agent',
+  frp: 'Port Mapping'
 }

@@ -86,7 +86,8 @@ export default {
     deleteSelected: 'Delete Selected',
     selectConversationsToDelete: 'Please select conversations to delete',
     deleteSelectedConfirmTitle: 'Delete Conversations',
-    deleteSelectedConfirm: 'Delete the selected {count} conversations? This action cannot be undone.',
+    deleteSelectedConfirm:
+      'Delete the selected {count} conversations? This action cannot be undone.',
     deleteSelectedSuccess: 'Deleted {count} conversations',
     deleteSelectedPartial: 'Delete completed: {success} succeeded, {fail} failed',
     deleteSuccess: 'Conversation deleted',

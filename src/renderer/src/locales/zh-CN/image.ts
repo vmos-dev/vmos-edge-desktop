@@ -10,7 +10,8 @@ export default {
   officialDownload: '官方镜像下载',
   imageList: '镜像列表',
   batchDelete: '批量删除',
-  pathTip: '建议选择空间充足的非根目录作为存储路径（如 D:\\VMOSData），禁止选择磁盘根目录，以避免镜像解压过程中的路径逃逸风险。',
+  pathTip:
+    '建议选择空间充足的非根目录作为存储路径（如 D:\\VMOSData），禁止选择磁盘根目录，以避免镜像解压过程中的路径逃逸风险。',
   namePlaceholder: '请输入镜像名称',
   androidVersion: 'Android版本',
   androidVersionPlaceholder: '请选择Android版本',
@@ -30,7 +31,8 @@ export default {
   browseFile: '浏览文件',
   supportedFormat: '支持导入官方发布的 .tar.zst 格式文件，文件大小不得超过 5GB',
   clickToReselect: '点击重新选择',
-  importTip: '温馨提示：请确认上传文件为 VMOS Edge 官方发布下载镜像，导入过程需要进行完整性及签名校验，请耐心等待！',
+  importTip:
+    '温馨提示：请确认上传文件为 VMOS Edge 官方发布下载镜像，导入过程需要进行完整性及签名校验，请耐心等待！',
   importing: '正在导入...',
   imageNameLabel: '镜像名称',
   imageNamePlaceholder: '输入镜像名称',

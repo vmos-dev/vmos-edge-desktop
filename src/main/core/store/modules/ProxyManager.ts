@@ -165,11 +165,12 @@ export class ProxyManager extends BaseManager {
               id: uuidv4(),
               createTime: Date.now(),
               lastCheckStatus: '', // 批量导入不检测
-              ip: '',
-              country: '',
-              city: '',
-              timezone: '',
-              loc: ''
+              // 保留 proxy 中已有的出口信息，仅在缺失时补空字符串
+              ip: proxy.ip ?? '',
+              country: proxy.country ?? '',
+              city: (proxy as any).city ?? '',
+              timezone: proxy.timezone ?? '',
+              loc: proxy.loc ?? ''
             }
             this.proxyDao.addProxy(newProxy)
             success++
@@ -239,14 +240,14 @@ export class ProxyManager extends BaseManager {
         !isCheck
           ? { ...updates }
           : {
-            ...updates,
-            lastCheckStatus: lastCheckStatus,
-            ip: result?.data?.ip || '',
-            country: result?.data?.country || '',
-            city: result?.data?.city || '',
-            timezone: result?.data?.timezone || '',
-            loc: result?.data?.loc || ''
-          }
+              ...updates,
+              lastCheckStatus: lastCheckStatus,
+              ip: result?.data?.ip || '',
+              country: result?.data?.country || '',
+              city: result?.data?.city || '',
+              timezone: result?.data?.timezone || '',
+              loc: result?.data?.loc || ''
+            }
       )
       const duration = Date.now() - startTime
       if (!updated) {
@@ -333,7 +334,9 @@ export class ProxyManager extends BaseManager {
    *   port: 1080
    * })
    */
-  public async checkProxy(proxy: any | any[]): Promise<{ success: boolean; data?: any; error?: string }> {
+  public async checkProxy(
+    proxy: any | any[]
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     const isArray = Array.isArray(proxy)
     const firstProxy = isArray ? proxy[0] : proxy
     logger.info(

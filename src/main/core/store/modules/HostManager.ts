@@ -391,13 +391,21 @@ export class HostManager extends BaseManager {
    * 根据 IP 或 ID 模糊匹配 + 状态过滤
    * 并统计每台主机的设备数量
    */
-  public searchHostsByIdentifierAndStatusWithDeviceCount(keyword: string, status: string): Host[] {
+  public searchHostsByIdentifierAndStatusWithDeviceCount(
+    keyword: string,
+    status: string,
+    groupId: string
+  ): Host[] {
     const startTime = Date.now()
     logger.debug(
-      `[HostManager] searchHostsByIdentifierAndStatusWithDeviceCount called: keyword=${keyword}, status=${status}`
+      `[HostManager] searchHostsByIdentifierAndStatusWithDeviceCount called: keyword=${keyword}, status=${status}, groupId=${groupId}`
     )
     try {
-      const hosts = this.hostDao.searchHostsByIdentifierAndStatusWithDeviceCount(keyword, status)
+      const hosts = this.hostDao.searchHostsByIdentifierAndStatusWithDeviceCount(
+        keyword,
+        status,
+        groupId
+      )
       const duration = Date.now() - startTime
       logger.debug(
         `[HostManager] searchHostsByIdentifierAndStatusWithDeviceCount success: count=${hosts.length}, duration=${duration}ms`

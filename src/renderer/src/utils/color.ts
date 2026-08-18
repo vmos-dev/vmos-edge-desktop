@@ -46,19 +46,22 @@ export function hexToRgba(hex: string, alpha: number) {
 }
 
 /**
- * Generate Element Plus theme colors (100% compliant with official)
+ * Generate Element Plus theme colors
+ * isDark 为 true 时，light 系列改为与暗色背景混合，避免暗黑模式出现白底
  */
-export function generateThemeColors(primary: string) {
+export function generateThemeColors(primary: string, isDark = false) {
   const colors: Record<string, string> = {
-    'primary': primary,
+    primary: primary
   }
 
-  // Generate ALL light levels from 1 to 9 based on WHITE
+  // 暗黑模式：与 Element Plus 官方 dark 背景 #141414 混合
+  // 亮色模式：与 #ffffff 混合（Element Plus 默认行为）
+  const mixBase = isDark ? '#141414' : '#ffffff'
+
   for (let i = 1; i <= 9; i++) {
-    colors[`primary-light-${i}`] = mixColor(primary, '#ffffff', i / 10)
+    colors[`primary-light-${i}`] = mixColor(primary, mixBase, i / 10)
   }
 
-  // Official dark level: 2 based on BLACK
   colors['primary-dark-2'] = mixColor(primary, '#000000', 0.2)
 
   return colors

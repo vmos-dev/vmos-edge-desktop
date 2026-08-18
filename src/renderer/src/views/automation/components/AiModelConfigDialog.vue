@@ -13,7 +13,7 @@
           <el-icon class="header-icon"><Plus v-if="!editingModel" /><Edit v-else /></el-icon>
           <span class="header-title">{{ dialogTitle }}</span>
         </div>
-        <div class="header-desc">{{ t('automation.modelConfig.headerDesc') }}</div>
+        <div class="header-desc">{{ t('aiWorkflow.modelConfig.headerDesc') }}</div>
       </div>
     </template>
 
@@ -28,13 +28,13 @@
       >
         <div class="form-row">
           <el-form-item
-            :label="t('automation.modelConfig.vendorLabel')"
+            :label="t('aiWorkflow.modelConfig.vendorLabel')"
             prop="vendor"
             class="flex-1"
           >
             <el-select
               v-model="formData.vendor"
-              :placeholder="t('automation.modelConfig.vendorPlaceholder')"
+              :placeholder="t('aiWorkflow.modelConfig.vendorPlaceholder')"
               style="width: 100%"
             >
               <template #prefix>
@@ -60,38 +60,38 @@
           </el-form-item>
 
           <el-form-item
-            :label="t('automation.modelConfig.displayNameLabel')"
+            :label="t('aiWorkflow.modelConfig.displayNameLabel')"
             prop="displayName"
             class="flex-1"
           >
             <el-input
               v-model="formData.displayName"
-              :placeholder="t('automation.modelConfig.displayNamePlaceholder')"
+              :placeholder="t('aiWorkflow.modelConfig.displayNamePlaceholder')"
             />
           </el-form-item>
         </div>
 
-        <el-form-item :label="t('automation.modelConfig.apiHostLabel')" prop="apiHost">
+        <el-form-item :label="t('aiWorkflow.modelConfig.apiHostLabel')" prop="apiHost">
           <el-input
             v-model="formData.apiHost"
-            :placeholder="t('automation.modelConfig.apiHostPlaceholder')"
+            :placeholder="t('aiWorkflow.modelConfig.apiHostPlaceholder')"
           />
-          <div class="form-tip">{{ t('automation.modelConfig.apiHostTip') }}</div>
+          <div class="form-tip">{{ t('aiWorkflow.modelConfig.apiHostTip') }}</div>
         </el-form-item>
 
-        <el-form-item :label="t('automation.modelConfig.modelNameLabel')" prop="modelName">
+        <el-form-item :label="t('aiWorkflow.modelConfig.modelNameLabel')" prop="modelName">
           <el-input
             v-model="formData.modelName"
-            :placeholder="t('automation.modelConfig.modelNamePlaceholder')"
+            :placeholder="t('aiWorkflow.modelConfig.modelNamePlaceholder')"
           />
-          <div class="form-tip">{{ t('automation.modelConfig.modelNameTip') }}</div>
+          <div class="form-tip">{{ t('aiWorkflow.modelConfig.modelNameTip') }}</div>
         </el-form-item>
 
-        <el-form-item :label="t('automation.modelConfig.apiKeyLabel')" prop="apiKey">
+        <el-form-item :label="t('aiWorkflow.modelConfig.apiKeyLabel')" prop="apiKey">
           <el-input
             v-model="formData.apiKey"
             type="password"
-            :placeholder="t('automation.modelConfig.apiKeyPlaceholder')"
+            :placeholder="t('aiWorkflow.modelConfig.apiKeyPlaceholder')"
             show-password
           >
             <template #prefix>
@@ -100,7 +100,7 @@
           </el-input>
           <div class="form-tip important">
             <el-icon><InfoFilled /></el-icon>
-            {{ t('automation.modelConfig.apiKeyTip') }}
+            {{ t('aiWorkflow.modelConfig.apiKeyTip') }}
           </div>
         </el-form-item>
       </el-form>
@@ -205,11 +205,11 @@ const formData = reactive<AiModelConfig>({
 })
 
 const dialogTitle = computed(() =>
-  props.editingModel ? t('automation.modelConfig.editTitle') : t('automation.modelConfig.addTitle')
+  props.editingModel ? t('aiWorkflow.modelConfig.editTitle') : t('aiWorkflow.modelConfig.addTitle')
 )
 
 const primaryButtonText = computed(() =>
-  props.editingModel ? t('automation.modelConfig.saveChanges') : t('automation.modelConfig.addNow')
+  props.editingModel ? t('aiWorkflow.modelConfig.saveChanges') : t('aiWorkflow.modelConfig.addNow')
 )
 
 const vendorOptions = computed(() => [
@@ -218,22 +218,22 @@ const vendorOptions = computed(() => [
   { label: 'Anthropic', value: 'Anthropic', logo: logoAnthropic },
   { label: 'Google', value: 'Google', logo: logoGoogle },
   { label: 'Dashscope', value: 'Dashscope', logo: logoDashscope },
-  { label: '智谱 AI', value: 'Zhipu', logo: logoZhipu },
+  { label: t('aiWorkflow.modelConfig.vendorZhipu'), value: 'Zhipu', logo: logoZhipu },
   { label: 'Ollama', value: 'Ollama', logo: logoOllama },
-  { label: '自定义（OpenAI 兼容）', value: 'Other', logo: logoCustom }
+  { label: t('aiWorkflow.modelConfig.vendorCustom'), value: 'Other', logo: logoCustom }
 ])
 
 const rules = computed<FormRules>(() => ({
   vendor: [
-    { required: true, message: t('automation.modelConfig.validateVendor'), trigger: 'change' }
+    { required: true, message: t('aiWorkflow.modelConfig.validateVendor'), trigger: 'change' }
   ],
   apiHost: [
-    { required: true, message: t('automation.modelConfig.validateApiHost'), trigger: 'blur' }
+    { required: true, message: t('aiWorkflow.modelConfig.validateApiHost'), trigger: 'blur' }
   ],
   modelName: [
-    { required: true, message: t('automation.modelConfig.validateModelName'), trigger: 'blur' }
+    { required: true, message: t('aiWorkflow.modelConfig.validateModelName'), trigger: 'blur' }
   ],
-  apiKey: [{ required: true, message: t('automation.modelConfig.validateApiKey'), trigger: 'blur' }]
+  apiKey: [{ required: true, message: t('aiWorkflow.modelConfig.validateApiKey'), trigger: 'blur' }]
 }))
 
 // 监听 visible 变化
@@ -313,12 +313,12 @@ const handleSave = async () => {
     emit('saved', model)
     ElMessage.success(
       props.editingModel
-        ? t('automation.modelConfig.updateSuccess')
-        : t('automation.modelConfig.addSuccess')
+        ? t('aiWorkflow.modelConfig.updateSuccess')
+        : t('aiWorkflow.modelConfig.addSuccess')
     )
     handleClose()
   } catch (error) {
-    console.error(t('automation.modelConfig.validateFailedLog'), error)
+    console.error(t('aiWorkflow.modelConfig.validateFailedLog'), error)
   }
 }
 </script>

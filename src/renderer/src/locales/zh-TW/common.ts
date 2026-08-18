@@ -1,6 +1,9 @@
 export default {
   confirm: '確定',
   cancel: '取消',
+  close: '關閉',
+  back: '返回',
+  moreOperations: '更多操作',
   save: '儲存',
   delete: '刪除',
   loading: '載入中...',
@@ -22,6 +25,7 @@ export default {
   waiting: '等待',
   unknownError: '未知錯誤',
   clearAll: '清空全部',
+  selectAll: '全選',
   total: '總計',
   doNotShowAgain: '下次不再提示',
   online: '線上',
@@ -49,6 +53,11 @@ export default {
   ignoreThisVersion: '忽略此版本',
   gotIt: '我知道了',
   viewReleaseHistory: '檢視完整更新日誌',
+  hostStates: {
+    online: '線上',
+    offline: '離線',
+    unknown: '未知'
+  },
   deviceStates: {
     running: '執行中',
     stopped: '已關機',
@@ -72,6 +81,10 @@ export default {
     virtual: '虛擬機',
     real: '雲真機'
   },
+  sortAsc: '升序',
+  sortDesc: '降序',
+  sortReset: '預設',
+  retry: '重試',
   proxyStrategies: {
     default: '預設(不支援取得出口資訊)'
   }

@@ -1112,7 +1112,9 @@ const handleStreamingChange = async (val: string | number | boolean) => {
     }
   } catch (e) {
     console.error('Streaming toggle failed:', e)
-    ElMessage.error(val ? t('settings.startCaptureFailed') : t('settings.stopCaptureFailed'))
+    const detail = e instanceof Error ? e.message : ''
+    const fallback = val ? t('settings.startCaptureFailed') : t('settings.stopCaptureFailed')
+    ElMessage.error(detail || fallback)
   } finally {
     streamingLoading.value = false
   }

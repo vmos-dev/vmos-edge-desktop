@@ -21,7 +21,7 @@ class MainWindowManager {
   private mainWindow: BrowserWindow | null = null
   private ipcInitialized = false
 
-  private constructor() { }
+  private constructor() {}
 
   /**
    * 获取单例实例

@@ -4,13 +4,15 @@ export default {
   imageName: 'Image Name',
   storagePath: 'Image Storage Path:',
   pathNotSet: 'Path Not Set',
-  pathNotExistTip: 'Image storage path does not exist, please click "Set Path" button to set a valid storage path',
+  pathNotExistTip:
+    'Image storage path does not exist, please click "Set Path" button to set a valid storage path',
   setPath: 'Set Path',
   changePath: 'Change Path',
   officialDownload: 'Official Download',
   imageList: 'Image List',
   batchDelete: 'Batch Delete',
-  pathTip: 'It is recommended to select a non-root directory with sufficient space (such as D:\\VMOSData) as the storage path. Do not select the disk root directory to avoid path escape risks during image decompression.',
+  pathTip:
+    'It is recommended to select a non-root directory with sufficient space (such as D:\\VMOSData) as the storage path. Do not select the disk root directory to avoid path escape risks during image decompression.',
   namePlaceholder: 'Please enter image name',
   androidVersion: 'Android Version',
   androidVersionPlaceholder: 'Please select Android version',
@@ -18,31 +20,37 @@ export default {
   deleteConfirm: 'Delete Confirm',
   deleteConfirmMessage: 'Are you sure to delete image "{name}"? This operation cannot be undone.',
   batchDeleteConfirm: 'Batch Delete Confirm',
-  batchDeleteMessage: 'Are you sure to delete the selected {count} images? This operation cannot be undone.',
+  batchDeleteMessage:
+    'Are you sure to delete the selected {count} images? This operation cannot be undone.',
   batchDeleteSelectWarning: 'Please select images to delete',
   batchDeleteSuccess: 'Successfully deleted {count} images',
   batchDeletePartial: 'Delete completed: succeeded {success}, failed {fail}',
-  pathNotExistConfirm: 'Image storage path does not exist, please set a valid storage path before importing images.',
+  pathNotExistConfirm:
+    'Image storage path does not exist, please set a valid storage path before importing images.',
   setPathNow: 'Set Now',
   loadFailed: 'Failed to load image list',
   importImageTitle: 'Import Image',
   selectImageFile: 'Select Image File',
   clickToBrowse: 'Click here',
   browseFile: 'Browse File',
-  supportedFormat: 'Supports importing official .tar.zst format files, file size must not exceed 5GB',
+  supportedFormat:
+    'Supports importing official .tar.zst format files, file size must not exceed 5GB',
   clickToReselect: 'Click to reselect',
-  importTip: 'Tip: Please confirm the uploaded file is an official VMOS Edge download image. The import process requires integrity and signature verification, please wait patiently!',
+  importTip:
+    'Tip: Please confirm the uploaded file is an official VMOS Edge download image. The import process requires integrity and signature verification, please wait patiently!',
   importing: 'Importing...',
   imageNameLabel: 'Image Name',
   imageNamePlaceholder: 'Enter image name',
   importingStatus: 'Importing',
   startImport: 'Start Import',
   selectImageFileRequired: 'Please select image file',
-  supportVersionNote: 'Only supports image versions with time ≥ {time}, please refer to image release history documentation for latest images, ',
+  supportVersionNote:
+    'Only supports image versions with time ≥ {time}, please refer to image release history documentation for latest images, ',
   downloadLatestImage: 'Download Latest Image',
   importFailed: 'Import Failed',
   imageVersion: 'Image Version',
   fileSize: 'File Size',
   importTime: 'Import Time',
-  deleteImageConfirmMessage: 'Are you sure to delete image "{name}"? This operation cannot be undone.'
+  deleteImageConfirmMessage:
+    'Are you sure to delete image "{name}"? This operation cannot be undone.'
 }

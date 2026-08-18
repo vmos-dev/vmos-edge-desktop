@@ -12,6 +12,12 @@ export interface UiNode {
   attrs: Record<string, string>
   /** 子节点 */
   children: UiNode[]
+  /** 同 text 的元素中的序号（仅当有重复时非 undefined，对标 Maestro UIElement.textIndex） */
+  textIndex?: number
+  /** 同 resource-id 的元素中的序号（仅当有重复时非 undefined） */
+  resourceIdIndex?: number
+  /** 同 content-desc 的元素中的序号（仅当有重复时非 undefined） */
+  contentDescIndex?: number
 }
 
 /** dump 解析结果 */
@@ -26,4 +32,11 @@ export interface DumpResult {
   nodes: UiNode[]
   /** 根节点树 */
   tree: UiNode[]
+  /**
+   * 可操作元素（预过滤后的子集）
+   *
+   * 只包含对脚本作者有意义的元素：有 text、content-desc、或属于交互控件类型。
+   * Overlay 渲染和 hit-test 只使用这个列表，不再遍历全量 nodes。
+   */
+  actionableNodes: UiNode[]
 }

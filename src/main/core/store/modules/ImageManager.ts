@@ -679,8 +679,8 @@ export class ImageManager extends BaseManager {
 
         const headerPart = Buffer.from(
           `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
-          `Content-Type: application/gzip\r\n\r\n`
+            `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+            `Content-Type: application/gzip\r\n\r\n`
         )
 
         const footerPart = Buffer.from(`\r\n--${boundary}--\r\n`)
@@ -831,7 +831,9 @@ export class ImageManager extends BaseManager {
 
           const duration = Date.now() - startTime
           const avgSpeed = (fileSize / (duration / 1000) / 1024 / 1024).toFixed(2)
-          logger.info(`[ImageManager] file stream ended, waiting for response. Duration: ${duration}ms, Avg speed: ${avgSpeed} MB/s`)
+          logger.info(
+            `[ImageManager] file stream ended, waiting for response. Duration: ${duration}ms, Avg speed: ${avgSpeed} MB/s`
+          )
         })
 
         fileStream.on('error', (err) => {
@@ -843,7 +845,6 @@ export class ImageManager extends BaseManager {
           // 可以继续写入，恢复读取
           fileStream?.resume()
         })
-
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err))
         logger.error('[ImageManager] uploadImageToHost initialization failed', {

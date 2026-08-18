@@ -21,7 +21,13 @@
       <!-- 会话列表操作栏 -->
       <div class="conversation-actions">
         <span class="conversation-actions-title">{{ conversationActionTitle }}</span>
-        <el-button plain size="small" @click="stopAllApps" :loading="isStoppingApps" :disabled="!selectedDevice">
+        <el-button
+          plain
+          size="small"
+          @click="stopAllApps"
+          :loading="isStoppingApps"
+          :disabled="!selectedDevice"
+        >
           {{ t('aiAgent.chat.closeAllApps') }}
         </el-button>
         <el-button
@@ -88,7 +94,9 @@
               :disabled="isBatchDeleting"
               @change="toggleSelectAll"
             />
-            <span class="conversation-count">{{ t('aiAgent.chat.selectedCount', { count: selectedConversationIds.length }) }}</span>
+            <span class="conversation-count">{{
+              t('aiAgent.chat.selectedCount', { count: selectedConversationIds.length })
+            }}</span>
           </div>
           <div class="footer-actions">
             <el-button
@@ -101,7 +109,9 @@
             >
               {{ t('common.delete') }}
             </el-button>
-            <el-button plain size="small" @click="exitBatchDeleteMode">{{ t('common.cancel') }}</el-button>
+            <el-button plain size="small" @click="exitBatchDeleteMode">{{
+              t('common.cancel')
+            }}</el-button>
           </div>
         </template>
         <template v-else>
@@ -317,15 +327,14 @@
               <div
                 v-if="selectedDevice"
                 class="device-render-container"
-                @mousemove="handleInspectorMouseMove"
                 @mouseleave="inspectorHoveredNode = null"
               >
                 <div ref="canvasContainerRef" class="canvas-container"></div>
                 <UiInspectorOverlay
-                  ref="inspectorOverlayRef"
                   :enabled="showInspector && isClientReady"
+                  :picking="showInspector && isClientReady"
                   :device="selectedDevice"
-                  :highlight-node-id="inspectorHoveredNode?.id ?? null"
+                  @node-hover="inspectorHoveredNode = $event"
                 />
                 <div v-if="!isClientReady || clientError" class="render-status-mask">
                   <div class="render-status-content">
@@ -504,8 +513,8 @@ import logoDeepseek from '@renderer/assets/providers/deepseek.svg'
 import logoZhipu from '@renderer/assets/providers/zhipu.svg'
 import logoOllama from '@renderer/assets/providers/ollama.svg'
 import logoCustom from '@renderer/assets/providers/custom.svg'
-import aiAvatar from '@renderer/assets/ai.png'
-import aiAvatarGif from '@renderer/assets/ai-hs.gif'
+import aiAvatar from '@renderer/assets/svg/aiworkflow.svg'
+const aiAvatarGif = aiAvatar
 
 const { t } = useI18n()
 
@@ -513,7 +522,6 @@ const { models, addModel, updateModel, deleteModel } = useAiModelConfig()
 const showManagerDialog = ref(false)
 const showSkillManager = ref(false)
 const showInspector = ref(false)
-const inspectorOverlayRef = ref<InstanceType<typeof UiInspectorOverlay> | null>(null)
 const inspectorHoveredNode = ref<import('@renderer/components/ui-inspector/types').UiNode | null>(
   null
 )
@@ -522,22 +530,6 @@ watch(showInspector, (val) => {
     inspectorHoveredNode.value = null
   }
 })
-
-const handleInspectorMouseMove = (e: MouseEvent) => {
-  if (!showInspector.value || !inspectorOverlayRef.value) {
-    inspectorHoveredNode.value = null
-    return
-  }
-  const node = inspectorOverlayRef.value.findNodeAt(
-    e.clientX,
-    e.clientY,
-    e.currentTarget as HTMLElement
-  )
-  // 只在节点真正变化时更新，避免同一节点重复赋值导致闪烁
-  if (node?.id !== inspectorHoveredNode.value?.id) {
-    inspectorHoveredNode.value = node
-  }
-}
 
 const shortClassName = (cls: string) => {
   const idx = cls.lastIndexOf('.')
@@ -862,12 +854,16 @@ const conversationActionTitle = computed(() => {
 })
 
 const isAllSelected = computed(() => {
-  return deletableConversations.value.length > 0 &&
-    deletableConversations.value.every((conv) => selectedConversationIds.value.includes(conv.task_id))
+  return (
+    deletableConversations.value.length > 0 &&
+    deletableConversations.value.every((conv) =>
+      selectedConversationIds.value.includes(conv.task_id)
+    )
+  )
 })
 
 function toggleSelectAll(checked: boolean | string | number) {
-  if (Boolean(checked)) {
+  if (checked) {
     selectedConversationIds.value = deletableConversations.value.map((conv) => conv.task_id)
   } else {
     selectedConversationIds.value = []

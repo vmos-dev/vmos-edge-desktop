@@ -1,7 +1,7 @@
 appId: com.vmos.edge.desktop
-productName: VMOS Edge 2.0
+productName: VMOS Edge
 asar: true
-compression: maximum
+compression: normal
 # 将 @vmosedge/proxy-sdk 整个包从 asar 中排除，因为包含可执行文件无法在 asar 中运行
 asarUnpack:
   - '**/node_modules/@vmosedge/proxy-sdk/**'
@@ -14,7 +14,6 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  - '!scripts/*'
   - '!resources/*' # resources 目录我们通过 extraFiles/extraResources 处理，不需要进 asar
   - '!**/node_modules/@vmosedge/proxy-sdk/bin/**/*' # 彻底从 asar 中排除 bin 目录，避免 SDK 误判路径
 
@@ -25,10 +24,16 @@ extraResources:
     to: icon.ico
   - from: resources/icon.png
     to: icon.png
+  - from: resources/flow-engine
+    to: flow-engine
+  - from: resources/frps
+    to: frps
+  - from: resources/nginx
+    to: nginx
 
 win:
   icon: build/icon.ico
-  executableName: vmos-edge-2.0
+  executableName: vmos-edge
 
   extraResources:
     - from: resources/win
@@ -36,6 +41,8 @@ win:
     # Windows 平台：只复制 win32-x64 的二进制文件
     - from: 'node_modules/@vmosedge/proxy-sdk/bin/win32-x64'
       to: 'vmosedge-proxy-sdk/bin/win32-x64'
+    - from: resources/frpc/win-x64
+      to: frpc/win-x64
 
 nsis:
   oneClick: false
@@ -65,6 +72,8 @@ mac:
     # Mac 平台：根据架构复制对应的 darwin 二进制文件
     - from: 'node_modules/@vmosedge/proxy-sdk/bin/darwin-${arch}'
       to: 'vmosedge-proxy-sdk/bin/darwin-${arch}'
+    - from: resources/frpc/darwin-${arch}
+      to: frpc/darwin-${arch}
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
@@ -80,6 +89,8 @@ linux:
     # Linux 平台：只复制 linux-x64 的二进制文件
     - from: 'node_modules/@vmosedge/proxy-sdk/bin/linux-x64'
       to: 'vmosedge-proxy-sdk/bin/linux-x64'
+    - from: resources/frpc/linux-x64
+      to: frpc/linux-x64
   target:
     - AppImage
     - snap
@@ -89,8 +100,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: true
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

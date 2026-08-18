@@ -1,7 +1,7 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    :title="t('automation.deviceSelector.title')"
+    :title="t('aiWorkflow.deviceSelector.title')"
     width="480px"
     class="device-selector-dialog"
     destroy-on-close
@@ -11,7 +11,7 @@
       <div class="search-box">
         <el-input
           v-model="searchText"
-          :placeholder="t('automation.deviceSelector.searchPlaceholder')"
+          :placeholder="t('aiWorkflow.deviceSelector.searchPlaceholder')"
           :prefix-icon="Search"
           clearable
         />
@@ -20,17 +20,17 @@
       <div class="device-list-container">
         <el-scrollbar max-height="400px">
           <div v-if="filteredGroups.length === 0" class="empty-state">
-            <el-empty :description="t('automation.deviceSelector.emptyRunning')" />
+            <el-empty :description="t('aiWorkflow.deviceSelector.emptyRunning')" />
           </div>
           <div v-else class="host-group" v-for="group in filteredGroups" :key="group.hostIp">
             <div class="group-header" @click="toggleGroup(group.hostIp)">
               <div class="header-left">
                 <el-icon class="folder-icon"><Monitor /></el-icon>
                 <span class="host-ip">{{
-                  t('automation.deviceSelector.hostIp', { ip: group.hostIp })
+                  t('aiWorkflow.deviceSelector.hostIp', { ip: group.hostIp })
                 }}</span>
                 <el-tag size="small" type="info" round class="device-count">
-                  {{ t('automation.deviceSelector.deviceCount', { count: group.devices.length }) }}
+                  {{ t('aiWorkflow.deviceSelector.deviceCount', { count: group.devices.length }) }}
                 </el-tag>
               </div>
               <el-icon
@@ -59,15 +59,15 @@
                   <div class="device-info">
                     <div
                       class="device-name"
-                      :title="device.user_name || t('automation.deviceSelector.unnamed')"
+                      :title="device.user_name || t('aiWorkflow.deviceSelector.unnamed')"
                     >
-                      {{ device.user_name || t('automation.deviceSelector.unnamed') }}
+                      {{ device.user_name || t('aiWorkflow.deviceSelector.unnamed') }}
                     </div>
                     <div
                       class="device-id"
-                      :title="`${t('automation.deviceSelector.idPrefix')}: ${device.db_id || device.id}`"
+                      :title="`${t('aiWorkflow.deviceSelector.idPrefix')}: ${device.db_id || device.id}`"
                     >
-                      {{ t('automation.deviceSelector.idPrefix') }}: {{ device.db_id || device.id }}
+                      {{ t('aiWorkflow.deviceSelector.idPrefix') }}: {{ device.db_id || device.id }}
                     </div>
                   </div>
                 </div>
@@ -131,7 +131,7 @@ const groupedDevices = computed(() => {
         const device = node.originalData as Device
         // 只要运行中的云机
         if (device.state === DeviceState.StateRunning) {
-          const hostIp = device.host_ip || t('automation.deviceSelector.unknownHost')
+          const hostIp = device.host_ip || t('aiWorkflow.deviceSelector.unknownHost')
           if (!groups[hostIp]) {
             groups[hostIp] = []
           }

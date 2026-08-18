@@ -1,5 +1,8 @@
+import * as fs from 'node:fs'
+import { dialog } from 'electron'
 import { handle } from '../IpcBus'
 import { PROXY_EVENTS } from '@shared/ipc/proxy.types'
+import type { ProxyExportItem } from '@shared/ipc/proxy.types'
 import { logger } from '../../logger'
 import { proxyManager } from '../../store/managers'
 import type { Proxy } from '@shared/ipc/data.types'
@@ -93,19 +96,19 @@ export function registerProxyHandlers() {
   )
 
   // 批量添加代理
-  handle<Omit<Proxy, 'id' | 'createTime' | 'lastCheckStatus'>[], { success: number; failed: number; errors: string[] }>(
-    PROXY_EVENTS.BATCH_ADD_PROXY,
-    async (proxies) => {
-      logger.info(`[ProxyHandler] BATCH_ADD_PROXY request: count=${proxies.length}`)
-      try {
-        const result = await proxyManager.batchAddProxies(proxies)
-        logger.info(`[ProxyHandler] BATCH_ADD_PROXY success`)
-        return { success: true, data: result }
-      } catch (error) {
-        return handleError(error)
-      }
+  handle<
+    Omit<Proxy, 'id' | 'createTime' | 'lastCheckStatus'>[],
+    { success: number; failed: number; errors: string[] }
+  >(PROXY_EVENTS.BATCH_ADD_PROXY, async (proxies) => {
+    logger.info(`[ProxyHandler] BATCH_ADD_PROXY request: count=${proxies.length}`)
+    try {
+      const result = await proxyManager.batchAddProxies(proxies)
+      logger.info(`[ProxyHandler] BATCH_ADD_PROXY success`)
+      return { success: true, data: result }
+    } catch (error) {
+      return handleError(error)
     }
-  )
+  })
 
   // 更新代理
   handle<
@@ -154,6 +157,29 @@ export function registerProxyHandlers() {
           success: true,
           data: result
         }
+      } catch (error) {
+        return handleError(error)
+      }
+    }
+  )
+
+  // 导出代理为 JSON 文件
+  handle<{ proxies: ProxyExportItem[] }, { filePath: string }>(
+    PROXY_EVENTS.EXPORT_PROXIES,
+    async ({ proxies }) => {
+      logger.info(`[ProxyHandler] EXPORT_PROXIES request: count=${proxies.length}`)
+      try {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          defaultPath: `proxies-${timestamp}.json`,
+          filters: [{ name: 'JSON', extensions: ['json'] }]
+        })
+        if (canceled || !filePath) {
+          return { success: false, error: 'canceled' }
+        }
+        await fs.promises.writeFile(filePath, JSON.stringify(proxies, null, 2), 'utf-8')
+        logger.info(`[ProxyHandler] EXPORT_PROXIES success: filePath=${filePath}`)
+        return { success: true, data: { filePath } }
       } catch (error) {
         return handleError(error)
       }

@@ -85,6 +85,8 @@ export default {
   startCaptureFailed: '开启采集失败',
   stopCaptureFailed: '停止采集失败',
   cannotGetAnyMediaTrack: '无法获取任何媒体轨道',
+  noVideoDeviceSelected: '请先选择摄像头设备',
+  noAudioDeviceSelected: '请先选择麦克风设备',
   partialDeviceFailed: '部分设备获取失败：{errors}',
   streamingInterrupted: '推流异常中断',
   // 推流设置相关

@@ -1,7 +1,7 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    :title="t('automation.scriptLibrary.title')"
+    :title="t('aiWorkflow.scriptLibrary.title')"
     width="900px"
     :close-on-click-modal="false"
     class="script-library-dialog"
@@ -9,7 +9,7 @@
   >
     <template #header>
       <div class="dialog-header">
-        <span class="header-title">{{ t('automation.scriptLibrary.headerTitle') }}</span>
+        <span class="header-title">{{ t('aiWorkflow.scriptLibrary.headerTitle') }}</span>
       </div>
     </template>
 
@@ -19,7 +19,7 @@
         <div class="sidebar-search">
           <el-input
             v-model="searchKeyword"
-            :placeholder="t('automation.scriptLibrary.searchPlaceholder')"
+            :placeholder="t('aiWorkflow.scriptLibrary.searchPlaceholder')"
             :prefix-icon="Search"
             clearable
           />
@@ -50,7 +50,7 @@
             <div v-else class="empty-list">
               <el-empty
                 :image-size="60"
-                :description="t('automation.scriptLibrary.emptyScripts')"
+                :description="t('aiWorkflow.scriptLibrary.emptyScripts')"
               />
             </div>
           </el-scrollbar>
@@ -64,7 +64,7 @@
             <div class="preview-title">
               <span class="name">{{ selectedScript.name }}</span>
               <el-button link type="primary" :icon="Edit" @click="handleRename(selectedScript)">
-                {{ t('automation.scriptLibrary.rename') }}
+                {{ t('aiWorkflow.scriptLibrary.rename') }}
               </el-button>
             </div>
             <div class="preview-actions">
@@ -74,7 +74,7 @@
                 :disabled="!selectedScript || !parsedWorkflow"
                 @click="handleLoadToOrchestration"
               >
-                {{ t('automation.scriptLibrary.loadToOrchestration') }}
+                {{ t('aiWorkflow.scriptLibrary.loadToOrchestration') }}
               </el-button>
               <el-button
                 type="primary"
@@ -83,7 +83,7 @@
                 :disabled="!isWorkflowDirty || !parsedWorkflow"
                 @click="handleSaveWorkflow"
               >
-                {{ t('automation.scriptLibrary.saveChanges') }}
+                {{ t('aiWorkflow.scriptLibrary.saveChanges') }}
               </el-button>
             </div>
           </div>
@@ -91,7 +91,7 @@
           <div class="preview-body">
             <div class="steps-info">
               {{
-                t('automation.scriptLibrary.totalSteps', {
+                t('aiWorkflow.scriptLibrary.totalSteps', {
                   count: parsedWorkflow?.flow?.length || 0
                 })
               }}
@@ -113,7 +113,7 @@
                       <div v-if="parsedWorkflow.steps[stepId]?.loop" class="step-group-tags">
                         <el-tag size="small" type="warning">
                           {{
-                            t('automation.page.loopCount', {
+                            t('aiWorkflow.page.loopCount', {
                               count: getLoopCount(parsedWorkflow.steps[stepId].loop)
                             })
                           }}
@@ -134,8 +134,8 @@
                         </el-icon>
                         {{
                           isStepEditorExpanded(stepId)
-                            ? t('automation.page.collapseEdit')
-                            : t('automation.page.expandEdit')
+                            ? t('aiWorkflow.page.collapseEdit')
+                            : t('aiWorkflow.page.expandEdit')
                         }}
                       </el-button>
                     </div>
@@ -157,7 +157,7 @@
                         <el-collapse-transition>
                           <div v-show="isStepEditorExpanded(stepId)" class="action-editor">
                             <div class="param-row">
-                              <span class="param-key">{{ t('automation.page.readonlyPath') }}</span>
+                              <span class="param-key">{{ t('aiWorkflow.page.readonlyPath') }}</span>
                               <el-input :model-value="action.path" class="param-value" disabled />
                             </div>
                             <template
@@ -203,14 +203,14 @@
                               v-if="getActionParamEntries(action).length === 0"
                               class="param-empty"
                             >
-                              {{ t('automation.page.noEditableParams') }}
+                              {{ t('aiWorkflow.page.noEditableParams') }}
                             </div>
                           </div>
                         </el-collapse-transition>
                       </div>
                       <div v-if="action.throw_if_empty" class="action-tags">
                         <el-tag size="small" type="danger">{{
-                          t('automation.page.validation')
+                          t('aiWorkflow.page.validation')
                         }}</el-tag>
                       </div>
                     </div>
@@ -218,13 +218,13 @@
                 </div>
               </div>
               <div v-else class="empty-preview">
-                {{ t('automation.scriptLibrary.cannotPreview') }}
+                {{ t('aiWorkflow.scriptLibrary.cannotPreview') }}
               </div>
             </el-scrollbar>
           </div>
         </div>
         <div v-else class="empty-selection">
-          <el-empty :image-size="100" :description="t('automation.scriptLibrary.emptySelection')" />
+          <el-empty :image-size="100" :description="t('aiWorkflow.scriptLibrary.emptySelection')" />
         </div>
       </div>
     </div>
@@ -342,17 +342,17 @@ const fetchScripts = async () => {
       }
     }
   } catch {
-    ElMessage.error(t('automation.scriptLibrary.fetchFailed'))
+    ElMessage.error(t('aiWorkflow.scriptLibrary.fetchFailed'))
   }
 }
 
 const handleDelete = async (item: AutomationScriptRecord) => {
   try {
     await ElMessageBox.confirm(
-      t('automation.scriptLibrary.deleteConfirm', { name: item.name }),
-      t('automation.scriptLibrary.deleteConfirmTitle'),
+      t('aiWorkflow.scriptLibrary.deleteConfirm', { name: item.name }),
+      t('aiWorkflow.scriptLibrary.deleteConfirmTitle'),
       {
-        confirmButtonText: t('automation.scriptLibrary.delete'),
+        confirmButtonText: t('aiWorkflow.scriptLibrary.delete'),
         cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
@@ -360,14 +360,14 @@ const handleDelete = async (item: AutomationScriptRecord) => {
 
     const res = await ipc.invoke(AUTOMATION_SCRIPT_EVENTS.DELETE_SCRIPT, item.id)
     if (res.success) {
-      ElMessage.success(t('automation.scriptLibrary.deleteSuccess'))
+      ElMessage.success(t('aiWorkflow.scriptLibrary.deleteSuccess'))
       await fetchScripts()
       if (selectedScript.value?.id === item.id) {
         selectedScript.value = null
         parsedWorkflow.value = null
       }
     } else {
-      ElMessage.error(t('automation.scriptLibrary.deleteFailed'))
+      ElMessage.error(t('aiWorkflow.scriptLibrary.deleteFailed'))
     }
   } catch {
     // Cancelled
@@ -377,18 +377,18 @@ const handleDelete = async (item: AutomationScriptRecord) => {
 const handleRename = async (item: AutomationScriptRecord) => {
   try {
     const { value } = await ElMessageBox.prompt(
-      t('automation.scriptLibrary.renamePrompt', { max: MAX_SCRIPT_NAME_LENGTH }),
-      t('automation.scriptLibrary.renameTitle'),
+      t('aiWorkflow.scriptLibrary.renamePrompt', { max: MAX_SCRIPT_NAME_LENGTH }),
+      t('aiWorkflow.scriptLibrary.renameTitle'),
       {
         inputValue: item.name,
-        inputPlaceholder: t('automation.scriptLibrary.renamePlaceholder', {
+        inputPlaceholder: t('aiWorkflow.scriptLibrary.renamePlaceholder', {
           max: MAX_SCRIPT_NAME_LENGTH
         }),
         inputValidator: (val) => {
           const trimmed = (val || '').trim()
-          if (!trimmed) return t('automation.scriptLibrary.nameEmpty')
+          if (!trimmed) return t('aiWorkflow.scriptLibrary.nameEmpty')
           if (Array.from(trimmed).length > MAX_SCRIPT_NAME_LENGTH) {
-            return t('automation.scriptLibrary.nameTooLong', { max: MAX_SCRIPT_NAME_LENGTH })
+            return t('aiWorkflow.scriptLibrary.nameTooLong', { max: MAX_SCRIPT_NAME_LENGTH })
           }
           return true
         }
@@ -403,7 +403,7 @@ const handleRename = async (item: AutomationScriptRecord) => {
         workflow = JSON.parse(item.content)
         workflow.name = normalizedName
       } catch {
-        ElMessage.error(t('automation.scriptLibrary.parseFailed'))
+        ElMessage.error(t('aiWorkflow.scriptLibrary.parseFailed'))
         return
       }
 
@@ -414,7 +414,7 @@ const handleRename = async (item: AutomationScriptRecord) => {
       })
 
       if (res.success) {
-        ElMessage.success(t('automation.scriptLibrary.renameSuccess'))
+        ElMessage.success(t('aiWorkflow.scriptLibrary.renameSuccess'))
         await fetchScripts()
         // Update selected script if it's the one renamed
         if (selectedScript.value?.id === item.id) {
@@ -428,7 +428,7 @@ const handleRename = async (item: AutomationScriptRecord) => {
           resetStepEditorState()
         }
       } else {
-        ElMessage.error(t('automation.scriptLibrary.renameFailed'))
+        ElMessage.error(t('aiWorkflow.scriptLibrary.renameFailed'))
       }
     }
   } catch {
@@ -456,7 +456,7 @@ const canEditActionParams = computed(() => {
 
 const getLoopCount = (loop: any) => {
   if (!loop) return '0'
-  if (loop.max_count === -1 || loop.count === -1) return t('automation.page.infinite')
+  if (loop.max_count === -1 || loop.count === -1) return t('aiWorkflow.page.infinite')
   return loop.max_count || loop.count || '0'
 }
 
@@ -470,41 +470,41 @@ interface EditableParamEntry {
 }
 
 const COMMON_PARAM_LABELS = computed<Record<string, string>>(() => ({
-  package_name: t('automation.paramLabels.packageName'),
-  grant_all: t('automation.paramLabels.grantAll'),
-  selector: t('automation.paramLabels.selector'),
-  'selector.resource_id': t('automation.paramLabels.selectorResourceId'),
-  'selector.text': t('automation.paramLabels.selectorText'),
-  'selector.content_desc': t('automation.paramLabels.selectorContentDesc'),
-  'selector.class_name': t('automation.paramLabels.selectorClassName'),
-  action: t('automation.paramLabels.action'),
-  wait_timeout: t('automation.paramLabels.waitTimeout'),
-  wait_interval: t('automation.paramLabels.waitInterval'),
-  'action_params.text': t('automation.paramLabels.actionParamsText'),
-  start_x: t('automation.paramLabels.startX'),
-  start_y: t('automation.paramLabels.startY'),
-  end_x: t('automation.paramLabels.endX'),
-  end_y: t('automation.paramLabels.endY'),
-  duration: t('automation.paramLabels.duration'),
-  text: t('automation.paramLabels.text'),
-  key_code: t('automation.paramLabels.keyCode'),
-  x: t('automation.paramLabels.x'),
-  y: t('automation.paramLabels.y'),
-  message: t('automation.paramLabels.message')
+  package_name: t('aiWorkflow.paramLabels.packageName'),
+  grant_all: t('aiWorkflow.paramLabels.grantAll'),
+  selector: t('aiWorkflow.paramLabels.selector'),
+  'selector.resource_id': t('aiWorkflow.paramLabels.selectorResourceId'),
+  'selector.text': t('aiWorkflow.paramLabels.selectorText'),
+  'selector.content_desc': t('aiWorkflow.paramLabels.selectorContentDesc'),
+  'selector.class_name': t('aiWorkflow.paramLabels.selectorClassName'),
+  action: t('aiWorkflow.paramLabels.action'),
+  wait_timeout: t('aiWorkflow.paramLabels.waitTimeout'),
+  wait_interval: t('aiWorkflow.paramLabels.waitInterval'),
+  'action_params.text': t('aiWorkflow.paramLabels.actionParamsText'),
+  start_x: t('aiWorkflow.paramLabels.startX'),
+  start_y: t('aiWorkflow.paramLabels.startY'),
+  end_x: t('aiWorkflow.paramLabels.endX'),
+  end_y: t('aiWorkflow.paramLabels.endY'),
+  duration: t('aiWorkflow.paramLabels.duration'),
+  text: t('aiWorkflow.paramLabels.text'),
+  key_code: t('aiWorkflow.paramLabels.keyCode'),
+  x: t('aiWorkflow.paramLabels.x'),
+  y: t('aiWorkflow.paramLabels.y'),
+  message: t('aiWorkflow.paramLabels.message')
 }))
 
 const ACTION_PARAM_LABELS = computed<Record<string, Record<string, string>>>(() => ({
   'base/sleep': {
-    duration: t('automation.actionParamLabels.sleepDuration')
+    duration: t('aiWorkflow.actionParamLabels.sleepDuration')
   },
   'input/scroll_bezier': {
-    duration: t('automation.actionParamLabels.scrollDuration')
+    duration: t('aiWorkflow.actionParamLabels.scrollDuration')
   }
 }))
 
 function translateParamSegment(segment: string): string {
   if (COMMON_PARAM_LABELS.value[segment]) return COMMON_PARAM_LABELS.value[segment]
-  return t('automation.page.unknownParam', { segment })
+  return t('aiWorkflow.page.unknownParam', { segment })
 }
 
 function getParamLabel(actionPath: string, keyPath: string): string {
@@ -634,7 +634,7 @@ const handleSaveWorkflow = async () => {
     })
 
     if (!res.success) {
-      throw new Error(res.error || t('automation.scriptLibrary.saveFailed'))
+      throw new Error(res.error || t('aiWorkflow.scriptLibrary.saveFailed'))
     }
 
     // 更新本地数据
@@ -649,11 +649,11 @@ const handleSaveWorkflow = async () => {
     }
 
     workflowSnapshot.value = JSON.stringify(cleanWorkflow)
-    ElMessage.success(t('automation.scriptLibrary.saveSuccess'))
+    ElMessage.success(t('aiWorkflow.scriptLibrary.saveSuccess'))
   } catch (error: any) {
     ElMessage.error(
-      t('automation.scriptLibrary.saveFailedWithError', {
-        error: error.message || t('automation.scriptLibrary.unknownError')
+      t('aiWorkflow.scriptLibrary.saveFailedWithError', {
+        error: error.message || t('aiWorkflow.scriptLibrary.unknownError')
       })
     )
   } finally {

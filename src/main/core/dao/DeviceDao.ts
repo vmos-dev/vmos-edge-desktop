@@ -74,7 +74,6 @@ export class DeviceDao extends BaseDao<Device> {
       .run(hostIp)
   }
 
-
   /**
    * 标记不在列表中的设备为离线
    */
@@ -96,7 +95,9 @@ export class DeviceDao extends BaseDao<Device> {
    * 删除主机下的所有设备
    */
   public deleteByHostIp(hostIp: string): void {
-    this.dbInstance.db.prepare(`DELETE FROM ${this.tableName} WHERE trim(host_ip) = trim(?)`).run(hostIp)
+    this.dbInstance.db
+      .prepare(`DELETE FROM ${this.tableName} WHERE trim(host_ip) = trim(?)`)
+      .run(hostIp)
   }
 
   /**

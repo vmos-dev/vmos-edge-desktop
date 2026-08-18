@@ -153,30 +153,38 @@ const getRobustMediaStream = async (
   const tracks: MediaStreamTrack[] = []
   const errors: string[] = []
 
-  if (type !== 'audio' && selectedVideoDevice.value) {
-    try {
-      const vs = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId: { exact: selectedVideoDevice.value },
-          frameRate: { max: 30 }
-        },
-        audio: false
-      })
-      tracks.push(...vs.getVideoTracks())
-    } catch (e) {
-      errors.push(`${t('settings.camera')}${t('common.failed')}: ${(e as Error).message}`)
+  if (type !== 'audio') {
+    if (!selectedVideoDevice.value) {
+      errors.push(t('settings.noVideoDeviceSelected'))
+    } else {
+      try {
+        const vs = await navigator.mediaDevices.getUserMedia({
+          video: {
+            deviceId: { exact: selectedVideoDevice.value },
+            frameRate: { max: 30 }
+          },
+          audio: false
+        })
+        tracks.push(...vs.getVideoTracks())
+      } catch (e) {
+        errors.push(`${t('settings.camera')}${t('common.failed')}: ${(e as Error).message}`)
+      }
     }
   }
 
-  if (type !== 'video' && selectedAudioDevice.value) {
-    try {
-      const as = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: selectedAudioDevice.value } },
-        video: false
-      })
-      tracks.push(...as.getAudioTracks())
-    } catch (e) {
-      errors.push(`${t('settings.microphone')}${t('common.failed')}: ${(e as Error).message}`)
+  if (type !== 'video') {
+    if (!selectedAudioDevice.value) {
+      errors.push(t('settings.noAudioDeviceSelected'))
+    } else {
+      try {
+        const as = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: selectedAudioDevice.value } },
+          video: false
+        })
+        tracks.push(...as.getAudioTracks())
+      } catch (e) {
+        errors.push(`${t('settings.microphone')}${t('common.failed')}: ${(e as Error).message}`)
+      }
     }
   }
 

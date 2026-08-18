@@ -45,13 +45,12 @@ export const useLocale = () => {
 
   // 当前显示语言名称 (用于 UI 显示)
   const currentLanguageLabel = computed(() => {
-    const lang = languageList.find(item => item.value === locale.value)
+    const lang = languageList.find((item) => item.value === locale.value)
     return lang ? lang.label : 'English'
   })
 
   // 判断是否为中文
   const isZhCN = computed(() => locale.value === 'zh-CN')
-
 
   // 监听 storage 和 IPC 事件同步多窗口语言状态
   const setupStorageListener = () => {

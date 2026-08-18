@@ -49,8 +49,6 @@ export class ProxyCheckWorkerManager {
     }
   > = new Map()
 
-
-
   /**
    * 获取 resources 目录路径
    */

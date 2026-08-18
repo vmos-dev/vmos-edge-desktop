@@ -1,62 +1,55 @@
 import dgram from 'dgram'
 import os from 'os'
 import ip from 'ip'
-import { hostManager } from '../store/managers'
-import { TaskQueue } from '../utils/TaskQueue'
 import { logger } from '../logger'
 
-export interface UDPDevice {
-  ip: string
-  type: string
-  id: string
-  name: string
-  method: string
-  response: string
-  last_seen: string
-}
-
 export class UDPScanner {
-  private scanTimer: NodeJS.Timeout | null = null
   private isScanning = false
   private shouldStop = false
-  private taskQueue: TaskQueue
+  /** 本轮扫描各类 socket 错误的计数（按错误码聚合，用于诊断网络拥塞，如 ENETUNREACH/ENOBUFS） */
+  private errorCounts = new Map<string, number>()
+
   constructor() {
     logger.info('💡 UDP Scanner Initialized')
-    this.taskQueue = new TaskQueue(5)
   }
 
-  /** 获取本机网段，例如：192.168.10.0/24 */
-  getLocalNetwork(): string {
+  /** 聚合记录一次 socket 错误（按错误码计数，避免逐 IP 刷屏） */
+  private bumpError(e: unknown): void {
+    const code = (e as { code?: string })?.code || (e as { message?: string })?.message || 'UNKNOWN'
+    this.errorCounts.set(code, (this.errorCounts.get(code) ?? 0) + 1)
+  }
+
+  /** 选用本机第一个非内部 IPv4 网卡 */
+  private getLocalInterface(): { name: string; address: string; netmask: string } | null {
     try {
       const ifaces = os.networkInterfaces()
-
-      for (const iface of Object.values(ifaces)) {
+      for (const [name, iface] of Object.entries(ifaces)) {
         if (!iface) continue
-
         for (const conf of iface) {
           if (conf.family === 'IPv4' && !conf.internal) {
-            const subnet = ip.subnet(conf.address, conf.netmask)
-            return `${subnet.networkAddress}/${subnet.subnetMaskLength}`
+            return { name, address: conf.address, netmask: conf.netmask }
           }
         }
       }
-    } catch {}
-
-    return '192.168.10.0/24' // 默认
+    } catch (err) {
+      logger.error('[UDPScanner] Failed to get local interface:', err)
+    }
+    return null
   }
 
   /** 扫描单个 IP 的 UDP 服务 */
-  scanSingleIP(ipAddr: string, timeout = 100): Promise<UDPDevice | null> {
+  scanSingleIP(
+    ipAddr: string,
+    timeout = 100
+  ): Promise<{ ip: string; id: string; name: string } | null> {
     return new Promise((resolve) => {
       let socket: dgram.Socket | null = null
       let timer: NodeJS.Timeout | null = null
       let isClosed = false
 
-      // 清理函数：确保资源只释放一次
       const cleanup = () => {
         if (isClosed) return
         isClosed = true
-
         if (timer) {
           clearTimeout(timer)
           timer = null
@@ -64,8 +57,8 @@ export class UDPScanner {
         if (socket) {
           try {
             socket.close()
-          } catch (e) {
-            // 忽略关闭时的错误
+          } catch {
+            // 忽略关闭异常
           }
           socket = null
         }
@@ -74,159 +67,170 @@ export class UDPScanner {
       try {
         socket = dgram.createSocket('udp4')
 
-        // 绑定错误处理，防止未捕获异常导致 crash
-        socket.on('error', (err) => {
-          logger.debug(`[UDPScanner] Socket error for ${ipAddr}:`, err)
+        socket.on('error', (e) => {
+          this.bumpError(e)
           cleanup()
           resolve(null)
         })
 
-        // 接收响应
         socket.on('message', (data) => {
           cleanup()
-
           try {
             const response = data.toString().trim()
             if (response.startsWith('CBS:')) {
               const parts = response.split(':')
               const id = parts[1] || ''
               const name = parts[2] || ''
-
-              // --- 集成 HostManager (通过任务队列限流) ---
-              this.taskQueue.add(() => hostManager.handleHostDiscovery(ipAddr, id, name))
-              // -----------------------
-
-              resolve({
-                ip: ipAddr,
-                type: 'CBS',
-                id,
-                name,
-                method: 'UDP扫描',
-                response,
-                last_seen: new Date().toISOString()
-              })
+              resolve({ ip: ipAddr, id, name })
               return
             }
           } catch (err) {
             logger.error(`[UDPScanner] Error parsing response from ${ipAddr}:`, err)
           }
-
           resolve(null)
         })
 
-        // 设置超时
         timer = setTimeout(() => {
           cleanup()
           resolve(null)
         }, timeout)
 
-        // 发送 UDP 包
         socket.send(Buffer.from('lgcloud'), 7678, ipAddr, (err) => {
           if (err) {
+            this.bumpError(err)
             cleanup()
             resolve(null)
           }
         })
-      } catch (err) {
-        // 创建 socket 失败等同步错误
+      } catch (e) {
+        this.bumpError(e)
         cleanup()
         resolve(null)
       }
     })
   }
 
-  /** 启动自动扫描 */
-  public async startAutoScan(intervalSec = 30) {
-    if (this.scanTimer) return
-
-    try {
-      logger.info(`[UDPScanner] ✅ 自动扫描已启动 (间隔: ${intervalSec}秒)`)
-      this.taskQueue.start() // 恢复队列
-
-      this.scanTimer = setInterval(() => {
-        if (!this.isScanning) {
-          this.discoverUdpDevices(2).catch((err) => {
-            logger.error('[UDPScanner] Auto scan cycle failed:', err)
-          })
-        }
-      }, intervalSec * 1000)
-
-      this.discoverUdpDevices(2).catch((err) => {
-        logger.error('[UDPScanner] Initial scan failed:', err)
-      })
-    } catch (error) {
-      logger.error('[UDPScanner] 自动扫描启动失败:', error)
-    }
-  }
-
-  /** 停止自动扫描 */
-  public stopAutoScan() {
+  /** 取消当前扫描 */
+  public cancel() {
     this.shouldStop = true
-    if (this.scanTimer) {
-      clearInterval(this.scanTimer)
-      this.scanTimer = null
-    }
-    this.taskQueue.stop()
+    logger.info('[UDPScanner] Scan cancelled')
   }
 
-  /** 并发扫描整个网段 */
-  async discoverUdpDevices(_timeoutSec = 5): Promise<UDPDevice[]> {
-    if (this.isScanning) return []
+  /** 并发扫描整个网段，onFound 回调实时通知每个发现的设备 */
+  async discoverUdpDevices(
+    onFound: (device: { ip: string; id: string; name: string }) => void
+  ): Promise<void> {
+    if (this.isScanning) {
+      logger.warn('[UDPScanner] Already scanning, ignoring new request')
+      return
+    }
+
     this.isScanning = true
     this.shouldStop = false
+    this.errorCounts.clear()
+    const startTime = Date.now()
 
-    logger.debug('[UDPScanner] Starting UDP discovery...')
+    try {
+      logger.info('[UDPScanner] Starting UDP discovery...')
 
-    const allHosts = hostManager.getHosts()
-    const existingIps = new Set(allHosts.map((h) => h.ip))
+      // 单次逐 IP 扫描的硬上限：枚举出的 IP 数绝不允许超过此值，杜绝 ARP 广播风暴打爆局域网
+      const MAX_SCAN_HOSTS = 1024
 
-    const networkStr = this.getLocalNetwork()
-    const subnet = ip.cidrSubnet(networkStr)
-    const first = ip.toLong(subnet.firstAddress)
-    const last = ip.toLong(subnet.lastAddress)
-
-    const ips: string[] = []
-    for (let n = first; n <= last; n++) {
-      const ipAddr = ip.fromLong(n)
-      // 跳过已存在的 Host
-      if (!existingIps.has(ipAddr)) {
-        ips.push(ipAddr)
+      // ① 单次取网卡：networkStr 与收敛用的本机 IP 都来自同一来源，避免两次查询不一致
+      const iface = this.getLocalInterface()
+      let networkStr: string
+      if (iface) {
+        const full = ip.subnet(iface.address, iface.netmask)
+        networkStr = `${full.networkAddress}/${full.subnetMaskLength}`
+        logger.info(
+          `[UDPScanner] 选用网卡 ${iface.name}: 本机IP=${iface.address}, 掩码=${iface.netmask}, 网段=${networkStr}, 可扫描主机数=${full.length}`
+        )
+      } else {
+        networkStr = '192.168.10.0/24'
+        logger.warn('[UDPScanner] 未找到可用网卡，使用默认网段 192.168.10.0/24')
       }
-    }
+      let subnet = ip.cidrSubnet(networkStr)
 
-    const devices: UDPDevice[] = []
-
-    // 使用更稳健的并发控制
-    // 将 IPs 分块处理，避免一次性创建过多 Promise
-    // 适当增加并发数以提高扫描速度，UDP 握手很快
-    const concurrency = 64
-
-    // --- 基于 Set 的并发池实现 ---
-    const activePromises = new Set<Promise<void>>()
-
-    for (const ipAddr of ips) {
-      if (this.shouldStop) break
-      // 创建任务
-      const promise = this.scanSingleIP(ipAddr, 150).then((dev) => {
-        if (dev) devices.push(dev)
-      })
-
-      // 将任务加入集合
-      activePromises.add(promise)
-
-      // 任务完成后从集合移除
-      promise.then(() => activePromises.delete(promise))
-
-      // 如果达到并发限制，等待任意一个任务完成
-      if (activePromises.size >= concurrency) {
-        await Promise.race(activePromises)
+      // ② 安全边界：网段过大（如 /16 = 65534 个 IP）时绝不逐 IP 扫全网段，
+      //   收敛到本机所在的 /22（≤1024 个 IP，约 2.4s，不会造成广播风暴）；更远的跨网段设备请手动添加。
+      if (subnet.length > MAX_SCAN_HOSTS) {
+        // 用本机真实 IP 定位它所在的 /22：网段 networkAddress（如 192.168.0.0）通常不含本机所在子网
+        const localIp = iface?.address ?? subnet.firstAddress
+        const safeCidr = `${ip.subnet(localIp, '255.255.252.0').networkAddress}/22`
+        logger.warn(
+          `[UDPScanner] ⚠️ 网段 ${networkStr}（${subnet.length} 个 IP）过大，已自动收敛为 ${safeCidr}（仅扫描本机所在 /22），更远的跨网段设备请手动添加`
+        )
+        networkStr = safeCidr
+        subnet = ip.cidrSubnet(networkStr)
       }
+
+      const first = ip.toLong(subnet.firstAddress)
+      const last = ip.toLong(subnet.lastAddress)
+
+      const ips: string[] = []
+      for (let n = first; n <= last; n++) {
+        ips.push(ip.fromLong(n))
+      }
+
+      // ③ 最终硬保险：无论掩码多异常、收敛逻辑是否被改动，只要枚举数超过上限就放弃扫描，
+      //   从机制上彻底杜绝逐 IP 扫描打爆局域网（宁可不扫，也绝不冒险）。
+      if (ips.length > MAX_SCAN_HOSTS) {
+        logger.error(
+          `[UDPScanner] 枚举出 ${ips.length} 个 IP 超过硬上限 ${MAX_SCAN_HOSTS}，为避免冲击局域网已取消本次扫描，请手动添加设备`
+        )
+        return
+      }
+
+      const concurrency = 64
+      logger.info(
+        `[UDPScanner] 开始扫描: 网段=${networkStr}, IP总数=${ips.length}, 并发=${concurrency}, 单IP超时=150ms`
+      )
+
+      let scannedCount = 0
+      let foundCount = 0
+      const activePromises = new Set<Promise<void>>()
+
+      for (const ipAddr of ips) {
+        if (this.shouldStop) break
+
+        const promise = this.scanSingleIP(ipAddr, 150)
+          .then((dev) => {
+            if (dev && !this.shouldStop) {
+              foundCount++
+              logger.info(`[UDPScanner] 发现设备: ip=${dev.ip}, id=${dev.id}, name=${dev.name}`)
+              try {
+                onFound(dev)
+              } catch (err) {
+                logger.error('[UDPScanner] onFound callback error:', err)
+              }
+            }
+          })
+          .catch((err) => {
+            logger.error(`[UDPScanner] scanSingleIP error for ${ipAddr}:`, err)
+          })
+          .finally(() => {
+            scannedCount++
+          })
+
+        activePromises.add(promise)
+        promise.finally(() => activePromises.delete(promise))
+
+        if (activePromises.size >= concurrency) {
+          await Promise.race(activePromises)
+        }
+      }
+
+      await Promise.all(activePromises)
+
+      const errorSummary =
+        this.errorCounts.size > 0 ? JSON.stringify(Object.fromEntries(this.errorCounts)) : '无'
+      logger.info(
+        `[UDPScanner] 扫描结束: 网段=${networkStr}, 已扫=${scannedCount}/${ips.length}, 发现设备=${foundCount}, socket错误=${errorSummary}, 耗时=${Date.now() - startTime}ms, 被取消=${this.shouldStop}`
+      )
+    } catch (err) {
+      logger.error('[UDPScanner] Discovery failed:', err)
+    } finally {
+      this.isScanning = false
     }
-
-    // 等待剩余任务全部完成
-    await Promise.all(activePromises)
-
-    this.isScanning = false
-    return devices
   }
 }

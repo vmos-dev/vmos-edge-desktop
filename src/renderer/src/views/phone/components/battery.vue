@@ -13,7 +13,11 @@
 
           <!-- 充电器连接 -->
           <el-form-item :label="t('phone.battery.chargerConnection')">
-            <el-select v-model="batteryForm.plugged" :placeholder="t('phone.battery.pleaseSelect')" style="width: 100%">
+            <el-select
+              v-model="batteryForm.plugged"
+              :placeholder="t('phone.battery.pleaseSelect')"
+              style="width: 100%"
+            >
               <el-option
                 v-for="item in pluggedOptions"
                 :key="item.value"
@@ -25,7 +29,11 @@
 
           <!-- 电池健康状态 -->
           <el-form-item :label="t('phone.battery.healthStatus')">
-            <el-select v-model="batteryForm.health" :placeholder="t('phone.battery.pleaseSelect')" style="width: 100%">
+            <el-select
+              v-model="batteryForm.health"
+              :placeholder="t('phone.battery.pleaseSelect')"
+              style="width: 100%"
+            >
               <el-option
                 v-for="item in healthOptions"
                 :key="item.value"
@@ -37,7 +45,11 @@
 
           <!-- 电池状态 -->
           <el-form-item :label="t('phone.battery.batteryStatus')">
-            <el-select v-model="batteryForm.status" :placeholder="t('phone.battery.pleaseSelect')" style="width: 100%">
+            <el-select
+              v-model="batteryForm.status"
+              :placeholder="t('phone.battery.pleaseSelect')"
+              style="width: 100%"
+            >
               <el-option
                 v-for="item in statusOptions"
                 :key="item.value"

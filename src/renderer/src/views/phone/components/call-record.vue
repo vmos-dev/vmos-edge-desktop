@@ -40,7 +40,11 @@
             </el-autocomplete>
           </el-form-item>
           <el-form-item :label="t('phone.callRecord.callType')" prop="type" required>
-            <el-select v-model="formData.type" :placeholder="t('phone.callRecord.selectCallType')" style="width: 100%">
+            <el-select
+              v-model="formData.type"
+              :placeholder="t('phone.callRecord.selectCallType')"
+              style="width: 100%"
+            >
               <el-option :label="t('phone.callRecord.type.incoming')" :value="1">
                 <div class="call-type-option">
                   <el-icon class="call-type-icon incoming">
@@ -125,7 +129,8 @@
             @click="handleBatchDelete"
             :disabled="selectedIds.length === 0"
           >
-            {{ t('phone.callRecord.delete') }}{{ selectedIds.length > 0 ? `(${selectedIds.length})` : '' }}
+            {{ t('phone.callRecord.delete')
+            }}{{ selectedIds.length > 0 ? `(${selectedIds.length})` : '' }}
           </el-button>
         </div>
       </div>
@@ -139,7 +144,9 @@
         >
           {{ t('phone.callRecord.selectAll') }}
         </el-checkbox>
-        <span class="selected-count">{{ t('phone.callRecord.selectedCount', { count: selectedIds.length }) }}</span>
+        <span class="selected-count">{{
+          t('phone.callRecord.selectedCount', { count: selectedIds.length })
+        }}</span>
       </div>
       <div class="call-list">
         <div class="call-list-content">
@@ -297,8 +304,12 @@ const formData = reactive<AddCallLogRequest>({ ...initialFormData })
 // 表单验证规则
 const formRules = computed(() => ({
   number: [{ required: true, message: t('phone.callRecord.enterPhoneNumber'), trigger: 'blur' }],
-  type: [{ required: true, message: t('phone.callRecord.selectCallTypeRequired'), trigger: 'change' }],
-  date: [{ required: true, message: t('phone.callRecord.selectCallTimeRequired'), trigger: 'change' }]
+  type: [
+    { required: true, message: t('phone.callRecord.selectCallTypeRequired'), trigger: 'change' }
+  ],
+  date: [
+    { required: true, message: t('phone.callRecord.selectCallTimeRequired'), trigger: 'change' }
+  ]
 }))
 
 // 获取头像样式
@@ -380,7 +391,11 @@ const loadContactList = async () => {
     const { hostIp, dbId } = getDeviceInfo()
 
     const url = buildDeviceApiUrl(hostIp, dbId, API_CONTROL_CONFIG.PATHS.GET_CONTACT_LIST)
-    const response = await request.get<ContactListApiResponse>(url, { offset: 0, limit: 999 }, { timeout: 5000 })
+    const response = await request.get<ContactListApiResponse>(
+      url,
+      { offset: 0, limit: 999 },
+      { timeout: 5000 }
+    )
 
     const list = response?.data?.list || response?.data?.contacts
     if (list && Array.isArray(list)) {
@@ -438,7 +453,11 @@ const loadCallLogList = async () => {
     const { hostIp, dbId } = getDeviceInfo()
 
     const url = buildDeviceApiUrl(hostIp, dbId, API_CONTROL_CONFIG.PATHS.GET_CALL_LOG_LIST)
-    const response = await request.get<CallLogListApiResponse>(url, { offset: 0, limit: 999 }, { timeout: 5000 })
+    const response = await request.get<CallLogListApiResponse>(
+      url,
+      { offset: 0, limit: 999 },
+      { timeout: 5000 }
+    )
 
     const list = response?.data?.list || response?.data?.calllog_list
 
@@ -512,12 +531,16 @@ const handleBatchDelete = async () => {
   const selectedCount = selectedIds.value.length
 
   try {
-    await ElMessageBox.confirm(t('phone.callRecord.confirmDeleteCall', { count: selectedCount }), t('phone.callRecord.confirmDelete'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning',
-      confirmButtonClass: 'el-button--danger'
-    })
+    await ElMessageBox.confirm(
+      t('phone.callRecord.confirmDeleteCall', { count: selectedCount }),
+      t('phone.callRecord.confirmDelete'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
 
     const { hostIp, dbId } = getDeviceInfo()
 

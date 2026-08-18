@@ -1,1 +1,2 @@
 * text=auto eol=lf
+resources/flow-engine/yaml-flow-engine-linux-arm64 filter=lfs diff=lfs merge=lfs -text

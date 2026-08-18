@@ -197,7 +197,6 @@ export class UploadQueue {
         } else {
           // 无 deviceId → host 级上传，请求成功即可host 级返回 data：list
           task.progress = 1
-          debugger
           this.updateStatus(task, 'success', data?.list)
         }
       })

@@ -12,6 +12,8 @@ export interface RequestTaskOptions {
   data?: any // For POST/PUT body
   params?: any // For GET/DELETE query params
   headers?: Record<string, string>
+  /** 自定义执行器，适用于一个任务包含多步异步逻辑的场景 */
+  executor?: (task: RequestTask) => Promise<any>
   /** 唯一标识，可选，用于防止重复添加等 */
   key?: string
   /** 附加数据，用于回调透传 */
@@ -145,7 +147,7 @@ export class RequestQueue {
     this.activeCount++
     this.updateStatus(task, 'processing')
 
-    const { url, method, data, params, headers } = task
+    const { url, method, data, params, headers, executor } = task
 
     // 构建请求配置
     const config = {
@@ -154,26 +156,30 @@ export class RequestQueue {
       timeout: task.timeout || this.timeout // 优先使用任务级别的超时，否则使用全局配置
     }
 
-    let reqPromise: Promise<any>
-
-    switch (method?.toUpperCase()) {
-      case 'POST':
-        reqPromise = request.post(url, data, { ...config, params })
-        break
-      case 'PUT':
-        reqPromise = request.put(url, data, { ...config, params })
-        break
-      case 'DELETE':
-        reqPromise = request.delete(url, { ...config, params, data })
-        break
-      case 'GET':
-      default:
-        reqPromise = request.get(url, { ...config, params })
-        break
-    }
+    const reqPromise = executor
+      ? executor(task)
+      : (() => {
+          switch (method?.toUpperCase()) {
+            case 'POST':
+              return request.post(url, data, { ...config, params })
+            case 'PUT':
+              return request.put(url, data, { ...config, params })
+            case 'DELETE':
+              return request.delete(url, { ...config, params, data })
+            case 'GET':
+            default:
+              return request.get(url, { ...config, params })
+          }
+        })()
 
     task.promise = reqPromise
       .then((res: any) => {
+        if (executor) {
+          task.data = res
+          this.updateStatus(task, 'success')
+          return
+        }
+
         // 假设 code === 200 为成功，这里可能需要根据实际业务调整
         // 或者直接认为请求成功就是 success，业务错误由调用方判断
         // 参考 upload.ts，这里先假设请求通了就算 success，具体业务逻辑如下：

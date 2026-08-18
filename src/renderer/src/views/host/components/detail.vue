@@ -15,6 +15,18 @@
           <span class="detail-label">{{ t('host.model') }}:</span>
           <span class="detail-value">{{ hostDetail.model || '-' }}</span>
         </div>
+        <div class="detail-item">
+          <span class="detail-label">{{ t('host.shareStatus') }}:</span>
+          <span class="detail-value">
+            <el-tag :type="hostDetail.isShare ? 'success' : 'info'" size="small">
+              {{ hostDetail.isShare ? t('host.shareOpened') : t('host.shareClosed') }}
+            </el-tag>
+          </span>
+        </div>
+        <div v-if="hostDetail.isShare" class="detail-item">
+          <span class="detail-label">{{ t('host.shareAddress') }}:</span>
+          <span class="detail-value">{{ hostDetail.shareUrl || '-' }}</span>
+        </div>
       </div>
 
       <!-- 资源使用情况 -->
@@ -31,6 +43,20 @@
             :show-text="false"
             :percentage="hostDetail.cpuPercent || 0"
             :color="getProgressColor(hostDetail.cpuPercent || 0)"
+            :stroke-width="8"
+          />
+        </div>
+
+        <!-- CPU 温度 -->
+        <div class="resource-item">
+          <div class="resource-header">
+            <span class="resource-label">{{ t('host.cpuTemp') }}:</span>
+            <span class="resource-percent">{{ hostDetail.cpuTemp || 0 }}°C</span>
+          </div>
+          <el-progress
+            :show-text="false"
+            :percentage="Math.min(hostDetail.cpuTemp || 0, 100)"
+            :color="getTempColor(hostDetail.cpuTemp || 0)"
             :stroke-width="8"
           />
         </div>
@@ -57,7 +83,16 @@
         <!-- 虚拟内存(swap) -->
         <div class="resource-item">
           <div class="resource-header">
-            <span class="resource-label">{{ t('host.swap') }}:</span>
+            <div class="resource-label-wrap">
+              <span class="resource-label">{{ t('host.swap') }}:</span>
+              <el-link
+                type="primary"
+                :underline="false"
+                class="swap-edit-link"
+                @click="swapEditing = !swapEditing"
+                >{{ t('host.swapEdit') }}</el-link
+              >
+            </div>
             <span class="resource-percent">{{ hostDetail.swapPercent || 0 }}%</span>
           </div>
           <el-progress
@@ -68,6 +103,27 @@
           />
           <div class="resource-usage">
             {{ formatBytes(hostDetail.swapUsed || 0) }}/{{ formatBytes(hostDetail.swapTotal || 0) }}
+          </div>
+          <div v-if="swapEditing" class="swap-row">
+            <span class="swap-bound">2G</span>
+            <el-slider
+              v-model="swapSize"
+              :min="2"
+              :max="16"
+              :step="1"
+              :show-tooltip="false"
+              :disabled="swapLoading"
+            />
+            <span class="swap-bound">16G</span>
+            <span class="swap-value">{{ swapSize }}G</span>
+            <el-button
+              type="primary"
+              :icon="Check"
+              :loading="swapLoading"
+              circle
+              size="small"
+              @click="handleSetSwap"
+            />
           </div>
         </div>
 
@@ -147,6 +203,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch, onUnmounted } from 'vue'
 import { ElMessage, ElUpload } from 'element-plus'
+import { Check } from '@element-plus/icons-vue'
 import { request } from '@shared/api/request'
 import { buildApiUrl, API_CONFIG } from '@shared/api/config'
 import { formatBytes } from '@renderer/utils/index'
@@ -160,6 +217,7 @@ interface HostDetail {
   ip: string
   model?: string
   cpuPercent?: number
+  cpuTemp?: number
   memoryPercent?: number
   memoryUsed?: number
   memoryTotal?: number
@@ -175,6 +233,8 @@ interface HostDetail {
   debianVersion?: string
   debianKernelVersion?: string
   cbsVersion?: string
+  isShare?: boolean
+  shareUrl?: string
 }
 
 const visible = ref(false)
@@ -186,6 +246,7 @@ const defaultHostDetail = (): HostDetail => {
     ip: '',
     model: '',
     cpuPercent: 0,
+    cpuTemp: 0,
     memoryPercent: 0,
     memoryUsed: 0,
     memoryTotal: 0,
@@ -200,18 +261,50 @@ const defaultHostDetail = (): HostDetail => {
     diskTotal: 0,
     debianVersion: '',
     debianKernelVersion: '',
-    cbsVersion: ''
+    cbsVersion: '',
+    isShare: false,
+    shareUrl: ''
   }
 }
 const hostDetail = reactive<HostDetail>(defaultHostDetail())
 const updateCBSRef = ref<InstanceType<typeof ElUpload>>()
 const saveLoading = ref(false)
+
+// Swap 设置
+const swapSize = ref(2)
+const swapLoading = ref(false)
+const swapEditing = ref(false)
+let swapSizeInitialized = false
+
+const handleSetSwap = async () => {
+  if (swapLoading.value) return
+  swapLoading.value = true
+  try {
+    await request.get(
+      buildApiUrl(host.value!.ip, `${API_CONFIG.PATHS.SET_SWAP_SIZE}/${swapSize.value}`),
+      {}
+    )
+    ElMessage.success(t('host.swapSetSuccess'))
+    swapEditing.value = false
+  } catch {
+    ElMessage.error(t('host.swapSetFailed'))
+  } finally {
+    swapLoading.value = false
+  }
+}
+
 /**
  * 根据百分比获取进度条颜色
  */
 function getProgressColor(percent: number): string {
   if (percent < 50) return 'var(--el-color-success)'
   if (percent < 80) return 'var(--el-color-warning)'
+  return 'var(--el-color-danger)'
+}
+
+function getTempColor(temp: number): string {
+  if (temp < 50) return 'var(--el-color-success)'
+  if (temp < 70) return 'var(--el-color-warning)'
   return 'var(--el-color-danger)'
 }
 
@@ -225,6 +318,9 @@ function mbToBytes(mb: number): number {
 const handleClose = () => {
   stopPolling()
   Object.assign(hostDetail, defaultHostDetail())
+  swapSize.value = 2
+  swapEditing.value = false
+  swapSizeInitialized = false
 }
 
 /**
@@ -281,7 +377,10 @@ async function fetchHostDetail(host: Host) {
         debianVersion: hardwareData.os_version || '',
         debianKernelVersion: hardwareData.kernel_version || '',
         cbsVersion: hardwareData.version || '',
-        model: hardwareData.model || ''
+        model: hardwareData.model || '',
+        isShare: !!hardwareData.isShare,
+        shareUrl: hardwareData.url || '',
+        cpuTemp: hardwareData.cputemp || 0
       })
     }
 
@@ -308,6 +407,12 @@ async function fetchHostDetail(host: Host) {
       const swapPercent = data.swap_percent || 0
       const swapTotalBytes = mbToBytes(swapTotalMB)
       const swapUsedBytes = mbToBytes((swapTotalMB * swapPercent) / 100)
+
+      // 首次获取时，用当前 swap 大小初始化输入框（MB → GB，钳制到 2-16）
+      if (!swapSizeInitialized && swapTotalMB > 0) {
+        swapSize.value = Math.max(2, Math.min(16, Math.round(swapTotalMB / 1024)))
+        swapSizeInitialized = true
+      }
 
       // 本地存储(mmc)信息（API返回的是MB）
       const mmcTotalMB = data.mmc_total || 0
@@ -473,10 +578,20 @@ defineExpose({
     margin-bottom: 2px;
     line-height: 1.2;
 
+    .resource-label-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .resource-label {
       font-size: 13px;
       color: var(--el-text-color-regular);
       flex-shrink: 0;
+    }
+
+    .swap-edit-link {
+      font-size: 12px;
     }
 
     .resource-percent {
@@ -485,6 +600,32 @@ defineExpose({
       color: var(--el-text-color-primary);
       flex-shrink: 0;
       margin-left: 8px;
+    }
+  }
+
+  .swap-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+
+    .el-slider {
+      flex: 1;
+    }
+
+    .swap-bound {
+      font-size: 11px;
+      color: var(--el-text-color-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .swap-value {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--el-color-primary);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
   }
 

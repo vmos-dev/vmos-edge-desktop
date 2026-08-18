@@ -1,5 +1,14 @@
+export const MACVLAN_PORTS = {
+  adb: 5555,
+  video: 9999,
+  control: 9997,
+  audio: 9998
+} as const
+
 export const CONFIG_KEYS = {
   IMAGE_STORAGE_PATH: 'image.storagePath',
+  SHARED_FOLDER_PATH: 'shared.folder.path',
+  SHARED_FOLDER_ENABLED: 'shared.folder.enabled',
   MAX_DISPLAY_SIDE: 'max.display.side',
   PROXY_CHECK_TIMEOUT: 'proxy.check.timeout',
   PROXY_CHECK_API_KEY: 'proxy.check.apiKey',

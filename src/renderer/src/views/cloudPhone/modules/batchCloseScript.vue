@@ -51,7 +51,9 @@
                 <div v-if="'error' in task && task.error" class="error-message">
                   <pre>{{ getErrorMessage(task.error) }}</pre>
                 </div>
-                <div v-else-if="task.status === 'success'" class="empty-message">{{ t('cloudPhone.scriptStopped') }}</div>
+                <div v-else-if="task.status === 'success'" class="empty-message">
+                  {{ t('cloudPhone.scriptStopped') }}
+                </div>
                 <div v-else class="empty-message">{{ t('cloudPhone.waiting') }}</div>
               </div>
             </el-collapse-item>
@@ -73,7 +75,9 @@
           <div class="status-item success">
             <span class="dot"></span>
             <span class="label">{{ t('cloudPhone.executeSuccess') }}</span>
-            <span class="count">{{ displayList.filter((t) => t.status === 'success').length }}</span>
+            <span class="count">{{
+              displayList.filter((t) => t.status === 'success').length
+            }}</span>
           </div>
           <div class="status-item error">
             <span class="dot"></span>
@@ -85,7 +89,9 @@
           <div class="status-item waiting">
             <span class="dot"></span>
             <span class="label">{{ t('cloudPhone.waiting') }}</span>
-            <span class="count">{{ displayList.filter((t) => t.status === 'waiting').length }}</span>
+            <span class="count">{{
+              displayList.filter((t) => t.status === 'waiting').length
+            }}</span>
           </div>
         </div>
         <div class="dialog-actions">

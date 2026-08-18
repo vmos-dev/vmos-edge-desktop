@@ -4,38 +4,97 @@
     <aside class="cloud-phone-sidebar">
       <!-- 搜索框 -->
       <div class="sidebar-search">
-        <el-input v-model="searchText" @input="onQueryChanged" :placeholder="t('cloudPhone.namePlaceholder')"
-          :prefix-icon="Search" clearable />
+        <el-input
+          v-model="searchText"
+          @input="onQueryChanged"
+          :placeholder="t('cloudPhone.namePlaceholder')"
+          :prefix-icon="Search"
+          clearable
+        />
       </div>
 
       <div class="sidebar-tabs">
-        <el-button text :type="groupingMode === 'host' ? 'primary' : ''" :bg="groupingMode === 'host'"
-          @click="handleGroupingModeChange('host')">
-          <svg-icon name="host" class="node-icon host-icon" :color="groupingMode === 'host' ? 'var(--el-color-primary)' : ''" />
+        <el-button
+          text
+          :type="groupingMode === 'host' ? 'primary' : ''"
+          :bg="groupingMode === 'host'"
+          @click="handleGroupingModeChange('host')"
+        >
+          <svg-icon
+            name="host"
+            class="node-icon host-icon"
+            :color="groupingMode === 'host' ? 'var(--el-color-primary)' : ''"
+          />
           &nbsp; {{ t('host.title') }}
         </el-button>
-        <el-button text :type="groupingMode === 'device' ? 'primary' : ''" :bg="groupingMode === 'device'"
-          @click="handleGroupingModeChange('device')">
-          <svg-icon name="phone" class="node-icon host-icon" :color="groupingMode === 'device' ? 'var(--el-color-primary)' : ''" />
+        <el-button
+          text
+          :type="groupingMode === 'device' ? 'primary' : ''"
+          :bg="groupingMode === 'device'"
+          @click="handleGroupingModeChange('device')"
+        >
+          <svg-icon
+            name="phone"
+            class="node-icon host-icon"
+            :color="groupingMode === 'device' ? 'var(--el-color-primary)' : ''"
+          />
           &nbsp; {{ t('cloudPhone.title') }}
         </el-button>
       </div>
       <!-- 操作按钮 -->
       <div class="sidebar-actions">
-        <el-button text :icon="Plus" @click="addGroupRef?.init(groupingMode)"> {{ t('cloudPhone.addGroup') }}
+        <el-button text :icon="Plus" @click="addGroupRef?.init(groupingMode)">
+          {{ t('cloudPhone.addGroup') }}
         </el-button>
-        <el-button text :icon="Plus" @click="addHostRef?.init()"> {{ t('host.addHost') }} </el-button>
+        <el-button v-if="groupingMode === 'host'" text :icon="Plus" @click="addHostRef?.init()">
+          {{ t('host.addHost') }}
+        </el-button>
+      </div>
+
+      <!-- 选中操作条（勾选后出现） -->
+      <div v-if="checkedMovableIds.length > 0" class="selection-bar">
+        <span class="selection-bar-text">
+          {{
+            groupingMode === 'host'
+              ? t('cloudPhone.selectedHostCount', { count: checkedMovableIds.length })
+              : t('cloudPhone.selectedDeviceCount', { count: checkedMovableIds.length })
+          }}
+        </span>
+        <el-button
+          type="primary"
+          text
+          size="small"
+          @click="moveToGroupRef?.init(checkedMovableIds, groupingMode)"
+        >
+          <svg-icon name="move-group" :width="13" :height="13" style="margin-right: 3px" />
+          {{ t('cloudPhone.moveGroup') }}
+        </el-button>
       </div>
 
       <!-- 设备树 -->
       <div class="sidebar-tree" ref="sidebarTreeRef">
-        <el-tree-v2 ref="treeRef" :height="treeHeight" :data="displayTreeData" v-if="isTreeDataLoaded"
-          :props="defaultProps" :default-expanded-keys="expandedKeys" :filter-method="filterMethod"
-          @node-expand="handleNodeExpand" @node-collapse="handleNodeCollapse" show-checkbox :indent="6" :item-size="44"
-          @check="handleCheckChange">
+        <el-tree-v2
+          ref="treeRef"
+          :height="treeHeight"
+          :data="displayTreeData"
+          v-if="isTreeDataLoaded"
+          :props="defaultProps"
+          :default-expanded-keys="expandedKeys"
+          :filter-method="filterMethod"
+          @node-expand="handleNodeExpand"
+          @node-collapse="handleNodeCollapse"
+          show-checkbox
+          :indent="6"
+          :item-size="44"
+          @check="onTreeCheck"
+        >
           <template #default="{ data }">
             <div class="tree-node">
-              <span v-if="data.type !== 'group'" class="status-dot" :class="getNodeStatusClass(data)"></span>
+              <span
+                v-if="data.type !== 'group'"
+                class="status-dot"
+                :class="getNodeStatusClass(data)"
+              ></span>
               <el-icon v-if="data.type === 'group'" class="node-icon group-icon">
                 <Folder />
               </el-icon>
@@ -43,33 +102,46 @@
 
               <div class="node-label" :title="formatTreeLabel(data)">
                 <template v-if="data.type === 'group'">
-                  <span class="label-text">{{ formatTreeLabel(data) }} ({{ data.children?.length || 0 }})</span>
+                  <span class="label-text"
+                    >{{ formatTreeLabel(data) }} ({{ getFilteredChildCount(data) }})</span
+                  >
                 </template>
                 <template v-else-if="data.type === 'host'">
-                  <span class="label-text">{{ formatTreeLabel(data) }} ({{ data.children?.length || 0 }})</span>
+                  <span class="label-text"
+                    >{{ formatTreeLabel(data) }} ({{ getFilteredChildCount(data) }})</span
+                  >
                 </template>
                 <template v-else-if="data.type === 'device'">
                   <div class="label-device">
                     <div class="label-device-content">
                       <span class="label-text">{{ formatTreeLabel(data) }}</span>
-                      <span v-if="getDeviceIpAdb(data.originalData as Device)" class="label-subtext"
+                      <span
+                        v-if="getDeviceIpAdb(data.originalData as Device)"
+                        class="label-subtext"
                         :title="getDeviceIpAdb(data.originalData as Device)"
-                        @click.stop="handleCopyIpAdb(data.originalData as Device)">
+                        @click.stop="handleCopyIpAdb(data.originalData as Device)"
+                      >
                         {{ getDeviceIpAdb(data.originalData as Device) }}
                       </span>
                     </div>
                     <div class="node-label-tool" @click.stop>
-                      <el-dropdown v-if="(data.originalData as Device).state !== DeviceState.StateOffline"
+                      <el-dropdown
+                        v-if="(data.originalData as Device).state !== DeviceState.StateOffline"
                         trigger="click"
-                        @command="(command) => handleDeviceDropdownClick(command, [data.originalData as Device])">
+                        @command="(command) => handleDeviceDropdownClick(command, [data.originalData as Device])"
+                      >
                         <el-icon class="tool-icon" size="14">
                           <MoreFilled />
                         </el-icon>
                         <template #dropdown>
                           <el-dropdown-menu class="device-actions-menu">
-                            <el-dropdown-item v-for="item in getDeviceMenuItems(data.originalData as Device)"
-                              :key="item.command" :command="item.command" :divided="item.divided">{{ item.label
-                              }}</el-dropdown-item>
+                            <el-dropdown-item
+                              v-for="item in getDeviceMenuItems(data.originalData as Device)"
+                              :key="item.command"
+                              :command="item.command"
+                              :divided="item.divided"
+                              >{{ item.label }}</el-dropdown-item
+                            >
                           </el-dropdown-menu>
                         </template>
                       </el-dropdown>
@@ -79,29 +151,45 @@
 
                 <div class="node-label-tool" @click.stop v-if="data.type !== 'device'">
                   <template v-if="data.type === 'group'">
-                    <el-icon class="tool-icon" size="14"
-                      :title="groupingMode === 'host' ? t('cloudPhone.addHostToGroup') : t('cloudPhone.addDeviceToGroup')"
-                      @click="moveGroupRef?.init(data.originalData as Group, groupingMode)">
-                      <Plus />
-                    </el-icon>
-                    <el-icon class="tool-icon" size="14" :title="t('cloudPhone.editGroup')"
-                      @click="updateGroupRef?.init(data.originalData as Group)">
+                    <el-icon
+                      class="tool-icon"
+                      size="14"
+                      :title="t('cloudPhone.editGroup')"
+                      @click="updateGroupRef?.init(data.originalData as Group)"
+                    >
                       <Edit />
                     </el-icon>
-                    <el-icon class="tool-icon" size="14" :title="t('cloudPhone.deleteGroup')" v-if="
-                      data.originalData.id !== 'default' &&
-                      data.originalData.id !== 'device_default'
-                    " @click="handleDeleteGroup(data.originalData as Group)">
+                    <el-icon
+                      class="tool-icon"
+                      size="14"
+                      :title="t('cloudPhone.deleteGroup')"
+                      v-if="
+                        data.originalData.id !== 'default' &&
+                        data.originalData.id !== 'device_default'
+                      "
+                      @click="handleDeleteGroup(data.originalData as Group)"
+                    >
                       <Delete />
                     </el-icon>
                   </template>
-                  <template v-else-if="data.type === 'host' && (data.originalData as Host).status === HostState.Online">
-                    <el-icon class="tool-icon" v-if="(data.originalData as Host).status === HostState.Online" size="14"
-                      :title="t('cloudPhone.restart')" @click="handleShutdownHost(data.originalData as Host)">
+                  <template
+                    v-else-if="data.type === 'host' && (data.originalData as Host).status === HostState.Online"
+                  >
+                    <el-icon
+                      class="tool-icon"
+                      v-if="(data.originalData as Host).status === HostState.Online"
+                      size="14"
+                      :title="t('cloudPhone.restart')"
+                      @click="handleShutdownHost(data.originalData as Host)"
+                    >
                       <RefreshRight />
                     </el-icon>
-                    <el-icon class="tool-icon" size="14" :title="t('cloudPhone.createButton')"
-                      @click="createCloudRef?.init(data.originalData as Host)">
+                    <el-icon
+                      class="tool-icon"
+                      size="14"
+                      :title="t('cloudPhone.createButton')"
+                      @click="createCloudRef?.init(data.originalData as Host)"
+                    >
                       <Plus />
                     </el-icon>
                   </template>
@@ -118,16 +206,22 @@
       <!-- 顶部操作栏 -->
       <div class="page-toolbar">
         <div class="toolbar-left">
-          <el-checkbox v-model="selectAll" :indeterminate="isIndeterminate" @change="handleToolbarSelectAll">{{
-            t('cloudPhone.selectAll') }}</el-checkbox>
-          <el-button text @click="handleInvertSelection">{{ t('cloudPhone.invertSelection') }}</el-button>
+          <el-checkbox
+            v-model="selectAll"
+            :indeterminate="isIndeterminate"
+            @change="handleToolbarSelectAll"
+            >{{ t('cloudPhone.selectAll') }}</el-checkbox
+          >
+          <el-button text @click="handleInvertSelection">{{
+            t('cloudPhone.invertSelection')
+          }}</el-button>
           <span class="selected-count">{{ selectedCount }} {{ t('cloudPhone.selected') }}</span>
-          <el-button text @click="handleCancelSelection">{{ t('cloudPhone.cancelSelection') }}</el-button>
+          <el-button text @click="handleCancelSelection">{{
+            t('cloudPhone.cancelSelection')
+          }}</el-button>
 
           <el-button text :class="{ 'is-active': isBatchPanelExpanded }" @click="toggleBatchPanel">
-            <el-icon>
-              <Operation />
-            </el-icon>&nbsp;{{ t('cloudPhone.batchOperation') }}
+            <el-icon> <Operation /> </el-icon>&nbsp;{{ t('cloudPhone.batchOperation') }}
             <el-icon class="expand-icon" :class="{ 'is-expanded': isBatchPanelExpanded }">
               <ArrowDown />
             </el-icon>
@@ -142,32 +236,61 @@
           </div>
 
           <el-divider direction="vertical" />
-          <el-select v-model="deviceTypeFilter" :placeholder="t('cloudPhone.typeFilter')" style="width: 120px"
-            size="small" clearable>
+          <el-select
+            v-model="deviceTypeFilter"
+            :placeholder="t('cloudPhone.typeFilter')"
+            style="width: 120px"
+            size="small"
+            clearable
+          >
             <template #prefix>
               <el-icon>
                 <Filter />
               </el-icon>
             </template>
-            <el-option v-for="(value, key) in DeviceTypeMap" :key="key" :label="value" :value="key" />
+            <el-option
+              v-for="(value, key) in DeviceTypeMap"
+              :key="key"
+              :label="value"
+              :value="key"
+            />
           </el-select>
-          <el-select v-model="deviceFilter" :placeholder="t('cloudPhone.statusFilter')" style="width: 160px"
-            size="small" collapse-tags multiple collapse-tags-tooltip clearable>
+          <el-select
+            v-model="deviceFilter"
+            :placeholder="t('cloudPhone.statusFilter')"
+            style="width: 160px"
+            size="small"
+            collapse-tags
+            multiple
+            collapse-tags-tooltip
+            clearable
+          >
             <template #prefix>
               <el-icon>
                 <Filter />
               </el-icon>
             </template>
-            <el-option v-for="(label, state) in DeviceStateMap" :key="state" :label="label" :value="state">
-              <div style="
+            <el-option
+              v-for="(label, state) in DeviceStateMap"
+              :key="state"
+              :label="label"
+              :value="state"
+            >
+              <div
+                style="
                   display: flex;
                   align-items: center;
                   justify-content: space-between;
                   width: 100%;
-                ">
+                "
+              >
                 <span>{{ label }}</span>
-                <el-tag :style="{ backgroundColor: DeviceStateColorMap[state] }" effect="dark" round
-                  style="width: 6px; height: 6px; padding: 0; border: none" />
+                <el-tag
+                  :style="{ backgroundColor: DeviceStateColorMap[state] }"
+                  effect="dark"
+                  round
+                  style="width: 6px; height: 6px; padding: 0; border: none"
+                />
               </div>
             </el-option>
           </el-select>
@@ -182,39 +305,71 @@
                 <el-dropdown-item command="list">
                   <el-icon v-if="viewMode === 'list'">
                     <Check />
-                  </el-icon> {{ t('cloudPhone.listMode') }}
+                  </el-icon>
+                  {{ t('cloudPhone.listMode') }}
                 </el-dropdown-item>
                 <el-dropdown-item command="grid">
                   <el-icon v-if="viewMode === 'grid'">
                     <Check />
-                  </el-icon> {{ t('cloudPhone.gridMode') }}
+                  </el-icon>
+                  {{ t('cloudPhone.gridMode') }}
                 </el-dropdown-item>
                 <template v-if="viewMode === 'grid'">
                   <el-dropdown-item command="grid-landscape" divided>
                     <el-icon v-if="gridOrientation === 'landscape'">
                       <Check />
-                    </el-icon> {{ t('cloudPhone.landscape') }}
+                    </el-icon>
+                    {{ t('cloudPhone.landscape') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="grid-portrait">
                     <el-icon v-if="gridOrientation === 'portrait'">
                       <Check />
-                    </el-icon> {{ t('cloudPhone.portrait') }}
+                    </el-icon>
+                    {{ t('cloudPhone.portrait') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="grid-large" divided>
                     <el-icon v-if="gridSize === 'large'">
                       <Check />
-                    </el-icon> {{ t('cloudPhone.largeView') }}
+                    </el-icon>
+                    {{ t('cloudPhone.largeView') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="grid-medium">
                     <el-icon v-if="gridSize === 'medium'">
                       <Check />
-                    </el-icon> {{ t('cloudPhone.mediumView') }}
+                    </el-icon>
+                    {{ t('cloudPhone.mediumView') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="grid-small">
                     <el-icon v-if="gridSize === 'small'">
                       <Check />
-                    </el-icon> {{ t('cloudPhone.smallView') }}
+                    </el-icon>
+                    {{ t('cloudPhone.smallView') }}
                   </el-dropdown-item>
+                  <!-- 自定义缩放区域：阻止事件冒泡防止菜单关闭 -->
+                  <div class="view-scale-item" @click.stop @mousedown.stop>
+                    <div class="view-scale-header">
+                      <span class="view-scale-title">
+                        <el-icon v-if="gridSize === 'custom'" style="vertical-align: middle">
+                          <Check />
+                        </el-icon>
+                        {{ t('cloudPhone.customView') }}
+                      </span>
+                      <span class="view-scale-percent">{{ gridCustomScale }}%</span>
+                    </div>
+                    <el-slider
+                      v-model="gridCustomScale"
+                      :min="50"
+                      :max="200"
+                      :step="1"
+                      size="small"
+                      :show-tooltip="false"
+                      @input="
+                        () => {
+                          gridSize = 'custom'
+                        }
+                      "
+                    />
+                  </div>
                 </template>
               </el-dropdown-menu>
             </template>
@@ -222,32 +377,71 @@
         </div>
 
         <!-- 批量操作面板 -->
-        <div ref="batchPanelRef" class="batch-operations-panel" :class="{ 'is-expanded': isBatchPanelExpanded }">
+        <div
+          ref="batchPanelRef"
+          class="batch-operations-panel"
+          :class="{ 'is-expanded': isBatchPanelExpanded }"
+        >
           <div class="batch-operations-content">
-            <template v-for="(item, index) in getBatchOperationItems(selectedRows as Device[])" :key="item.command">
+            <template v-for="(item, index) in getBatchOperationItems()" :key="item.command">
               <el-divider v-if="item.divided && index > 0" direction="vertical" />
-              <el-button text @click="handleDeviceDropdownClick(item.command, selectedRows as Device[])"
-                class="batch-operation-btn">
+              <el-button
+                text
+                @click="handleDeviceDropdownClick(item.command, selectedRows as Device[])"
+                class="batch-operation-btn"
+              >
                 <svg-icon :name="item.command" v-if="item.command" style="margin-right: 3px" />
                 {{ item.label }}
               </el-button>
             </template>
+            <el-divider direction="vertical" />
+            <el-button
+              text
+              class="batch-operation-btn"
+              @click="handleDeviceDropdownClick('batch-execute', selectedRows as Device[])"
+            >
+              <el-icon style="margin-right: 3px"><VideoPlay /></el-icon>
+              {{ t('taskCenter.batchExecute.title') }}
+            </el-button>
           </div>
         </div>
       </div>
 
       <!-- 数据表格 -->
-      <div class="page-content" :style="{
-        transform: isBatchPanelExpanded ? `translateY(${batchPanelHeight}px)` : 'translateY(0)',
-        paddingBottom: isBatchPanelExpanded ? `${batchPanelHeight}px` : '0px'
-      }">
-        <VmosTable v-if="viewMode === 'list'" ref="tableRef" :data="tableData" :columns="columns" selectable
-          :row-height="40" :header-height="45" row-key="id" :selected-ids="selectedIds"
-          @selection-change="handleSelectionChange" />
-        <CloudGrid v-else :data="tableData" :selected-ids="selectedIds" :size="gridSize" :orientation="gridOrientation"
-          :get-menu-items="getDeviceMenuItems" :is-group-control="isGroupControl"
-          @selection-change="handleGridSelectionChange" @command="handleGridCommand"
-          @open-window="handleOpenGroupWindow" />
+      <div
+        class="page-content"
+        :style="{
+          transform: isBatchPanelExpanded ? `translateY(${batchPanelHeight}px)` : 'translateY(0)',
+          paddingBottom: isBatchPanelExpanded ? `${batchPanelHeight}px` : '0px'
+        }"
+      >
+        <VmosTable
+          v-if="viewMode === 'list'"
+          ref="tableRef"
+          :data="sortedTableData"
+          :columns="columns"
+          selectable
+          checkbox-fixed="left"
+          :row-height="40"
+          :header-height="45"
+          row-key="id"
+          :selected-ids="selectedIds"
+          @sort-change="handleSortChange"
+          @selection-change="handleSelectionChange"
+        />
+        <CloudGrid
+          v-else
+          :data="tableData"
+          :selected-ids="selectedIds"
+          :size="gridSize"
+          :scale="gridCustomScale"
+          :orientation="gridOrientation"
+          :get-menu-items="getDeviceMenuItems"
+          :is-group-control="isGroupControl"
+          @selection-change="handleGridSelectionChange"
+          @command="handleGridCommand"
+          @open-window="handleOpenGroupWindow"
+        />
       </div>
     </div>
 
@@ -255,7 +449,7 @@
     <AddGroup ref="addGroupRef" />
     <AddHost ref="addHostRef" />
     <UpdateGroup ref="updateGroupRef" />
-    <MoveGroup ref="moveGroupRef" />
+    <MoveToGroup ref="moveToGroupRef" @moved="handleMoveGroupDone" />
     <UpdateDeviceName ref="updateDeviceNameRef" />
     <UpdateImage ref="updateImageRef" />
     <NewMachine ref="newMachineRef" />
@@ -264,6 +458,7 @@
     <DeviceInfo ref="deviceInfoRef" />
     <BackupDialog ref="backupDialogRef" />
     <SetProxy ref="setProxyRef" />
+    <BatchProxy ref="batchProxyRef" />
     <SetTimeZoneLanguage ref="setTimeZoneLanguageRef" />
     <ExecCommand ref="execCommandRef" />
     <BatchExecuteScript ref="batchExecuteScriptRef" />
@@ -272,6 +467,11 @@
     <ModifyPosition ref="modifyPositionRef" />
     <ModifySystemProperties ref="modifySystemPropertiesRef" />
     <CopyInfoDialog ref="copyInfoRef" />
+    <BatchExecuteDialog
+      v-model="batchExecuteVisible"
+      :selected-devices="selectedRows as Device[]"
+      @executed="handleBatchExecuted"
+    />
   </div>
 </template>
 
@@ -317,7 +517,7 @@ import { getDeviceStateText, getDeviceTypeText } from '@renderer/utils/i18n-maps
 import AddGroup from './modules/addGroup.vue'
 import AddHost from './modules/addHost.vue'
 import UpdateGroup from './modules/updateGroup.vue'
-import MoveGroup from './modules/moveGroup.vue'
+import MoveToGroup from './modules/moveToGroup.vue'
 import UpdateDeviceName from './modules/updateDeviceName.vue'
 import UpdateImage from './modules/updateImage.vue'
 import NewMachine from './modules/newMachine.vue'
@@ -325,6 +525,7 @@ import DeviceClone from './modules/deviceClone.vue'
 import CreateCloud from './components/CreateCloud.vue'
 import BatchInstall from './modules/batchInstall.vue'
 import SetProxy from './modules/setProxy.vue'
+import BatchProxy from './modules/batchProxy.vue'
 import { copyToClipboard } from '@renderer/utils/index'
 import { ipc } from '@renderer/core/ipc'
 import { DATA_EVENTS } from '@shared/ipc/data.types'
@@ -345,11 +546,19 @@ import { useModeView } from './hooks/useModeView'
 import ModifyPosition from './modules/modifyPosition.vue'
 import ModifySystemProperties from './modules/modifySystemProperties.vue'
 import CopyInfoDialog from './modules/copyInfoDialog.vue'
+import BatchExecuteDialog from './components/BatchExecuteDialog.vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const router = useRouter()
 
 defineOptions({ name: 'Cloud' })
+
+const batchExecuteVisible = ref(false)
+function handleBatchExecuted(batchTaskId: string) {
+  router.push(`/automation/task/${batchTaskId}`)
+}
 
 // ==========================================
 // 状态与引用 (Refs)
@@ -359,7 +568,7 @@ defineOptions({ name: 'Cloud' })
 const addGroupRef = ref<InstanceType<typeof AddGroup>>()
 const addHostRef = ref<InstanceType<typeof AddHost>>()
 const updateGroupRef = ref<InstanceType<typeof UpdateGroup>>()
-const moveGroupRef = ref<InstanceType<typeof MoveGroup>>()
+const moveToGroupRef = ref<InstanceType<typeof MoveToGroup>>()
 const updateDeviceNameRef = ref<InstanceType<typeof UpdateDeviceName>>()
 const updateImageRef = ref<InstanceType<typeof UpdateImage>>()
 const newMachineRef = ref<InstanceType<typeof NewMachine>>()
@@ -368,6 +577,7 @@ const createCloudRef = ref<InstanceType<typeof CreateCloud>>()
 const deviceInfoRef = ref<InstanceType<typeof DeviceInfo>>()
 const backupDialogRef = ref<InstanceType<typeof BackupDialog>>()
 const setProxyRef = ref<InstanceType<typeof SetProxy>>()
+const batchProxyRef = ref<InstanceType<typeof BatchProxy>>()
 const modifyPositionRef = ref<InstanceType<typeof ModifyPosition>>()
 const setTimeZoneLanguageRef = ref<InstanceType<typeof SetTimeZoneLanguage>>()
 const modifySystemPropertiesRef = ref<InstanceType<typeof ModifySystemProperties>>()
@@ -380,7 +590,7 @@ const copyInfoRef = ref<InstanceType<typeof CopyInfoDialog>>()
 const tableRef = ref<InstanceType<typeof VmosTable>>()
 const sidebarTreeRef = ref<HTMLElement>()
 const batchPanelRef = ref<HTMLElement>()
-const { viewMode, gridSize, gridOrientation } = useModeView()
+const { viewMode, gridSize, gridOrientation, gridCustomScale } = useModeView()
 
 const deviceFilter = ref<string[]>([])
 const deviceTypeFilter = ref<string>('')
@@ -439,7 +649,8 @@ const {
   formatTreeLabel,
   groupingMode,
   setGroupingMode,
-  getRunningCountByHostIp
+  getRunningCountByHostIp,
+  getFilteredChildCount
 } = useCloudTree(() => onDataChangedHandler.value?.())
 
 // 监听节点展开/折叠，同步 expandedKeys，防止数据刷新时重置为初始状态
@@ -461,6 +672,7 @@ const handleNodeCollapse = (data: TreeNode) => {
 const {
   tableData,
   selectedRows,
+  checkedDeviceIds,
   selectedCount,
   selectedIds,
   selectAll,
@@ -472,16 +684,57 @@ const {
   handleCancelSelection,
   handleGridSelectionChange,
   syncCheckedKeys
-} = useCloudSelection(treeRef, deviceFilter, deviceTypeFilter, viewMode, tableRef)
+} = useCloudSelection(treeRef, deviceFilter, deviceTypeFilter, viewMode, tableRef, searchText)
+
+// 跟踪当前模式下可移动的勾选项（主机模式=主机ID，云机模式=设备ID）
+const checkedMovableIds = ref<string[]>([])
+
+const updateCheckedMovable = () => {
+  if (!treeRef.value) {
+    checkedMovableIds.value = []
+    return
+  }
+  const checkedNodes = treeRef.value.getCheckedNodes() || []
+  const type = groupingMode.value === 'host' ? 'host' : 'device'
+  checkedMovableIds.value = checkedNodes
+    .filter((n: TreeNode) => n.type === type)
+    .map((n: TreeNode) => n.id)
+}
+
+/**
+ * 树节点勾选事件处理
+ *
+ * 核心问题：el-tree-v2 的过滤是纯渲染层（hiddenNodeKeySet），
+ * useCheck.toggleCheckbox 无条件级联 node.children（含隐藏节点），
+ * 且无任何 hook 可拦截。
+ *
+ * 策略：
+ * - 搜索期间不修改 el-tree-v2 的勾选状态（不调 setCheckedKeys），
+ *   避免半选→点击→修正→半选的死循环，让标准 toggle 正常工作
+ * - 通过 checkedDeviceIds（有效选中集合）+ handleCheckChange('check')
+ *   在业务层过滤：搜索时只把匹配的设备加入有效集合
+ * - 清除搜索时再一次性用 setCheckedKeys 同步树的视觉状态
+ */
+const onTreeCheck = () => {
+  handleCheckChange('check')
+  updateCheckedMovable()
+}
 
 // 连接回调：当 Tree 数据变更（如实时更新、删除）时触发
-// 1. handleCheckChange: 重新计算 tableData，确保表格显示正确
-// 2. syncCheckedKeys: 确保 Tree 内部选中状态与 checkedKeys 同步
+// 搜索状态下使用 'filter' 模式，避免数据事件（如状态变更）重置用户的筛选选中
 onDataChangedHandler.value = () => {
   nextTick(() => {
-    handleCheckChange()
+    handleCheckChange(searchText.value ? 'filter' : 'sync')
     syncCheckedKeys()
+    updateCheckedMovable()
   })
+}
+
+// 移动分组完成后清理勾选状态
+const handleMoveGroupDone = () => {
+  treeRef.value?.setCheckedKeys([])
+  checkedMovableIds.value = []
+  handleCheckChange('sync')
 }
 
 const {
@@ -504,6 +757,7 @@ const {
     newMachineRef,
     deviceCloneRef,
     setProxyRef,
+    batchProxyRef,
     setTimeZoneLanguageRef,
     modifySystemPropertiesRef,
     execCommandRef,
@@ -511,7 +765,8 @@ const {
     batchExecuteScriptRef,
     batchCloseScriptRef,
     modifyPositionRef,
-    copyInfoRef
+    copyInfoRef,
+    batchExecuteVisible
   }
 )
 
@@ -546,14 +801,16 @@ const setGroupControl = (value: boolean) => {
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
       type: 'warning'
-    }).then(() => {
-      if (doNotShowAgain.value) {
-        localStorage.setItem('skipGroupControlWarning', 'true')
-      }
-      executeGroupControl()
-    }).catch(() => {
-      // 用户点击取消或关闭弹窗
     })
+      .then(() => {
+        if (doNotShowAgain.value) {
+          localStorage.setItem('skipGroupControlWarning', 'true')
+        }
+        executeGroupControl()
+      })
+      .catch(() => {
+        // 用户点击取消或关闭弹窗
+      })
   } else {
     // 通知后端关闭群控
     ipc.send(DATA_EVENTS.SET_GROUP_CONTROL, false)
@@ -585,23 +842,40 @@ const handleGroupingModeChange = async (mode: 'host' | 'device') => {
   // 1. 清空树勾选
   treeRef.value?.setCheckedKeys([])
   // 2. 触发检查逻辑，这将清空 tableData 并同步清空 selectedRows (因为数据源没了)
-  handleCheckChange()
+  handleCheckChange('sync')
   // 3. 显式清空选中状态（双重保险）
   handleCancelSelection()
+  // 4. 清空可移动项
+  checkedMovableIds.value = []
 }
+
+// 监听搜索文本变化
+// 搜索时：只过滤树的显示，不影响表格数据
+// 清除搜索时：重新计算表格 + 将树的勾选状态与有效选中集合同步
+watch(
+  () => searchText.value,
+  (newVal, oldVal) => {
+    if (!newVal && oldVal) {
+      handleCheckChange('filter')
+      nextTick(() => {
+        treeRef.value?.setCheckedKeys(Array.from(checkedDeviceIds.value))
+      })
+    }
+  }
+)
 
 // 监听筛选条件变化，重新触发过滤和表格更新
 watch(
   () => deviceFilter.value,
   () => {
-    handleCheckChange()
+    handleCheckChange('filter')
   }
 )
 
 watch(
   () => deviceTypeFilter.value,
   () => {
-    handleCheckChange()
+    handleCheckChange('filter')
   }
 )
 
@@ -618,15 +892,11 @@ const handleOpenGroupWindow = (device: Device) => {
 }
 
 const handleDeleteGroup = (group: Group) => {
-  ElMessageBox.confirm(
-    t('cloudPhone.deleteGroupConfirm', { name: group.name }),
-    t('common.tips'),
-    {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning'
-    }
-  ).then(async () => {
+  ElMessageBox.confirm(t('cloudPhone.deleteGroupConfirm', { name: group.name }), t('common.tips'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
+    type: 'warning'
+  }).then(async () => {
     const res = await ipc.invoke(DATA_EVENTS.DELETE_GROUP, group.id)
     if (res.success) {
       ElMessage.success(t('cloudPhone.deleteGroupSuccess'))
@@ -758,8 +1028,39 @@ onUnmounted(() => {
   cleanupPanelObserver()
 })
 
+// 表格排序
+const sortState = ref<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
+const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
+
+const sortedTableData = computed(() => {
+  const { key, order } = sortState.value
+  if (!key || !order) return tableData.value
+
+  const sorted = [...tableData.value].sort((a, b) => {
+    const valA = a[key] || ''
+    const valB = b[key] || ''
+    return collator.compare(String(valA), String(valB))
+  })
+
+  return order === 'desc' ? sorted.reverse() : sorted
+})
+
+const handleSortChange = (sortBy: { key: string; order: 'asc' | 'desc' | '' }) => {
+  sortState.value = sortBy
+}
+
 // 表格列定义
 const columns = computed(() => [
+  {
+    key: 'user_name',
+    dataKey: 'user_name',
+    title: t('cloudPhone.deviceName'),
+    width: 150,
+    flexGrow: 1,
+    sortable: true,
+    fixed: TableV2FixedDir.LEFT,
+    cellRenderer: ({ cellData }) => <CopyText text={cellData} />
+  },
   {
     key: 'db_id',
     dataKey: 'db_id',
@@ -769,19 +1070,11 @@ const columns = computed(() => [
     cellRenderer: ({ cellData }) => <CopyText text={cellData} />
   },
   {
-    key: 'user_name',
-    dataKey: 'user_name',
-    title: t('cloudPhone.deviceName'),
-    width: 150,
-    flexGrow: 1,
-    cellRenderer: ({ cellData }) => <CopyText text={cellData} />
-  },
-  {
     key: 'device_type',
     dataKey: 'device_type',
     title: t('cloudPhone.deviceType'),
     align: 'center' as const,
-    width: 80,
+    width: 100,
     flexGrow: 1,
     cellRenderer: ({ cellData }) => (
       <CopyText
@@ -790,7 +1083,9 @@ const columns = computed(() => [
             ? DeviceTypeMap.value[DeviceType.VIRTUAL]
             : DeviceTypeMap.value[DeviceType.REAL]
         }
-        color={cellData === DeviceType.VIRTUAL ? 'var(--el-color-primary)' : 'var(--el-color-success)'}
+        color={
+          cellData === DeviceType.VIRTUAL ? 'var(--el-color-primary)' : 'var(--el-color-success)'
+        }
       />
     )
   },
@@ -809,8 +1104,9 @@ const columns = computed(() => [
     key: 'state',
     dataKey: 'state',
     title: t('cloudPhone.status'),
-    width: 80,
+    width: 100,
     flexGrow: 1,
+    sortable: true,
     cellRenderer: ({ cellData }: { cellData: DeviceState }) => (
       <CopyText text={DeviceStateMap.value[cellData]} color={DeviceStateColorMap[cellData]} />
     )
@@ -821,13 +1117,16 @@ const columns = computed(() => [
     title: t('cloudPhone.androidVersion'),
     width: 120,
     flexGrow: 1,
-    cellRenderer: ({ cellData }) => <CopyText text={`Android ${cellData}`} color="var(--el-color-primary)" />
+    cellRenderer: ({ cellData }) => (
+      <CopyText text={`Android ${cellData}`} color="var(--el-color-primary)" />
+    )
   },
   {
     key: 'image',
     dataKey: 'image',
     title: t('cloudPhone.imageVersion'),
     width: 290,
+    sortable: true,
     cellRenderer: ({ cellData }) => <CopyText text={cellData.replace(/:latest$/, '')} />
   },
   {
@@ -835,7 +1134,8 @@ const columns = computed(() => [
     dataKey: 'created',
     title: t('cloudPhone.createTime'),
     width: 180,
-    flexGrow: 1
+    flexGrow: 1,
+    sortable: true
   },
   {
     key: 'operations',
@@ -863,7 +1163,9 @@ const columns = computed(() => [
             }
             style="font-size: 13px;"
           >
-            {rowData.state === DeviceState.StateStopped ? t('cloudPhone.powerOn') : t('cloudPhone.openWindow')}
+            {rowData.state === DeviceState.StateStopped
+              ? t('cloudPhone.powerOn')
+              : t('cloudPhone.openWindow')}
           </ElButton>
           <ElDropdown
             trigger="click"
@@ -905,7 +1207,6 @@ const columns = computed(() => [
 
   /* 禁用页面内所有复选框动画，提升大批量操作流畅度 */
   :deep(.el-checkbox) {
-
     .el-checkbox__input,
     .el-checkbox__inner,
     .el-checkbox__inner::after {
@@ -954,6 +1255,28 @@ const columns = computed(() => [
 .sidebar-actions .el-button {
   flex: 1;
   font-size: 13px;
+}
+
+/* 选中操作条 */
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  margin: 4px 8px;
+  background: rgba(64, 158, 255, 0.08);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.selection-bar-text {
+  color: var(--el-color-primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.selection-bar .el-button {
+  font-size: 12px;
 }
 
 .sidebar-tree {
@@ -1315,6 +1638,39 @@ const columns = computed(() => [
 
 .more-icon:hover {
   color: var(--el-color-primary);
+}
+
+// 自定义缩放滑块区域（下拉菜单内）
+.view-scale-item {
+  padding: 6px 16px 10px;
+  min-width: 180px;
+  border-top: 1px solid var(--el-border-color);
+  cursor: default;
+
+  .view-scale-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+  }
+
+  .view-scale-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .view-scale-percent {
+    font-size: 12px;
+    color: var(--el-color-primary);
+    font-weight: 500;
+  }
+
+  :deep(.el-slider) {
+    padding: 0;
+  }
 }
 </style>
 

@@ -106,7 +106,8 @@ export default {
     streamingAddress: 'Streaming Address',
     streamingType: 'Streaming Type',
     customStreamingAddress: 'Custom Streaming Address',
-    customStreamingPlaceholder: 'Please enter streaming address, default uses system generated address',
+    customStreamingPlaceholder:
+      'Please enter streaming address, default uses system generated address',
     startStreaming: 'Start Streaming',
     stopStreaming: 'Stop Streaming',
     enabled: 'Enabled',

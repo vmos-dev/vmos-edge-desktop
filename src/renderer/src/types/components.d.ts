@@ -1,5 +1,6 @@
 import VmosTable from '../components/table/index.vue'
 import VmosDialog from '../components/dialog/index.vue'
+import VmosDrawer from '../components/drawer/index.vue'
 import SvgIcon from '../components/icon/index.vue'
 import CopyText from '../components/copyText/index.vue'
 import UploadCert from '../components/uploadCert/index.vue'
@@ -10,6 +11,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     VmosTable: typeof VmosTable
     VmosDialog: typeof VmosDialog
+    VmosDrawer: typeof VmosDrawer
     SvgIcon: typeof SvgIcon
     CopyText: typeof CopyText
     UploadCert: typeof UploadCert

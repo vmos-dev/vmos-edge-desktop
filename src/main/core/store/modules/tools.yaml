@@ -1,0 +1,191 @@
+info:
+  description: VMOS Edge 诊断工具集
+  title: VMOS Edge 诊断工具
+  version: v1
+openapi: 3.0.1
+paths:
+  /get_host_info:
+    post:
+      operationId: get_host_info
+      parameters:
+        - description: 主机的 IPv4 或 IPv6 地址，格式为字符串，必填参数
+          in: query
+          name: host_ip
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  code:
+                    description: 返回状态码，0 表示成功，非 0 表示失败
+                    type: integer
+                  data:
+                    description: 主机详情数据对象，包含主机 ID、内核版本及软件版本信息
+                    properties:
+                      device_id:
+                        description: 主机唯一标识 ID
+                        type: string
+                      kernel_version:
+                        description: 主机操作系统内核版本号，例如 "5.4.0-42-generic"
+                        type: string
+                      version:
+                        description: 主机使用CBS版本号，如 "1.0.3"
+                        type: string
+                    type: object
+                  message:
+                    description: 状态说明信息
+                    type: string
+                type: object
+          description: 成功返回主机详细信息
+        default:
+          description: 异常返回
+      summary: 查询指定主机的详细配置信息，包括 ID、内核版本和软件版本。
+      x-functionName: get_host_info
+  /get_image_storage_address:
+    post:
+      operationId: get_image_storage_address
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  code:
+                    description: 返回状态码，0 表示成功，非 0 表示失败
+                    type: integer
+                  data:
+                    description: 镜像存放的本地物理路径字符串
+                    type: string
+                  message:
+                    description: 状态说明信息
+                    type: string
+                type: object
+          description: 成功获取镜像存放路径
+        default:
+          description: 异常返回
+      summary: 获取当前系统配置的镜像存放本地物理路径地址。
+      x-functionName: get_image_storage_address
+  /get_cloud_phone_info:
+    post:
+      operationId: get_cloud_phone_info
+      parameters:
+        - description: 云机所在主机的 IP 地址
+          in: query
+          name: host_ip
+          required: true
+          schema:
+            type: string
+        - description: 云机的ID (db_id)
+          in: query
+          name: db_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  code:
+                    description: 返回状态码，0 表示成功，非 0 表示失败
+                    type: integer
+                  data:
+                    description: 云机详细数据对象，包含名称、镜像、IP、状态、网络模式及各项硬件参数
+                    properties:
+                      name:
+                        description: 云机名称
+                        type: string
+                      image:
+                        description: 云机使用的镜像版本名称
+                        type: string
+                      ip:
+                        description: 云机在当前网络下的 IP 地址
+                        type: string
+                      status:
+                        description: 云机的运行状态
+                        type: string
+                      network:
+                        description: 当前网络模式（如 NAT、桥接等）
+                        type: string
+                      aosp_version:
+                        description: 安卓系统版本
+                        type: string
+                      dns:
+                        description: 云机配置的 DNS 地址
+                        type: string
+                      fps:
+                        description: 当前屏幕刷新的帧率 (FPS)
+                        type: string
+                      dpi:
+                        description: 屏幕分辨率 DPI 设置
+                        type: string
+                      width:
+                        description: 屏幕宽度（像素）
+                        type: string
+                      height:
+                        description: 屏幕高度（像素）
+                        type: string
+                    type: object
+                  message:
+                    description: 状态说明信息
+                    type: string
+                type: object
+          description: 成功获取云机详细信息
+        default:
+          description: 异常返回
+      summary: 根据主机 IP 和云机 ID 查询指定云机的运行状态及配置详情。
+      x-functionName: get_cloud_phone_info
+  /ping_command:
+    post:
+      operationId: ping_command
+      parameters:
+        - description: 需要测试连通性的目标主机 IP 地址或域名，例如 "192.168.1.1"
+          in: query
+          name: ip
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  code:
+                    description: 诊断结果代码，0 表示成功（通畅），非 0 表示失败（不可达）
+                    type: integer
+                  message:
+                    description: 诊断结果的详细文本描述
+                    type: string
+                type: object
+          description: 网络连通性测试结果
+        default:
+          description: 异常返回
+      summary: 诊断并定位网络故障，通过 ping 命令测试目标地址的连通性。
+      x-functionName: ping_command

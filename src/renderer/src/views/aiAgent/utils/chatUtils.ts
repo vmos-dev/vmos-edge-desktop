@@ -51,7 +51,10 @@ export function formatTime(ts: number): string {
  * 1. <think>...</think> 标签（DeepSeek/QWen）
  * 2. Thought: ... 前缀（通用 ReAct 格式）
  */
-export function parseThinkingFromContent(content: string | undefined): { thinking: string; content: string } {
+export function parseThinkingFromContent(content: string | undefined): {
+  thinking: string
+  content: string
+} {
   if (!content) return { thinking: '', content: '' }
 
   // 格式 1: <think>...</think>
@@ -74,7 +77,9 @@ export function parseThinkingFromContent(content: string | undefined): { thinkin
           content: ''
         }
       }
-    } catch (_) { /* 非合法 JSON，忽略 */ }
+    } catch (_) {
+      /* 非合法 JSON，忽略 */
+    }
   }
 
   return { thinking: '', content }

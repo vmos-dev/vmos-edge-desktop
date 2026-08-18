@@ -11,9 +11,14 @@ import { Request } from '@shared/api/request'
 
 import { initMainWindow, mainWindowManager } from './core/window/MainWindow'
 import { trayManager } from './core/window/TrayManager'
-import { UDPScanner } from './core/window/UdpScanner'
 import { HostScannerQueue } from './core/scheduler/deviceScheduler'
-import { configManager, mediaMtxManager } from './core/store/managers'
+import {
+  configManager,
+  mediaMtxManager,
+  sharedFolderManager,
+  batchTaskManager,
+  frpManager
+} from './core/store/managers'
 import { logger } from './core/logger/Logger'
 import { CONFIG_KEYS } from '@shared/constant'
 import { destroyProxyCheckWorkerManager } from './core/workers/ProxyCheckWorkerManager'
@@ -55,7 +60,6 @@ app.on('render-process-gone', (_e, _wc, details) => {
   console.error('[Main] render-process-gone:', details)
 })
 
-const udpScanner = new UDPScanner()
 const hostScannerQueue = new HostScannerQueue(10)
 
 /* -----------------------------------------------------
@@ -71,10 +75,7 @@ app.setName('VMOS Edge')
 function createWindow(): void {
   initMainWindow()
 
-  // 启动 UDP 自动扫描
-  udpScanner.startAutoScan(30).finally(() => {
-    hostScannerQueue.start()
-  })
+  hostScannerQueue.start()
 }
 
 /* -----------------------------------------------------
@@ -98,6 +99,8 @@ function initDefaultConfigs(): void {
 
     configManager.initDefaults({
       [CONFIG_KEYS.IMAGE_STORAGE_PATH]: imagesDir,
+      [CONFIG_KEYS.SHARED_FOLDER_PATH]: '',
+      [CONFIG_KEYS.SHARED_FOLDER_ENABLED]: '0',
       [CONFIG_KEYS.MAX_DISPLAY_SIDE]: '600',
       [CONFIG_KEYS.PROXY_CHECK_TIMEOUT]: '10000',
       [CONFIG_KEYS.PROXY_CHECK_API_KEY]: '',
@@ -129,7 +132,7 @@ function initDefaultConfigs(): void {
 /* -----------------------------------------------------
  * App Ready
  * ---------------------------------------------------*/
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logger.info('[App] Application is ready')
 
   electronApp.setAppUserModelId('com.vmos.edge.desktop')
@@ -142,6 +145,20 @@ app.whenReady().then(() => {
   logger.info('[App] Initializing default configs...')
   initDefaultConfigs()
 
+  try {
+    await sharedFolderManager.restoreFromConfig()
+  } catch (error) {
+    logger.error('[App] Failed to restore shared folder service:', error)
+  }
+
+  batchTaskManager.recover().catch((error) => {
+    logger.error('[App] Failed to recover batch tasks:', error)
+  })
+
+  frpManager.autoStart().catch((error) => {
+    logger.error('[App] Failed to auto-start FRP:', error)
+  })
+
   app.on('browser-window-created', (_, window) => {
     // Electron-toolkit 默认快捷键管理
     optimizer.watchWindowShortcuts(window)
@@ -151,47 +168,27 @@ app.whenReady().then(() => {
      */
     if (!is.dev) {
       window.webContents.on('before-input-event', (event, input) => {
-        /**
-         * ✅ 隐藏调试快捷键（生产可用）
-         * Ctrl/Cmd + Shift + Alt + I
-         */
-        if (
-          input.type === 'keyDown' &&
-          (input.control || input.meta) &&
-          input.shift &&
-          input.alt &&
-          input.key.toLowerCase() === 'i'
-        ) {
+        if (input.type !== 'keyDown') return
+
+        const mod = input.control || input.meta
+        const code = input.code
+
+        // ✅ 隐藏调试快捷键（Ctrl/Cmd + Shift + Alt + I）
+        if (mod && input.shift && input.alt && code === 'KeyI') {
           event.preventDefault()
           logger.info('[Debug] Hidden devtools shortcut triggered')
           window.webContents.toggleDevTools()
           return
         }
 
-        /**
-         * ❌ 拦截默认 DevTools
-         */
-        if (input.key === 'F12') {
+        // ❌ 拦截默认 DevTools（F12 / Ctrl+Shift+I / Ctrl+Alt+I）
+        if (code === 'F12' || (mod && (input.shift || input.alt) && code === 'KeyI')) {
           event.preventDefault()
           return
         }
 
-        if (
-          (input.control || input.meta) &&
-          (input.shift || input.alt) &&
-          input.key.toLowerCase() === 'i'
-        ) {
-          event.preventDefault()
-          return
-        }
-
-        /**
-         * ❌ 拦截刷新
-         */
-        if (
-          input.key === 'F5' ||
-          ((input.control || input.meta) && input.key.toLowerCase() === 'r')
-        ) {
+        // ❌ 拦截刷新（F5 / Ctrl+R）
+        if (code === 'F5' || (mod && code === 'KeyR')) {
           event.preventDefault()
         }
       })
@@ -208,6 +205,8 @@ app.whenReady().then(() => {
     logger.info('[App] System resume detected, forcing network discovery and host scan')
 
     hostScannerQueue.forceScan()
+    frpManager.reconnectSsh()
+    frpManager.scheduleReconcile()
   })
 
   // 监听系统解锁
@@ -215,6 +214,8 @@ app.whenReady().then(() => {
     logger.info('[App] System unlock detected, forcing network discovery and host scan')
 
     hostScannerQueue.forceScan()
+    frpManager.reconnectSsh()
+    frpManager.scheduleReconcile()
   })
 
   // 监听窗口聚焦（从任务栏点击打开也触发此事件）
@@ -268,7 +269,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  ; (app as any).isQuitting = true
+  ;(app as any).isQuitting = true
   logger.info('[App] Shutting down...')
 
   try {
@@ -277,16 +278,20 @@ app.on('before-quit', () => {
     logger.error('[App] Failed to stop MediaMtx:', error)
   }
 
-  try {
-    udpScanner.stopAutoScan()
-  } catch (error) {
-    logger.error('[App] Failed to stop UDP scanner:', error)
-  }
+  void sharedFolderManager.stopSharing({ persistEnabled: false }).catch((error) => {
+    logger.error('[App] Failed to stop shared folder service:', error)
+  })
 
   try {
     hostScannerQueue.stop()
   } catch (error) {
     logger.error('[App] Failed to stop host scanner:', error)
+  }
+
+  try {
+    frpManager.stopSync()
+  } catch (error) {
+    logger.error('[App] Failed to stop FRP:', error)
   }
 
   try {
@@ -299,6 +304,12 @@ app.on('before-quit', () => {
   void destroyAgentWorkerManager().catch((error) => {
     console.error('[App] Failed to destroy agent runtime manager:', error)
   })
+
+  try {
+    batchTaskManager.destroy()
+  } catch (error) {
+    logger.error('[App] Failed to stop batch task poller:', error)
+  }
 
   try {
     // 关闭数据库连接 (执行 WAL Checkpoint)

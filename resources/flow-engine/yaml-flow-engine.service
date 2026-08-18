@@ -1,0 +1,67 @@
+[Unit]
+Description=YAML Flow Engine — HTTP service for YAML-driven Android automation
+Documentation=file:///usr/local/share/yaml-flow-engine/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust ExecStart if you install the binary elsewhere.
+ExecStart=/usr/local/bin/yaml-flow-engine
+# Graceful shutdown — matches the app's internal SHUTDOWN_TIMEOUT_MS
+TimeoutStopSec=40s
+KillSignal=SIGTERM
+# Restart on crash/exit with a short cooldown; exit-clean (rc=0) is treated
+# as intentional and will NOT restart. Supervisor upgrades issue SIGTERM.
+Restart=on-failure
+RestartSec=5s
+
+# ── Security hardening ────────────────────────────────────────────────
+# Run as a dedicated unprivileged user/group. Create with:
+#   sudo useradd --system --no-create-home --shell /usr/sbin/nologin yaml-flow
+User=yaml-flow
+Group=yaml-flow
+
+# StateDirectory is the preferred data location under systemd — it's
+# auto-created with the unit's User/Group, mode 0700, and persists across
+# restarts. The app reads YAML_FLOW_DATA_DIR from the environment.
+StateDirectory=yaml-flow-engine
+StateDirectoryMode=0700
+Environment="YAML_FLOW_DATA_DIR=%S/yaml-flow-engine"
+
+# Defaults — override with a systemd drop-in at
+# /etc/systemd/system/yaml-flow-engine.service.d/override.conf
+Environment="PORT=47218"
+Environment="HOST=0.0.0.0"
+Environment="LOG_LEVEL=info"
+
+# Filesystem lockdown: read-only root, writable only at StateDirectory.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+# Network: outbound to devices is required; keep default permissive.
+# Kernel / capabilities — drop everything we don't use.
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# Node's JIT requires RWX pages, so W^X must stay disabled.
+# NOTE: systemd does not support inline '#' comments on a directive line —
+# keeping the comment above avoids "Failed to parse boolean value, ignoring".
+MemoryDenyWriteExecute=false
+SystemCallFilter=@system-service
+# Log rate limiting — prevent a busy loop from flooding journald.
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=1000
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

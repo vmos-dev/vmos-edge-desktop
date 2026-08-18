@@ -7,17 +7,17 @@
             <div class="path-bar">
               <div class="path-breadcrumbs">
                 <template v-for="(segment, index) in pathSegments" :key="segment.path">
-                <button
-                  type="button"
-                  class="path-crumb"
-                  :class="{ active: segment.path === currentPath }"
-                  @click="handleNavigate(segment.path)"
-                >
-                  <el-icon v-if="segment.path === DISPLAY_ROOT_PATH" class="path-crumb-icon">
-                    <Folder />
-                  </el-icon>
-                  <span class="path-crumb-text">{{ segment.label }}</span>
-                </button>
+                  <button
+                    type="button"
+                    class="path-crumb"
+                    :class="{ active: segment.path === currentPath }"
+                    @click="handleNavigate(segment.path)"
+                  >
+                    <el-icon v-if="segment.path === DISPLAY_ROOT_PATH" class="path-crumb-icon">
+                      <Folder />
+                    </el-icon>
+                    <span class="path-crumb-text">{{ segment.label }}</span>
+                  </button>
                   <el-icon v-if="index < pathSegments.length - 1" class="path-separator">
                     <ArrowRight />
                   </el-icon>
@@ -71,11 +71,7 @@
             }"
             @click="handleSelect(item)"
           >
-            <span
-              v-if="item.is_file"
-              class="file-check"
-              :class="{ checked: isFileSelected(item) }"
-            >
+            <span v-if="item.is_file" class="file-check" :class="{ checked: isFileSelected(item) }">
               <el-icon v-if="isFileSelected(item)"><Check /></el-icon>
             </span>
 
@@ -106,7 +102,11 @@
           <div class="queue-header-main">
             <div class="queue-title-row">
               <span class="queue-title">{{ t('phone.downloadQueue') }}</span>
-              <span v-if="downloadDirectoryPath" class="queue-directory" :title="downloadDirectoryPath">
+              <span
+                v-if="downloadDirectoryPath"
+                class="queue-directory"
+                :title="downloadDirectoryPath"
+              >
                 {{ t('phone.downloadDirectory') }}: {{ compactPath(downloadDirectoryPath, 18, 18) }}
               </span>
             </div>
@@ -165,7 +165,9 @@
               <div class="queue-item-meta">
                 <span>
                   {{ formatFileSize(task.receivedBytes) }}
-                  <template v-if="task.totalBytes"> / {{ formatFileSize(task.totalBytes) }}</template>
+                  <template v-if="task.totalBytes">
+                    / {{ formatFileSize(task.totalBytes) }}</template
+                  >
                 </span>
                 <span>{{ formatSpeed(task.speedBps) }}</span>
                 <span>{{ formatEta(task.etaSeconds) }}</span>
@@ -269,7 +271,7 @@ const sortedEntries = computed(() => {
       return a.is_directory ? -1 : 1
     }
 
-    return a.name.localeCompare(b.name)
+    return a.name.localeCompare(b.name, 'zh-CN', { numeric: true, sensitivity: 'base' })
   })
 })
 
@@ -282,10 +284,7 @@ const normalizePath = (path?: string) => {
 const normalizeBrowserPath = (path?: string) => {
   const normalizedPath = normalizePath(path)
   if (normalizedPath === ROOT_PATH) return DISPLAY_ROOT_PATH
-  if (
-    normalizedPath === DISPLAY_ROOT_PATH ||
-    normalizedPath.startsWith(`${DISPLAY_ROOT_PATH}/`)
-  ) {
+  if (normalizedPath === DISPLAY_ROOT_PATH || normalizedPath.startsWith(`${DISPLAY_ROOT_PATH}/`)) {
     return normalizedPath
   }
   return DISPLAY_ROOT_PATH
@@ -341,16 +340,15 @@ const waitingCount = computed(
 )
 const downloadingCount = computed(
   () =>
-    queueTasks.value.filter((task) =>
-      ['preparing', 'downloading', 'saving'].includes(task.status)
-    ).length
+    queueTasks.value.filter((task) => ['preparing', 'downloading', 'saving'].includes(task.status))
+      .length
 )
 const successCount = computed(
   () => queueTasks.value.filter((task) => task.status === 'success').length
 )
 const errorCount = computed(() => queueTasks.value.filter((task) => task.status === 'error').length)
-const hasCompletedTasks = computed(
-  () => queueTasks.value.some((task) => ['success', 'error'].includes(task.status))
+const hasCompletedTasks = computed(() =>
+  queueTasks.value.some((task) => ['success', 'error'].includes(task.status))
 )
 
 const downloadButtonTitle = computed(() => {
@@ -462,9 +460,7 @@ const fetchDirectory = async (path = DEFAULT_PATH) => {
     currentPath.value = normalizeBrowserPath(res.data.path || normalizedPath)
     entries.value = (res.data.files || []).filter((item) => {
       const itemPath = normalizePath(item.absolute_path)
-      return (
-        itemPath === DISPLAY_ROOT_PATH || itemPath.startsWith(`${DISPLAY_ROOT_PATH}/`)
-      )
+      return itemPath === DISPLAY_ROOT_PATH || itemPath.startsWith(`${DISPLAY_ROOT_PATH}/`)
     })
     selectedFilePaths.value = []
   } catch (error) {

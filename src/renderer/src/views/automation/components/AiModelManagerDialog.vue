@@ -1,7 +1,7 @@
 <template>
   <vmos-dialog
     v-model="visible"
-    :title="t('automation.modelManager.title')"
+    :title="t('aiWorkflow.modelManager.title')"
     width="860px"
     :close-on-click-modal="false"
     class="model-manager-dialog"
@@ -11,19 +11,19 @@
       <div class="dialog-header">
         <div class="header-title-wrap">
           <el-icon class="header-icon"><Setting /></el-icon>
-          <span class="header-title">{{ t('automation.modelManager.headerTitle') }}</span>
+          <span class="header-title">{{ t('aiWorkflow.modelManager.headerTitle') }}</span>
         </div>
-        <div class="header-desc">{{ t('automation.modelManager.headerDesc') }}</div>
+        <div class="header-desc">{{ t('aiWorkflow.modelManager.headerDesc') }}</div>
       </div>
     </template>
 
     <div class="manager-content">
       <div class="toolbar">
         <div class="stats">
-          {{ t('automation.modelManager.configuredCount', { count: models.length }) }}
+          {{ t('aiWorkflow.modelManager.configuredCount', { count: models.length }) }}
         </div>
         <el-button type="primary" :icon="Plus" @click="handleAdd">
-          {{ t('automation.modelManager.addModel') }}
+          {{ t('aiWorkflow.modelManager.addModel') }}
         </el-button>
       </div>
 
@@ -31,7 +31,7 @@
         <el-table :data="models" style="width: 100%" bo :header-cell-style="headerCellStyle">
           <el-table-column
             prop="displayName"
-            :label="t('automation.modelManager.modelName')"
+            :label="t('aiWorkflow.modelManager.modelName')"
             min-width="180"
           >
             <template #default="{ row }">
@@ -57,13 +57,13 @@
                   effect="plain"
                   class="active-tag"
                 >
-                  {{ t('automation.modelManager.currentSelected') }}
+                  {{ t('aiWorkflow.modelManager.currentSelected') }}
                 </el-tag>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column prop="vendor" :label="t('automation.modelManager.provider')" width="120">
+          <el-table-column prop="vendor" :label="t('aiWorkflow.modelManager.provider')" width="120">
             <template #default="{ row }">
               <el-tag :type="getVendorType(row.vendor)" size="small" effect="light">
                 {{ vendorDisplayName(row.vendor) }}
@@ -71,15 +71,15 @@
             </template>
           </el-table-column>
 
-          <el-table-column :label="t('automation.modelManager.action')" width="160" fixed="right">
+          <el-table-column :label="t('aiWorkflow.modelManager.action')" width="160" fixed="right">
             <template #default="{ row }">
               <div class="action-btns">
                 <el-button type="primary" link :icon="Edit" @click="handleEdit(row)">{{
-                  t('automation.modelManager.edit')
+                  t('aiWorkflow.modelManager.edit')
                 }}</el-button>
                 <el-divider direction="vertical" />
                 <el-button type="danger" link :icon="Delete" @click="handleDelete(row)">{{
-                  t('automation.modelManager.remove')
+                  t('aiWorkflow.modelManager.remove')
                 }}</el-button>
               </div>
             </template>
@@ -87,9 +87,9 @@
 
           <template #empty>
             <div class="empty-state">
-              <el-empty :image-size="100" :description="t('automation.modelManager.emptyModels')">
+              <el-empty :image-size="100" :description="t('aiWorkflow.modelManager.emptyModels')">
                 <el-button type="primary" plain @click="handleAdd">{{
-                  t('automation.modelManager.addNow')
+                  t('aiWorkflow.modelManager.addNow')
                 }}</el-button>
               </el-empty>
             </div>
@@ -184,10 +184,10 @@ const handleEdit = (model: AiModelConfig) => {
 
 const handleDelete = (model: AiModelConfig) => {
   ElMessageBox.confirm(
-    t('automation.modelManager.removeConfirm', { name: model.displayName || model.modelName }),
-    t('automation.modelManager.removeConfirmTitle'),
+    t('aiWorkflow.modelManager.removeConfirm', { name: model.displayName || model.modelName }),
+    t('aiWorkflow.modelManager.removeConfirmTitle'),
     {
-      confirmButtonText: t('automation.modelManager.confirmRemove'),
+      confirmButtonText: t('aiWorkflow.modelManager.confirmRemove'),
       cancelButtonText: t('common.cancel'),
       type: 'warning',
       buttonSize: 'default',
@@ -196,7 +196,7 @@ const handleDelete = (model: AiModelConfig) => {
   )
     .then(() => {
       emit('delete', model.id)
-      ElMessage.success(t('automation.modelManager.removeSuccess'))
+      ElMessage.success(t('aiWorkflow.modelManager.removeSuccess'))
     })
     .catch(() => {})
 }
@@ -221,7 +221,7 @@ const headerCellStyle = {
 }
 
 const vendorDisplayName = (vendor: string) => {
-  return vendor === 'Other' ? t('automation.modelManager.customVendor') : vendor
+  return vendor === 'Other' ? t('aiWorkflow.modelManager.customVendor') : vendor
 }
 
 const getVendorType = (vendor: string) => {

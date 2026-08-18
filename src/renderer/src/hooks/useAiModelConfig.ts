@@ -85,7 +85,9 @@ export function useAiModelConfig() {
 }
 
 export function vendorToProvider(vendor: string): string {
-  const normalized = String(vendor || '').trim().toLowerCase()
+  const normalized = String(vendor || '')
+    .trim()
+    .toLowerCase()
 
   if (normalized.includes('deepseek')) return 'deepseek'
   if (normalized.includes('openai')) return 'openai'

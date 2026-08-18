@@ -3,7 +3,7 @@ import type { Device } from '@shared/ipc/data.types'
 const DEVICE_SERVICE_PORT = 18185
 const CONTROL_SERVICE_PORT = 18182
 
-export type DeviceApiNamespace = 'ai' | 'ai_agent' | 'accessibility'
+export type DeviceApiNamespace = 'ai' | 'ai_agent' | 'accessibility' | 'package'
 
 export interface DeviceApiTarget {
   cacheKey: string
@@ -67,6 +67,8 @@ function getNamespaceSegment(namespace: DeviceApiNamespace): string {
       return 'ai_agent'
     case 'accessibility':
       return 'accessibility'
+    case 'package':
+      return 'package'
   }
 }
 
@@ -109,12 +111,20 @@ export function isLikelyRouteError(error: unknown): boolean {
   )
 }
 
-async function postJson<T = unknown>(url: string, body: Record<string, unknown> = {}): Promise<T> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
+async function fetchJson<T = unknown>(
+  url: string,
+  options: { method?: string; body?: Record<string, unknown> } = {}
+): Promise<T> {
+  const { method = 'POST', body } = options
+  const init: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  }
+  if (body && method !== 'GET') {
+    init.body = JSON.stringify(body)
+  }
+
+  const response = await fetch(url, init)
 
   const contentType = response.headers.get('content-type') || ''
   const raw = contentType.includes('application/json')
@@ -141,6 +151,14 @@ async function postJson<T = unknown>(url: string, body: Record<string, unknown> 
   }
 
   return raw.data as T
+}
+
+async function postJson<T = unknown>(url: string, body: Record<string, unknown> = {}): Promise<T> {
+  return fetchJson<T>(url, { method: 'POST', body })
+}
+
+async function getJson<T = unknown>(url: string): Promise<T> {
+  return fetchJson<T>(url, { method: 'GET' })
 }
 
 export async function postDeviceModuleJson<T = unknown>(
@@ -172,6 +190,45 @@ export async function postDeviceModuleJson<T = unknown>(
   for (const base of bases) {
     try {
       const data = await postJson<T>(joinUrl(base, path), body)
+      resolvedBaseCache.set(cacheKey, base)
+      return data
+    } catch (error) {
+      lastError = error
+      if (!isLikelyRouteError(error)) break
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : createError('Device API request failed')
+}
+
+export async function getDeviceModuleJson<T = unknown>(
+  targetInput: DeviceApiTargetInput,
+  namespace: DeviceApiNamespace,
+  path: string
+): Promise<T> {
+  const target = normalizeTarget(targetInput)
+  if (!target) {
+    throw createError('Device API target is unavailable')
+  }
+
+  const cacheKey = getCacheKey(target, namespace)
+  const cachedBase = resolvedBaseCache.get(cacheKey)
+
+  if (cachedBase) {
+    try {
+      return await getJson<T>(joinUrl(cachedBase, path))
+    } catch (error) {
+      if (!isLikelyRouteError(error)) throw error
+      resolvedBaseCache.delete(cacheKey)
+    }
+  }
+
+  const bases = buildBaseCandidates(target, namespace)
+  let lastError: unknown
+
+  for (const base of bases) {
+    try {
+      const data = await getJson<T>(joinUrl(base, path))
       resolvedBaseCache.set(cacheKey, base)
       return data
     } catch (error) {

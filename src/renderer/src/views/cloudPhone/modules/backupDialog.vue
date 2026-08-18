@@ -73,7 +73,11 @@
             </el-button>
           </div>
           <el-progress
-            v-if="task.status === 'preparing' || task.status === 'downloading' || task.status === 'saving'"
+            v-if="
+              task.status === 'preparing' ||
+              task.status === 'downloading' ||
+              task.status === 'saving'
+            "
             :percentage="task.totalBytes ? Math.round(task.progress * 100) : 100"
             :indeterminate="task.status === 'preparing' || !task.totalBytes"
             :format="
@@ -123,10 +127,14 @@ const tasks = ref<BackupTask[]>([])
 let backupQueue: BackupQueue | null = null
 
 const hasProcessingTask = computed(() => {
-  return tasks.value.some((task) => ['waiting', 'preparing', 'downloading', 'saving'].includes(task.status))
+  return tasks.value.some((task) =>
+    ['waiting', 'preparing', 'downloading', 'saving'].includes(task.status)
+  )
 })
 const waitingCount = computed(() => tasks.value.filter((task) => task.status === 'waiting').length)
-const preparingCount = computed(() => tasks.value.filter((task) => task.status === 'preparing').length)
+const preparingCount = computed(
+  () => tasks.value.filter((task) => task.status === 'preparing').length
+)
 const downloadingCount = computed(
   () => tasks.value.filter((task) => task.status === 'downloading').length
 )

@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 import VmosTable from './table/index.vue'
 import VmosDialog from './dialog/index.vue'
+import VmosDrawer from './drawer/index.vue'
 import SvgIcon from './icon/index.vue'
 import CopyText from './copyText/index.vue'
 import UploadCert from './uploadCert/index.vue'
@@ -11,12 +12,22 @@ import VmosJson from './json/index.vue'
 export const globalComponents: { [key: string]: Component } = {
   VmosTable,
   VmosDialog,
+  VmosDrawer,
   SvgIcon,
   CopyText,
   UploadCert,
   VmosTabs,
-  VmosJson
+  VmosJson,
 }
 
 // 导出组件，方便按需导入
-export { VmosTable, VmosDialog, SvgIcon, CopyText, UploadCert, VmosTabs, VmosJson, AiAssistant }
+export {
+  VmosTable,
+  VmosDialog,
+  VmosDrawer,
+  SvgIcon,
+  CopyText,
+  UploadCert,
+  VmosTabs,
+  VmosJson,
+}

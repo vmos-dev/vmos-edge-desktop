@@ -8,7 +8,11 @@
   >
     <el-form ref="formRef" :model="form" :rules="rules" label-width="auto" label-position="top">
       <el-form-item :label="t('cloudPhone.region')" prop="country">
-        <el-select v-model="form.country" filterable :placeholder="t('cloudPhone.regionPlaceholder')">
+        <el-select
+          v-model="form.country"
+          filterable
+          :placeholder="t('cloudPhone.regionPlaceholder')"
+        >
           <el-option
             v-for="item in countries"
             :key="item.countryCode"
@@ -18,7 +22,11 @@
         </el-select>
       </el-form-item>
       <el-form-item :label="t('cloudPhone.timezone')" prop="timezone">
-        <el-select v-model="form.timezone" filterable :placeholder="t('cloudPhone.timezonePlaceholder')">
+        <el-select
+          v-model="form.timezone"
+          filterable
+          :placeholder="t('cloudPhone.timezonePlaceholder')"
+        >
           <el-option
             v-for="item in filteredTimeZones"
             :key="item.timeZone"
@@ -28,7 +36,11 @@
         </el-select>
       </el-form-item>
       <el-form-item :label="t('cloudPhone.language')" prop="locale">
-        <el-select v-model="form.locale" filterable :placeholder="t('cloudPhone.languagePlaceholder')">
+        <el-select
+          v-model="form.locale"
+          filterable
+          :placeholder="t('cloudPhone.languagePlaceholder')"
+        >
           <el-option
             v-for="item in filteredLanguages"
             :key="item.languageCode"
@@ -40,7 +52,9 @@
     </el-form>
     <template #footer>
       <el-button @click="visible = false" :disabled="loading">{{ t('common.cancel') }}</el-button>
-      <el-button type="primary" @click="handleSubmit" :loading="loading">{{ t('common.confirm') }}</el-button>
+      <el-button type="primary" @click="handleSubmit" :loading="loading">{{
+        t('common.confirm')
+      }}</el-button>
     </template>
   </vmos-dialog>
 </template>
@@ -196,15 +210,11 @@ const handleSubmit = () => {
       await Promise.all(promises)
 
       if (isCountryChanged) {
-        ElMessageBox.confirm(
-          t('cloudPhone.countryChangedRestartConfirm'),
-          t('common.tips'),
-          {
-            confirmButtonText: t('common.confirm'),
-            cancelButtonText: t('common.cancel'),
-            type: 'success'
-          }
-        )
+        ElMessageBox.confirm(t('cloudPhone.countryChangedRestartConfirm'), t('common.tips'), {
+          confirmButtonText: t('common.confirm'),
+          cancelButtonText: t('common.cancel'),
+          type: 'success'
+        })
           .then(() => {
             // 调用重启云机接口
             ipc

@@ -10,38 +10,10 @@ const themeMode = ref<ThemeMode>('light')
 const themeColor = ref('#409eff')
 
 export const useTheme = () => {
-  const applyThemeMode = (mode: ThemeMode) => {
-    const html = document.documentElement
-    if (mode === 'dark') {
-      html.classList.add('dark')
-    } else if (mode === 'light') {
-      html.classList.remove('dark')
-    } else {
-      // system
-      updateSystemTheme()
-    }
-  }
-
-  const updateSystemTheme = () => {
-    if (themeMode.value !== 'system') return
-    const html = document.documentElement
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      html.classList.add('dark')
-    } else {
-      html.classList.remove('dark')
-    }
-  }
-
-  // Listen for system theme changes
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (themeMode.value === 'system') {
-      updateSystemTheme()
-    }
-  })
-
   const applyThemeColor = (color: string) => {
     const el = document.documentElement
-    const colors = generateThemeColors(color)
+    const isDark = el.classList.contains('dark')
+    const colors = generateThemeColors(color, isDark)
 
     // Apply to CSS variables
     Object.entries(colors).forEach(([key, value]) => {
@@ -69,9 +41,42 @@ export const useTheme = () => {
     el.style.setProperty('--el-color-primary-alpha-3', hexToRgba(color, 0.35))
   }
 
+  const applyThemeMode = (mode: ThemeMode) => {
+    const html = document.documentElement
+    if (mode === 'dark') {
+      html.classList.add('dark')
+    } else if (mode === 'light') {
+      html.classList.remove('dark')
+    } else {
+      // system
+      updateSystemTheme()
+    }
+    // 主题模式变更后重新生成颜色，确保 light 系列与当前模式匹配
+    applyThemeColor(themeColor.value)
+  }
+
+  const updateSystemTheme = () => {
+    if (themeMode.value !== 'system') return
+    const html = document.documentElement
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      html.classList.add('dark')
+    } else {
+      html.classList.remove('dark')
+    }
+  }
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (themeMode.value === 'system') {
+      updateSystemTheme()
+      applyThemeColor(themeColor.value)
+    }
+  })
+
   const setThemeMode = async (mode: ThemeMode) => {
     themeMode.value = mode
     applyThemeMode(mode)
+    applyThemeColor(themeColor.value)
     await ipc.invoke(CONFIG_EVENTS.SET_CONFIG, { key: CONFIG_KEYS.THEME_MODE, value: mode })
   }
 
@@ -114,6 +119,7 @@ export const useTheme = () => {
         if (themeMode.value !== mode) {
           themeMode.value = mode
           applyThemeMode(mode)
+          applyThemeColor(themeColor.value)
         }
       } else if (key === CONFIG_KEYS.THEME_COLOR) {
         if (themeColor.value !== value) {

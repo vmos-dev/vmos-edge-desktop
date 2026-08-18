@@ -1,7 +1,7 @@
 {
   "name": "vmos-edge-desktop",
   "productName": "VMOS Edge",
-  "version": "2.1.5",
+  "version": "2.2.5",
   "description": "VMOS Edge Desktop",
   "main": "./out/main/index.js",
   "author": "VMOS Edge",
@@ -18,24 +18,22 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac:intel:no": "npm run build && electron-builder --mac --x64",
-    "build:mac:arm:no": "npm run build && electron-builder --mac --arm64",
-    "build:mac:intel": "npm run build && node scripts/build-mac-notarize.cjs --x64",
-    "build:mac:arm": "npm run build && node scripts/build-mac-notarize.cjs --arm64",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:mac:intel": "npm run build && electron-builder --mac --x64",
+    "build:mac:arm": "npm run build && electron-builder --mac --arm64"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@element-plus/icons-vue": "^2.3.1",
-    "@vmosedge/analytics-sdk": "1.0.0",
-    "@vmosedge/proxy-sdk": "1.0.16",
+    "@vmosedge/proxy-sdk": "1.2.5",
     "@vmosedge/sensor-simulator": "1.0.1",
     "@vmosedge/web-sdk": "^1.2.7",
     "@vmosedge/workflow-agent-sdk": "1.0.5",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.5.0",
     "check-disk-space": "^3.4.0",
+    "driver.js": "^1.4.0",
     "electron-updater": "^6.3.9",
     "element-plus": "^2.11.9",
     "form-data": "^4.0.5",
@@ -47,7 +45,10 @@
     "jsoneditor": "^10.4.2",
     "markdown-it": "^14.1.0",
     "moment": "^2.30.1",
+    "monaco-editor": "^0.55.1",
+    "monaco-yaml": "^5.4.1",
     "socks-proxy-agent": "^8.0.5",
+    "ssh2": "^1.17.0",
     "store": "^2.0.12",
     "tar": "^7.5.2",
     "three": "^0.182.0",
@@ -55,9 +56,12 @@
     "vue-i18n": "^11.2.8",
     "vue-router": "^4.6.3",
     "vue-virtual-scroller": "2.0.0-beta.8",
+    "vuedraggable": "^4.1.0",
+    "webdav-server": "^2.6.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
@@ -68,17 +72,16 @@
     "@types/jsoneditor": "^9.9.6",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.18.6",
+    "@types/ssh2": "^1.15.5",
     "@types/three": "^0.182.0",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vitejs/plugin-vue-jsx": "^5.1.2",
-    "ali-oss": "^6.23.0",
-    "electron": "^38.1.2",
+    "electron": "^38.8.6",
     "electron-builder": "^25.1.8",
     "electron-vite": "^4.0.1",
     "eslint": "^9.36.0",
     "eslint-plugin-vue": "^10.4.0",
-    "prettier": "^3.6.2",
     "sass": "^1.94.2",
     "typescript": "^5.9.2",
     "vite": "^7.1.6",
@@ -92,7 +95,10 @@
       "better-sqlite3",
       "electron",
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "cpu-features": "link:./stubs/cpu-features"
+    }
   },
   "packageManager": "pnpm@9.7.1+sha1.b0ae55d11432e1af341998848fdc219a62f7623a"
 }

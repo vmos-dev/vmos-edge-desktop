@@ -19,10 +19,14 @@
           :http-request="customUploadRequest"
           :before-upload="handleBeforeUpload"
         >
-          <el-button type="primary" link size="small" :loading="uploadLoading">{{ t('common.overwrite') }}</el-button>
+          <el-button type="primary" link size="small" :loading="uploadLoading">{{
+            t('common.overwrite')
+          }}</el-button>
         </el-upload>
         <el-divider direction="vertical" />
-        <el-button type="danger" link size="small" @click="handleRemove">{{ t('common.delete') }}</el-button>
+        <el-button type="danger" link size="small" @click="handleRemove">{{
+          t('common.delete')
+        }}</el-button>
       </div>
     </div>
 
@@ -36,9 +40,9 @@
         :http-request="customUploadRequest"
         :before-upload="handleBeforeUpload"
       >
-        <el-button type="primary" icon="UploadFilled" plain :loading="uploadLoading"
-          >{{ t('common.clickUploadCert') }}</el-button
-        >
+        <el-button type="primary" icon="UploadFilled" plain :loading="uploadLoading">{{
+          t('common.clickUploadCert')
+        }}</el-button>
       </el-upload>
       <div class="upload-tip">{{ t('common.certUploadTip', { formats: acceptTypes }) }}</div>
     </div>

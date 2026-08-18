@@ -56,11 +56,8 @@ export function formatBytes(bytes: number): string {
 // 导出键盘映射工具
 export * from './keyboard-map'
 
-export const parseCoordinate = (
-  input: string,
-  order:  'latlng' | 'lnglat'
-) => {
-  const [a, b] = input.split(',').map(v => Number(v.trim()))
+export const parseCoordinate = (input: string, order: 'latlng' | 'lnglat') => {
+  const [a, b] = input.split(',').map((v) => Number(v.trim()))
 
   if (Number.isNaN(a) || Number.isNaN(b)) {
     throw new Error('Invalid coordinate format')

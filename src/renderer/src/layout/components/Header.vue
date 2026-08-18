@@ -12,13 +12,36 @@
 
     <!-- 右侧工具栏 -->
     <div class="header-right">
-      <!-- 帮助文档 -->
-      <a :href="helpDocUrl" target="_blank" class="header-tool-item help-link">
-        <el-icon :size="18">
-          <QuestionFilled />
-        </el-icon>
-        <span class="help-text">{{ t('layout.header.helpDocs') }}</span>
+      <!-- 引流广告 -->
+      <a class="promotion-banner" href="https://www.vmoscloud.com/" target="_blank">
+        <img :src="promotionBanner" alt="VMOSCloud" class="promotion-img" />
       </a>
+
+      <!-- 帮助中心 -->
+      <el-dropdown @command="handleHelpCommand">
+        <span class="header-tool-item help-trigger">
+          <el-icon :size="18">
+            <QuestionFilled />
+          </el-icon>
+          <span class="help-text">{{ t('layout.header.helpCenter') }}</span>
+        </span>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item
+              v-for="item in helpMenuItems"
+              :key="item.command"
+              :command="item.command"
+            >
+              <div class="menu-item">
+                <el-icon class="menu-item-icon">
+                  <component :is="item.icon" />
+                </el-icon>
+                <span>{{ item.label }}</span>
+              </div>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
 
       <!-- 语言切换 -->
       <el-dropdown @command="handleLanguageChange">
@@ -30,8 +53,20 @@
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item v-for="lang in languageList" :key="lang.value" :command="lang.value">
-              {{ lang.label }}
+            <el-dropdown-item
+              v-for="lang in languageMenuItems"
+              :key="lang.value"
+              :command="lang.value"
+            >
+              <div class="language-menu-item">
+                <div class="menu-item">
+                  <span class="language-menu-badge">{{ lang.badge }}</span>
+                  <span>{{ lang.label }}</span>
+                </div>
+                <el-icon v-if="lang.isCurrent" class="language-menu-check">
+                  <Check />
+                </el-icon>
+              </div>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -101,11 +136,17 @@ import {
   CopyDocument,
   Close,
   ArrowDown,
-  QuestionFilled
+  QuestionFilled,
+  Document,
+  Link,
+  Check
 } from '@element-plus/icons-vue'
 import TabBar from './TabBar.vue'
 import { ipc, WINDOW_TOP } from '@renderer/core/ipc'
 import icon from '@renderer/assets/logo.png'
+import bannerZhCN from '@renderer/assets/promotion/banner-zh-CN.png'
+import bannerZhTW from '@renderer/assets/promotion/banner-zh-TW.png'
+import bannerEnUS from '@renderer/assets/promotion/banner-en-US.png'
 import { useRouter } from 'vue-router'
 import { useLocale } from '@renderer/hooks/useLocale'
 import { useI18n } from 'vue-i18n'
@@ -128,17 +169,69 @@ const handleVersionDblClick = () => {
 }
 
 const router = useRouter()
+
 const { changeLocale, currentLanguageLabel, languageList } = useLocale()
 const { t, locale } = useI18n()
+
+const promotionBannerMap: Record<string, string> = {
+  'zh-CN': bannerZhCN,
+  'zh-TW': bannerZhTW,
+  'en-US': bannerEnUS
+}
+
+const promotionBanner = computed(() => promotionBannerMap[locale.value] || bannerEnUS)
 
 const helpDocUrl = computed(() => {
   return locale.value === 'zh-CN' ? 'https://help.vmosedge.com/' : 'https://help.vmosedge.com/en/'
 })
 
+const officialWebsiteUrl = computed(() => {
+  return 'https://www.vmosedge.com/'
+})
+
+const helpMenuItems = computed(() => [
+  {
+    label: t('layout.header.helpDocs'),
+    command: 'help-docs',
+    icon: Document
+  },
+  {
+    label: t('layout.header.officialWebsite'),
+    command: 'official-website',
+    icon: Link
+  }
+])
+
 const isTop = ref(false)
+
+const languageBadgeMap = {
+  'zh-CN': '简',
+  'zh-TW': '繁',
+  'en-US': 'EN'
+} as const
+
+const languageMenuItems = computed(() =>
+  languageList.map((lang) => ({
+    ...lang,
+    badge: languageBadgeMap[lang.value as keyof typeof languageBadgeMap] ?? 'A',
+    isCurrent: lang.value === locale.value
+  }))
+)
 
 const handleLanguageChange = (command: string) => {
   changeLocale(command)
+}
+
+const handleHelpCommand = (command: string) => {
+  const urlMap: Record<string, string> = {
+    'help-docs': helpDocUrl.value,
+    'official-website': officialWebsiteUrl.value
+  }
+
+  const targetUrl = urlMap[command]
+  if (!targetUrl) return
+
+  window.open(targetUrl, '_blank')
 }
 
 const settingsMenu = computed(() => [
@@ -202,8 +295,9 @@ const handleClose = () => {
   display: flex;
   align-items: center;
   gap: 16px;
-  -webkit-app-region: no-drag;
   padding-left: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .logo {
@@ -235,8 +329,9 @@ const handleClose = () => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   -webkit-app-region: no-drag;
+  flex-shrink: 0;
 }
 
 .header-tool-item {
@@ -255,8 +350,29 @@ const handleClose = () => {
   background-color: var(--el-bg-color-page);
 }
 
-.help-link {
+.promotion-banner {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: opacity 0.2s;
   text-decoration: none;
+  vertical-align: middle;
+}
+
+.promotion-banner:hover {
+  opacity: 0.85;
+}
+
+.promotion-img {
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.help-trigger {
   color: var(--el-text-color-regular);
   display: flex;
   align-items: center;
@@ -264,6 +380,41 @@ const handleClose = () => {
 
 .help-text {
   margin-left: 6px;
+}
+
+.menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-item-icon {
+  color: var(--el-text-color-secondary);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.language-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.language-menu-badge {
+  min-width: 20px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.language-menu-check {
+  color: var(--el-text-color-regular);
+  font-size: 16px;
+  opacity: 0.8;
 }
 
 .version {
@@ -294,5 +445,9 @@ const handleClose = () => {
 .control-btn.close:hover {
   background-color: var(--el-color-danger);
   color: var(--el-bg-color);
+}
+
+.header-tool-item :deep(.el-badge__content) {
+  font-size: 10px;
 }
 </style>

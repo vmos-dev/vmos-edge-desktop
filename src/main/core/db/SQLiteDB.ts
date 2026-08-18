@@ -325,34 +325,45 @@ export class SQLiteDB {
 
     const migrations: Record<number, () => void> = {
       // v1: 初始版本（可以留空）
-      1: () => {
-        // 初始版本无需操作
-      },
+      1: () => {},
 
       // v2: 添加 remark 和 location 字段
-      2: () => {
-        // syncAllTableSchemas 会自动添加缺失字段，这里可以放一些特殊的数据迁移逻辑
-      },
+      2: () => {},
 
       // v8: custom_adis.id 迁移为 uuid TEXT 主键
       8: () => {
         this.migrateCustomAdisToUuidId()
-      }
+      },
+
+      // v9: batch_tasks + batch_task_items tables
+      9: () => {
+        this.syncAllTableSchemas()
+      },
+
+      // v10: frp 相关表
+      10: () => {},
+
+      // v11: frp_config 增加 deploy_mode 字段
+      11: () => {},
+
+      // v12: frp_config 增加 screen 相关字段
+      12: () => {},
+
+      // v13: frp_config 增加 proxy_bind_local 字段
+      13: () => {}
     }
 
-    // 按顺序执行迁移
+    // 按顺序执行迁移，无迁移函数时也推进版本号
     for (let v = fromVersion + 1; v <= toVersion; v++) {
-      if (migrations[v]) {
-        try {
-          const runMigration = this.db.transaction(() => {
-            migrations[v]()
-            this.setVersion(v)
-          })
-          runMigration()
-        } catch (error) {
-          logger.error(`[SQLiteDB] ❌ Migration v${v} failed:`, error)
-          throw error
-        }
+      try {
+        const runMigration = this.db.transaction(() => {
+          migrations[v]?.()
+          this.setVersion(v)
+        })
+        runMigration()
+      } catch (error) {
+        logger.error(`[SQLiteDB] ❌ Migration v${v} failed:`, error)
+        throw error
       }
     }
   }
@@ -417,13 +428,11 @@ export class SQLiteDB {
       const language = app.getLocale()
       const defaultGroupName = language.indexOf('zh') !== -1 ? '默认分组' : 'Default Group'
       if (result.count === 0) {
-
         this.db
           .prepare(
             'INSERT INTO groups (id, name, type, sortIndex, createTime) VALUES (?, ?, ?, ?, ?)'
           )
           .run('default', defaultGroupName, 'host', 0, Date.now())
-
       }
 
       const stmt2 = this.db.prepare('SELECT count(*) as count FROM groups WHERE id = ?')

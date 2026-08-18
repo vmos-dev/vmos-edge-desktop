@@ -92,7 +92,7 @@ interface MenuItem {
 
 const props = defineProps<{
   device: Device
-  size: 'small' | 'medium' | 'large'
+  size: 'small' | 'medium' | 'large' | 'custom'
   width: number
   height: number
   style?: any

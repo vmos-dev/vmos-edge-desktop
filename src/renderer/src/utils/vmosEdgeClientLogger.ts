@@ -1,7 +1,13 @@
 import { logger } from './logger'
 
 type VmosEdgeInternalErrorInfo = {
-  source: 'channel_close' | 'channel_error' | 'video_recovery' | 'touch_recovery' | 'connect_retry' | 'connect_failed'
+  source:
+    | 'channel_close'
+    | 'channel_error'
+    | 'video_recovery'
+    | 'touch_recovery'
+    | 'connect_retry'
+    | 'connect_failed'
   recovering?: boolean
   errorMessage?: string
   [key: string]: any

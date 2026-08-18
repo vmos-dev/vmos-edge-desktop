@@ -1,8 +1,22 @@
 <script setup lang="tsx">
 import { ref, computed, watch } from 'vue'
-import { ElTableV2, ElAutoResizer, ElCheckbox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import {
+  ElTableV2,
+  ElAutoResizer,
+  ElCheckbox,
+  ElIcon,
+  ElDropdown,
+  ElDropdownMenu,
+  ElDropdownItem
+} from 'element-plus'
 import type { Column, CheckboxValueType } from 'element-plus'
+import { TableV2FixedDir } from 'element-plus'
+import { SortUp, SortDown, More } from '@element-plus/icons-vue'
 
+type SortOrder = 'asc' | 'desc' | ''
+
+const { t } = useI18n()
 defineOptions({
   name: 'VmosTable'
 })
@@ -13,6 +27,7 @@ const props = withDefaults(
     columns: Column<any>[]
     rowKey?: string
     selectable?: boolean
+    checkboxFixed?: true | 'left' | 'right'
     rowHeight?: number
     headerHeight?: number
     selectedIds?: string[] // 新增：接收外部传入的选中ID
@@ -20,6 +35,7 @@ const props = withDefaults(
   {
     rowKey: 'id',
     selectable: false,
+    checkboxFixed: undefined,
     rowHeight: 50,
     headerHeight: 50,
     selectedIds: () => []
@@ -28,7 +44,12 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'selection-change', selection: any[]): void
+  (e: 'sort-change', sortBy: { key: string; order: SortOrder }): void
 }>()
+
+// 排序状态：key 为排序列，order 为 'asc' | 'desc' | ''（还原）
+const sortKey = ref('')
+const sortOrder = ref<SortOrder>('')
 
 // 初始化选中状态
 const selectedKeys = ref<Set<string | number>>(new Set(props.selectedIds))
@@ -120,6 +141,14 @@ const selectionColumn = {
   key: 'selection',
   width: 50,
   align: 'center' as const,
+  fixed:
+    props.checkboxFixed === true
+      ? TableV2FixedDir.LEFT
+      : props.checkboxFixed === 'left'
+        ? TableV2FixedDir.LEFT
+        : props.checkboxFixed === 'right'
+          ? TableV2FixedDir.RIGHT
+          : undefined,
   headerCellRenderer: () => {
     return (
       <ElCheckbox
@@ -139,8 +168,73 @@ const selectionColumn = {
   }
 }
 
+const injectSortHeader = (col: any) => {
+  if (!col.sortable) return col
+  const colKey = col.key || col.dataKey
+  return {
+    ...col,
+    headerCellRenderer: () => {
+      const isActive = sortKey.value === colKey
+      const order = isActive ? sortOrder.value : ''
+      return (
+        <div class="vmos-sort-header">
+          <span class="vmos-sort-title">
+            {col.title}
+            {isActive && order === 'asc' && ' ↑'}
+            {isActive && order === 'desc' && ' ↓'}
+          </span>
+          <ElDropdown
+            trigger="hover"
+            onCommand={(cmd: string) => {
+              if (cmd === 'asc' || cmd === 'desc') {
+                sortKey.value = colKey
+                sortOrder.value = cmd
+              } else {
+                sortKey.value = ''
+                sortOrder.value = ''
+              }
+              emit('sort-change', { key: sortKey.value, order: sortOrder.value })
+            }}
+          >
+            {{
+              default: () => (
+                <ElIcon
+                  size={14}
+                  class={['vmos-sort-trigger', isActive && order ? 'is-active' : '']}
+                >
+                  <More />
+                </ElIcon>
+              ),
+              dropdown: () => (
+                <ElDropdownMenu>
+                  <ElDropdownItem command="asc" disabled={isActive && order === 'asc'}>
+                    <ElIcon size={14}>
+                      <SortUp />
+                    </ElIcon>{' '}
+                    {t('common.sortAsc')}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="desc" disabled={isActive && order === 'desc'}>
+                    <ElIcon size={14}>
+                      <SortDown />
+                    </ElIcon>{' '}
+                    {t('common.sortDesc')}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="reset" divided disabled={!isActive}>
+                    {t('common.sortReset')}
+                  </ElDropdownItem>
+                </ElDropdownMenu>
+              )
+            }}
+          </ElDropdown>
+        </div>
+      )
+    }
+  }
+}
+
 const generateAdaptiveColumns = (containerWidth: number) => {
-  const allColumns = props.selectable ? [selectionColumn, ...props.columns] : props.columns
+  const rawColumns = props.selectable ? [selectionColumn, ...props.columns] : props.columns
+  const allColumns = rawColumns.map(injectSortHeader)
 
   let totalFixedWidth = 0
   let totalFlexGrow = 0
@@ -236,6 +330,35 @@ defineExpose({
 
   :deep(.el-table-v2__right) {
     box-shadow: none !important;
+  }
+
+  :deep(.vmos-sort-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+
+    .vmos-sort-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .vmos-sort-trigger {
+      cursor: pointer;
+      color: var(--el-text-color-placeholder);
+      font-size: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+
+      &:hover,
+      &.is-active {
+        color: var(--el-color-primary);
+      }
+    }
   }
 }
 </style>

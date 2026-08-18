@@ -88,6 +88,8 @@ export default {
   startCaptureFailed: 'Start capture failed',
   stopCaptureFailed: 'Stop capture failed',
   cannotGetAnyMediaTrack: 'Cannot get any media track',
+  noVideoDeviceSelected: 'Please select a camera device first',
+  noAudioDeviceSelected: 'Please select a microphone device first',
   partialDeviceFailed: 'Partial device failed: {errors}',
   streamingInterrupted: 'Streaming interrupted abnormally',
   // Stream settings related

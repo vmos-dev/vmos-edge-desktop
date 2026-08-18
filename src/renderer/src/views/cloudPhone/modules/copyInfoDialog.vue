@@ -36,7 +36,8 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { copyToClipboard } from '@renderer/utils'
-import { type Device } from '@shared/ipc/data.types'
+import { MacvlanPortMap } from '@renderer/utils/constant'
+import { type Device, DeviceState } from '@shared/ipc/data.types'
 
 const { t } = useI18n()
 const visible = ref(false)
@@ -49,8 +50,18 @@ const availableFields = computed(() => [
   { key: 'ip', label: t('cloudPhone.deviceIp') },
   { key: 'user_name', label: t('cloudPhone.deviceName') },
   { key: 'aosp_version', label: t('cloudPhone.androidVersion') },
-  { key: 'image', label: t('cloudPhone.imageVersion') }
+  { key: 'image', label: t('cloudPhone.imageVersion') },
+  { key: 'adb_address', label: t('cloudPhone.adbAddress') }
 ])
+
+// ADB 地址(ip:端口)：局域网(macvlan)模式端口固定 5555 且需运行中，否则宿主机 IP + 转发端口 adb
+const formatAdbAddress = (device: Device) => {
+  if (device.network_mode === 'macvlan') {
+    if (device.state !== DeviceState.StateRunning) return '-'
+    return device.ip ? `${device.ip}:${MacvlanPortMap.adb}` : ''
+  }
+  return device.host_ip && device.adb ? `${device.host_ip}:${device.adb}` : ''
+}
 
 const formatFieldValue = (device: Device, key: string) => {
   switch (key) {
@@ -58,6 +69,8 @@ const formatFieldValue = (device: Device, key: string) => {
       return `Android ${device.aosp_version}`
     case 'image':
       return (device.image || '').replace(/:latest$/, '')
+    case 'adb_address':
+      return formatAdbAddress(device)
     default:
       return (device as any)[key] || ''
   }

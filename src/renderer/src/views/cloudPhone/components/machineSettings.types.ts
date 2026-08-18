@@ -15,7 +15,12 @@ export type BrandOption = {
   list: AdiWithUpload[]
 }
 
-export type MachineChangeReason = 'init' | 'mode-change' | 'brand-change' | 'custom-select' | 'reload'
+export type MachineChangeReason =
+  | 'init'
+  | 'mode-change'
+  | 'brand-change'
+  | 'custom-select'
+  | 'reload'
 
 export type MachineModelChangePayload = {
   mode: MachineMode

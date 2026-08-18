@@ -26,7 +26,13 @@
               <div class="upload-text">
                 <p class="upload-primary-text">{{ t('cloudPhone.clickUploadOrDragFile') }}</p>
                 <p class="upload-secondary-text">
-                  {{ t('cloudPhone.batchUploadSupported', { formats: allowedExtensions?.map((ext) => `.${ext}`).join(', ') || t('cloudPhone.allFiles') }) }}
+                  {{
+                    t('cloudPhone.batchUploadSupported', {
+                      formats:
+                        allowedExtensions?.map((ext) => `.${ext}`).join(', ') ||
+                        t('cloudPhone.allFiles')
+                    })
+                  }}
                 </p>
               </div>
             </div>
@@ -78,7 +84,10 @@
           </div>
         </div>
         <div v-else>
-          <el-empty :description="t('cloudPhone.selectFileTip', { type: subTitle })" :image-size="120" />
+          <el-empty
+            :description="t('cloudPhone.selectFileTip', { type: subTitle })"
+            :image-size="120"
+          />
         </div>
       </div>
       <!-- 文件列表区域 -->
@@ -164,7 +173,9 @@
                       trigger="hover"
                     >
                       <template #reference>
-                        <span class="fail-tag"> {{ t('cloudPhone.failCount') }} {{ getTaskStats(task).fail }} </span>
+                        <span class="fail-tag">
+                          {{ t('cloudPhone.failCount') }} {{ getTaskStats(task).fail }}
+                        </span>
                       </template>
                       <div class="fail-list">
                         <div
@@ -240,13 +251,23 @@
       </div>
     </div>
     <template #footer>
-      <el-button @click="visible = false" v-if="isAllTasksCompleted">{{ t('common.cancel') }}</el-button>
+      <el-button @click="visible = false" v-if="isAllTasksCompleted">{{
+        t('common.cancel')
+      }}</el-button>
       <el-button
         type="primary"
         @click="handleInstall"
         :loading="!isAllTasksCompleted"
         :disabled="uploadFileList.length === 0"
-        >{{ isAllTasksCompleted ? (operationType === 'install' ? t('cloudPhone.oneClickInstall') : t('cloudPhone.oneClickUpload')) : (operationType === 'install' ? t('cloudPhone.installing') : t('cloudPhone.uploading')) }}</el-button
+        >{{
+          isAllTasksCompleted
+            ? operationType === 'install'
+              ? t('cloudPhone.oneClickInstall')
+              : t('cloudPhone.oneClickUpload')
+            : operationType === 'install'
+              ? t('cloudPhone.installing')
+              : t('cloudPhone.uploading')
+        }}</el-button
       >
     </template>
   </vmos-dialog>
@@ -335,7 +356,7 @@ const errorCount = computed(() => tasks.value.filter((t) => t.status === 'error'
 const title = computed(() => {
   const hostCount = new Set(targetDevices.value.map((device) => device.host_ip)).size
   // 多少主机和云机需要安装文件
-  return operationType.value === 'install' 
+  return operationType.value === 'install'
     ? t('cloudPhone.batchInstallTitle', { hostCount, deviceCount: targetDevices.value.length })
     : t('cloudPhone.batchUploadTitle', { hostCount, deviceCount: targetDevices.value.length })
 })

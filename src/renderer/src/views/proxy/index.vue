@@ -36,18 +36,32 @@
             {{ t('common.reset') }}
           </el-button>
 
-          <el-button type="primary" @click="triggerImport" plain>
-            <el-icon class="el-icon--left"><Upload /></el-icon>
-            {{ t('proxy.importProxy') }}
-          </el-button>
           <el-button type="primary" @click="showAddDialog" plain>
             <el-icon class="el-icon--left"><Plus /></el-icon>
             {{ t('proxy.addProxy') }}
           </el-button>
-          <el-button type="danger" plain :loading="deleteLoading" @click="handleBatchDelete">
-            <el-icon class="el-icon--left"><Delete /></el-icon>
-            {{ t('proxy.batchDelete') }}
-          </el-button>
+          <el-dropdown trigger="click" @command="handleMoreCommand">
+            <el-button>
+              {{ t('common.moreOperations') }}
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="import-protocol">
+                  <el-icon><Upload /></el-icon>{{ t('proxy.importProtocol') }}
+                </el-dropdown-item>
+                <el-dropdown-item command="import-source">
+                  <el-icon><Upload /></el-icon>{{ t('proxy.importSource') }}
+                </el-dropdown-item>
+                <el-dropdown-item command="export">
+                  <el-icon><Download /></el-icon>{{ t('proxy.exportBtn') }}
+                </el-dropdown-item>
+                <el-dropdown-item command="batch-delete" divided :disabled="!selection.length">
+                  <el-icon><Delete /></el-icon>{{ t('proxy.batchDelete') }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </el-form-item>
       </el-form>
     </div>
@@ -71,20 +85,42 @@
     <!-- 添加/编辑代理弹窗 -->
     <ProxyDialog ref="proxyDialogRef" @success="handleProxyDialogSuccess" />
     <ImportProxyDialog ref="importDialogRef" @success="handleImportDialogSuccess" />
+    <ImportProxySourceDialog ref="importSourceRef" @imported="loadProxies" />
   </div>
 </template>
 
 <script setup lang="tsx">
 defineOptions({ name: 'Proxy' })
 import { ref, computed, reactive, onMounted } from 'vue'
-import { Plus, Search, Refresh, Delete, Edit, Upload } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox, ElForm, ElButton, ElTag, TableV2FixedDir } from 'element-plus'
+import {
+  Plus,
+  Search,
+  Refresh,
+  Delete,
+  Edit,
+  Upload,
+  Download,
+  ArrowDown
+} from '@element-plus/icons-vue'
+import {
+  ElMessage,
+  ElMessageBox,
+  ElForm,
+  ElButton,
+  ElDropdown,
+  ElDropdownMenu,
+  ElDropdownItem,
+  ElTag,
+  TableV2FixedDir
+} from 'element-plus'
 import VmosTable from '@renderer/components/table/index.vue'
 import ProxyDialog from './components/ProxyDialog.vue'
 import ImportProxyDialog from './components/ImportProxyDialog.vue'
+import ImportProxySourceDialog from './components/ImportProxySourceDialog.vue'
 import { ipc } from '@renderer/core/ipc'
 import { PROXY_EVENTS } from '@shared/ipc/proxy.types'
 import type { Proxy } from '@shared/ipc/data.types'
+import type { ProxyExportItem } from '@shared/ipc/proxy.types'
 import { formatTime } from '@shared/api'
 import { CopyText } from '@renderer/components'
 import { useI18n } from 'vue-i18n'
@@ -93,6 +129,7 @@ const { t } = useI18n()
 const loading = ref(false)
 const proxyDialogRef = ref<InstanceType<typeof ProxyDialog>>()
 const importDialogRef = ref<InstanceType<typeof ImportProxyDialog>>()
+const importSourceRef = ref<InstanceType<typeof ImportProxySourceDialog>>()
 const searchFormRef = ref<InstanceType<typeof ElForm>>()
 const searchForm = reactive({
   name: '',
@@ -390,10 +427,52 @@ const handleReset = () => {
 }
 
 /**
- * 导入代理
+ * 更多操作下拉菜单
  */
-const triggerImport = () => {
-  importDialogRef.value?.init()
+const handleMoreCommand = (command: string) => {
+  if (command === 'import-protocol') {
+    importDialogRef.value?.init()
+  } else if (command === 'import-source') {
+    importSourceRef.value?.open()
+  } else if (command === 'export') {
+    handleExport()
+  } else if (command === 'batch-delete') {
+    handleBatchDelete()
+  }
+}
+
+/**
+ * 导出当前筛选列表为 JSON
+ */
+const handleExport = async () => {
+  if (filteredProxies.value.length === 0) {
+    ElMessage.warning(t('proxy.exportEmpty'))
+    return
+  }
+
+  const exportData: ProxyExportItem[] = filteredProxies.value.map((p) => ({
+    name: p.name,
+    protocol: p.protocol,
+    host: p.host,
+    port: p.port,
+    username: p.username,
+    password: p.password,
+    rawLink: p.rawLink,
+    ip: p.ip,
+    country: p.country,
+    timezone: p.timezone,
+    loc: p.loc
+  }))
+
+  const res = await ipc.invoke<{ filePath: string }>(PROXY_EVENTS.EXPORT_PROXIES, {
+    proxies: exportData
+  })
+
+  if (res.success && res.data) {
+    ElMessage.success(t('proxy.exportSuccess', { path: res.data.filePath }))
+  } else if (res.error && res.error !== 'canceled') {
+    ElMessage.error(res.error)
+  }
 }
 
 const handleProxyDialogSuccess = () => {

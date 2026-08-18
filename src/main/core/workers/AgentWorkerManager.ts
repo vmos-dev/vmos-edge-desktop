@@ -175,10 +175,7 @@ export class AgentWorkerManager {
     }
   }
 
-  public async resume(params: {
-    sessionId: string
-    message: string
-  }): Promise<BasicResult> {
+  public async resume(params: { sessionId: string; message: string }): Promise<BasicResult> {
     if (params.sessionId !== this.sessionId) {
       return { success: false, error: '会话不存在或已过期' }
     }

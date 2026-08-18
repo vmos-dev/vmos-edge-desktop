@@ -1,0 +1,118 @@
+/* driver.js 弹窗主题覆盖 —— 桥接 Element Plus CSS 变量,自动适配明暗模式 */
+
+.driver-popover {
+  background: var(--el-bg-color) !important;
+  color: var(--el-text-color-primary) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--el-border-color-lighter) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  padding: 20px 24px !important;
+  max-width: 340px !important;
+}
+
+.driver-popover-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--el-text-color-primary) !important;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px !important;
+}
+
+.driver-popover-description {
+  font-size: 13px !important;
+  line-height: 1.7 !important;
+  color: var(--el-text-color-regular) !important;
+}
+
+.driver-popover-progress-text {
+  font-size: 11px !important;
+  color: var(--el-text-color-placeholder) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.driver-popover-navigation-btns {
+  gap: 8px !important;
+}
+
+.driver-popover-prev-btn {
+  background: var(--el-fill-color-light) !important;
+  color: var(--el-text-color-regular) !important;
+  border: 1px solid var(--el-border-color-lighter) !important;
+  border-radius: 8px !important;
+  padding: 6px 16px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+.driver-popover-prev-btn:hover {
+  background: var(--el-fill-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+.driver-popover-next-btn,
+.driver-popover-close-btn-text {
+  background: var(--el-color-primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 6px 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--el-color-primary) 25%, transparent);
+  transition: all 0.15s ease;
+}
+
+.driver-popover-next-btn:hover,
+.driver-popover-close-btn-text:hover {
+  opacity: 0.9;
+}
+
+/* X 关闭按钮 */
+.driver-popover-close-btn {
+  color: var(--el-text-color-placeholder) !important;
+  font-size: 20px !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.driver-popover-close-btn:hover {
+  color: var(--el-text-color-primary) !important;
+  background: var(--el-fill-color-light);
+}
+
+/* popover 箭头:CSS border 三角形,只染可见边,其余保持 transparent */
+.driver-popover-arrow-side-left {
+  border-left-color: var(--el-bg-color) !important;
+}
+
+.driver-popover-arrow-side-right {
+  border-right-color: var(--el-bg-color) !important;
+}
+
+.driver-popover-arrow-side-top {
+  border-top-color: var(--el-bg-color) !important;
+}
+
+.driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--el-bg-color) !important;
+}
+
+/* 高亮目标元素:亮色光晕让元素从遮罩中"浮起来" */
+.driver-active-element {
+  outline: 2px solid var(--el-color-primary-light-3) !important;
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 4px rgba(64, 158, 255, 0.18),
+    0 0 20px rgba(64, 158, 255, 0.12) !important;
+  border-radius: 8px;
+}

@@ -3,7 +3,7 @@ import type { Contact } from './contact.types'
 
 /**
  * 通话记录 API 相关类型
- * 
+ *
  * 参考 Android CallLog.Calls API 规范
  * @see {@link https://developer.android.com/reference/android/provider/CallLog.Calls Android CallLog API}
  */

@@ -1,15 +1,15 @@
 import { ref, onMounted, onUnmounted, unref } from 'vue'
 import type { Ref } from 'vue'
 
-// 简单的节流函数
-function throttle<T extends (...args: any[]) => any>(func: T, limit: number): T {
-  let inThrottle: boolean
+// 防抖函数：resize 停止后才触发，避免前沿节流丢失末尾事件
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
+  let timer: ReturnType<typeof setTimeout> | null = null
   return function (this: any, ...args: any[]) {
-    if (!inThrottle) {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
       func.apply(this, args)
-      inThrottle = true
-      setTimeout(() => (inThrottle = false), limit)
-    }
+      timer = null
+    }, wait)
   } as T
 }
 
@@ -42,9 +42,9 @@ export function useResizeObserver(
     }
   }
 
-  // 根据配置决定是否节流
+  // 根据配置决定是否防抖
   const processResize = options.throttleTime
-    ? throttle(handleResize, options.throttleTime)
+    ? debounce(handleResize, options.throttleTime)
     : handleResize
 
   onMounted(() => {

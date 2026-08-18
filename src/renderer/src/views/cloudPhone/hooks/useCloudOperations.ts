@@ -18,6 +18,7 @@ export interface OperationRefs {
   newMachineRef: any
   deviceCloneRef: any
   setProxyRef: any
+  batchProxyRef: any
   setTimeZoneLanguageRef: any
   execCommandRef: any
   batchInstallRef: any
@@ -26,7 +27,7 @@ export interface OperationRefs {
   modifyPositionRef: any
   modifySystemPropertiesRef: any
   copyInfoRef: any
-  // 其他弹窗 Ref 可以根据需要添加
+  batchExecuteVisible: any
 }
 
 export interface CloudContext {
@@ -106,9 +107,11 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
       { label: t('cloudPhone.deleteDevice'), command: 'delete' },
 
       // 工具和功能操作
+      { label: t('cloudPhone.setProxy'), command: 'batch-set-proxy', divided: true },
+      { label: t('cloudPhone.closeProxy'), command: 'batch-close-proxy' },
       { label: t('cloudPhone.executeCommand'), command: 'execute-command', divided: true },
-      { label: t('cloudPhone.batchExecuteScript'), command: 'batch-execute-script' },
-      { label: t('cloudPhone.closeScriptExecution'), command: 'close-script-execution' },
+      // { label: t('cloudPhone.batchExecuteScript'), command: 'batch-execute-script' },
+      // { label: t('cloudPhone.closeScriptExecution'), command: 'close-script-execution' },
       { label: t('cloudPhone.batchInstall'), command: 'batch-install' },
       { label: t('cloudPhone.batchUpload'), command: 'batch-upload' },
       { label: t('cloudPhone.modifyLocation'), command: 'modify-location' },
@@ -122,8 +125,7 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
     ]
   })
 
-  const getBatchOperationItems = (_rows?: Device[]) => {
-    // 参数保留以保持兼容性，但实际上不使用
+  const getBatchOperationItems = () => {
     return batchOperationItems.value
   }
 
@@ -501,6 +503,29 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
         handleCloseProxy(devices)
       }
     },
+    'batch-set-proxy': {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.setProxy') })
+        return requireState(DeviceState.StateRunning, t('cloudPhone.onlyRunningForProxy'))(devices)
+      },
+      action: (devices) => {
+        refs.batchProxyRef.value?.init('set', devices)
+      }
+    },
+    'batch-close-proxy': {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeProxy') })
+        return requireState(
+          DeviceState.StateRunning,
+          t('cloudPhone.onlyRunningForCloseProxy')
+        )(devices)
+      },
+      action: (devices) => {
+        refs.batchProxyRef.value?.init('close', devices)
+      }
+    },
     'set-timezone-language': {
       validator: (devices) => {
         if (devices.length === 0)
@@ -587,40 +612,40 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
         }
       }
     },
-    'batch-execute-script': {
-      validator: (devices) => {
-        if (devices.length === 0)
-          return t('cloudPhone.selectDevices', { action: t('cloudPhone.batchExecuteScript') })
-        return requireState(
-          DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForScript', {
-            state: getDeviceStateText(DeviceState.StateRunning)
-          })
-        )(devices)
-      },
-      action: (devices) => {
-        if (refs.batchExecuteScriptRef && refs.batchExecuteScriptRef.value) {
-          refs.batchExecuteScriptRef.value.init(devices)
-        }
-      }
-    },
-    'close-script-execution': {
-      validator: (devices) => {
-        if (devices.length === 0)
-          return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeScriptExecution') })
-        return requireState(
-          DeviceState.StateRunning,
-          t('cloudPhone.onlyRunningForCloseScript', {
-            state: getDeviceStateText(DeviceState.StateRunning)
-          })
-        )(devices)
-      },
-      action: (devices) => {
-        if (refs.batchCloseScriptRef && refs.batchCloseScriptRef.value) {
-          refs.batchCloseScriptRef.value.init(devices)
-        }
-      }
-    },
+    // 'batch-execute-script': {
+    //   validator: (devices) => {
+    //     if (devices.length === 0)
+    //       return t('cloudPhone.selectDevices', { action: t('cloudPhone.batchExecuteScript') })
+    //     return requireState(
+    //       DeviceState.StateRunning,
+    //       t('cloudPhone.onlyRunningForScript', {
+    //         state: getDeviceStateText(DeviceState.StateRunning)
+    //       })
+    //     )(devices)
+    //   },
+    //   action: (devices) => {
+    //     if (refs.batchExecuteScriptRef && refs.batchExecuteScriptRef.value) {
+    //       refs.batchExecuteScriptRef.value.init(devices)
+    //     }
+    //   }
+    // },
+    // 'close-script-execution': {
+    //   validator: (devices) => {
+    //     if (devices.length === 0)
+    //       return t('cloudPhone.selectDevices', { action: t('cloudPhone.closeScriptExecution') })
+    //     return requireState(
+    //       DeviceState.StateRunning,
+    //       t('cloudPhone.onlyRunningForCloseScript', {
+    //         state: getDeviceStateText(DeviceState.StateRunning)
+    //       })
+    //     )(devices)
+    //   },
+    //   action: (devices) => {
+    //     if (refs.batchCloseScriptRef && refs.batchCloseScriptRef.value) {
+    //       refs.batchCloseScriptRef.value.init(devices)
+    //     }
+    //   }
+    // },
     'cloud-details': {
       validator: requireSingle(
         t('cloudPhone.selectSingleDevice', { action: t('cloudPhone.deviceDetails') })
@@ -774,6 +799,24 @@ export function useCloudOperations(context: CloudContext, refs: OperationRefs) {
       },
       action: (devices) => {
         refs.copyInfoRef.value?.init(devices)
+      }
+    },
+    'batch-execute': {
+      validator: (devices) => {
+        if (devices.length === 0)
+          return t('cloudPhone.selectDevices', { action: t('taskCenter.batchExecute.title') })
+        return requireState(
+          DeviceState.StateRunning,
+          t('cloudPhone.onlyRunningState', {
+            action: t('taskCenter.batchExecute.title'),
+            state: getDeviceStateText(DeviceState.StateRunning)
+          })
+        )(devices)
+      },
+      action: () => {
+        if (refs.batchExecuteVisible) {
+          refs.batchExecuteVisible.value = true
+        }
       }
     }
   }))

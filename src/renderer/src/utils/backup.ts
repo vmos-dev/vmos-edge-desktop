@@ -1,5 +1,11 @@
 import { DeviceState, type Device } from '@shared/ipc/data.types'
-import { API_CONFIG, buildApiUrl, getErrorMessage, Request as ApiRequest, request } from '@shared/api'
+import {
+  API_CONFIG,
+  buildApiUrl,
+  getErrorMessage,
+  Request as ApiRequest,
+  request
+} from '@shared/api'
 
 type Listener = (...args: any[]) => void
 

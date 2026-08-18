@@ -25,8 +25,15 @@ const COOLDOWN_MS = 300
 // 最大重试次数
 const MAX_RETRIES = 2
 // 可重试的错误关键词
-const RETRYABLE_ERRORS = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'socket hang up', 'network', 'disconnected', 'TLS']
-
+const RETRYABLE_ERRORS = [
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ECONNREFUSED',
+  'socket hang up',
+  'network',
+  'disconnected',
+  'TLS'
+]
 
 /**
  * 获取 SDK 二进制文件路径

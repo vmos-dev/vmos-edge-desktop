@@ -1,30 +1,73 @@
 <template>
-  <vmos-dialog v-model="visible" :title="t('cloudPhone.modifyPosition')" :show-close="!isProcessing" width="75%"
-    class="update-edit-dialog" @closed="handleClose">
+  <vmos-dialog
+    v-model="visible"
+    :title="t('cloudPhone.modifyPosition')"
+    :show-close="!isProcessing"
+    width="75%"
+    class="update-edit-dialog"
+    @closed="handleClose"
+  >
     <div class="modify-position-content">
       <div class="header-control">
-        <el-form ref="formRef" :model="locationForm" :rules="formRules" label-width="auto" :inline="false"
-          class="location-form">
+        <el-form
+          ref="formRef"
+          :model="locationForm"
+          :rules="formRules"
+          label-width="auto"
+          :inline="false"
+          class="location-form"
+        >
           <el-form-item :label="t('cloudPhone.coordinate')">
-            <el-input v-model="coordinate" :placeholder="t('cloudPhone.coordinatePlaceholder')" style="width: 200px"
-              clearable />
+            <el-input
+              v-model="coordinate"
+              :placeholder="t('cloudPhone.coordinatePlaceholder')"
+              style="width: 200px"
+              clearable
+            />
           </el-form-item>
           <el-form-item :label="t('cloudPhone.altitude')" prop="altitude">
-            <el-input-number v-model="locationForm.altitude" :placeholder="t('cloudPhone.altitudePlaceholder')"
-              :precision="2" :step="0.1" style="width: 150px" clearable />
+            <el-input-number
+              v-model="locationForm.altitude"
+              :placeholder="t('cloudPhone.altitudePlaceholder')"
+              :precision="2"
+              :step="0.1"
+              style="width: 150px"
+              clearable
+            />
           </el-form-item>
           <el-form-item :label="t('cloudPhone.speed')" prop="speed">
-            <el-input-number v-model="locationForm.speed" :placeholder="t('cloudPhone.speedPlaceholder')" :min="0"
-              :precision="2" :step="0.1" style="width: 150px" clearable />
+            <el-input-number
+              v-model="locationForm.speed"
+              :placeholder="t('cloudPhone.speedPlaceholder')"
+              :min="0"
+              :precision="2"
+              :step="0.1"
+              style="width: 150px"
+              clearable
+            />
           </el-form-item>
           <el-form-item :label="t('cloudPhone.bearing')" prop="bearing">
-            <el-input-number v-model="locationForm.bearing" :placeholder="t('cloudPhone.bearingPlaceholder')" :min="0"
-              :max="360" :precision="2" :step="0.1" style="width: 150px" clearable />
+            <el-input-number
+              v-model="locationForm.bearing"
+              :placeholder="t('cloudPhone.bearingPlaceholder')"
+              :min="0"
+              :max="360"
+              :precision="2"
+              :step="0.1"
+              style="width: 150px"
+              clearable
+            />
           </el-form-item>
           <el-form-item :label="t('cloudPhone.accuracy')" prop="horizontalAccuracyMeters">
-            <el-input-number v-model="locationForm.horizontalAccuracyMeters"
-              :placeholder="t('cloudPhone.accuracyPlaceholder')" :min="0" :precision="2" :step="0.1"
-              style="width: 150px" clearable />
+            <el-input-number
+              v-model="locationForm.horizontalAccuracyMeters"
+              :placeholder="t('cloudPhone.accuracyPlaceholder')"
+              :min="0"
+              :precision="2"
+              :step="0.1"
+              style="width: 150px"
+              clearable
+            />
           </el-form-item>
         </el-form>
       </div>
@@ -44,8 +87,12 @@
       <div class="browser-container">
         <div class="url-bar-wrapper">
           <div class="url-bar">
-            <el-input v-model="webviewUrl" :placeholder="t('cloudPhone.urlPlaceholder')" clearable
-              @keyup.enter="handleNavigate">
+            <el-input
+              v-model="webviewUrl"
+              :placeholder="t('cloudPhone.urlPlaceholder')"
+              clearable
+              @keyup.enter="handleNavigate"
+            >
               <template #append>
                 <el-button @click="handleNavigate">{{ t('cloudPhone.navigate') }}</el-button>
               </template>
@@ -54,9 +101,17 @@
         </div>
 
         <div class="map-container">
-          <webview v-if="visible" ref="webviewRef" :src="webviewUrl" class="map-webview" allowpopups
-            @dom-ready="handleDomReady" @did-finish-load="handleDidFinishLoad" @did-navigate="handleDidNavigate"
-            @console-message="handleConsoleMessage">
+          <webview
+            v-if="visible"
+            ref="webviewRef"
+            :src="webviewUrl"
+            class="map-webview"
+            allowpopups
+            @dom-ready="handleDomReady"
+            @did-finish-load="handleDidFinishLoad"
+            @did-navigate="handleDidNavigate"
+            @console-message="handleConsoleMessage"
+          >
           </webview>
         </div>
       </div>
@@ -70,26 +125,28 @@
             <span class="label">{{ t('common.processing') }}</span>
             <span class="count">{{
               taskList.filter((t) => t.status === 'processing').length
-              }}</span>
+            }}</span>
           </div>
           <div class="status-item success">
             <span class="dot"></span>
             <span class="label">{{ t('common.success') }}</span>
-            <span class="count">{{taskList.filter((t) => t.status === 'success').length}}</span>
+            <span class="count">{{ taskList.filter((t) => t.status === 'success').length }}</span>
           </div>
           <div class="status-item error">
             <span class="dot"></span>
             <span class="label">{{ t('common.failed') }}</span>
-            <span class="count">{{taskList.filter((t) => t.status === 'error').length}}</span>
+            <span class="count">{{ taskList.filter((t) => t.status === 'error').length }}</span>
           </div>
           <div class="status-item waiting">
             <span class="dot"></span>
             <span class="label">{{ t('cloudPhone.waitingStatus') }}</span>
-            <span class="count">{{taskList.filter((t) => t.status === 'waiting').length}}</span>
+            <span class="count">{{ taskList.filter((t) => t.status === 'waiting').length }}</span>
           </div>
         </div>
         <div class="dialog-actions">
-          <el-button v-if="!isProcessing" @click="visible = false">{{ t('cloudPhone.close') }}</el-button>
+          <el-button v-if="!isProcessing" @click="visible = false">{{
+            t('cloudPhone.close')
+          }}</el-button>
           <el-button type="primary" :loading="isProcessing" @click="handleConfirm">
             {{ isProcessing ? t('cloudPhone.modifying') : t('cloudPhone.confirmModify') }}
           </el-button>
@@ -213,7 +270,9 @@ queue.on('finish', () => {
     const failCount = taskList.value.filter((t) => t.status === 'error').length
 
     if (failCount > 0) {
-      ElMessage.warning(t('cloudPhone.processingComplete', { success: successCount, fail: failCount }))
+      ElMessage.warning(
+        t('cloudPhone.processingComplete', { success: successCount, fail: failCount })
+      )
     } else {
       ElMessage.success(t('cloudPhone.modifyPositionComplete', { success: successCount }))
     }
@@ -566,7 +625,10 @@ const handleConfirm = async () => {
   let longitude: number
   let latitude: number
   try {
-    const parsed = parseCoordinate(coordinate.value, activeMap.value === 'google' ? 'latlng' : 'lnglat')
+    const parsed = parseCoordinate(
+      coordinate.value,
+      activeMap.value === 'google' ? 'latlng' : 'lnglat'
+    )
     longitude = parsed.longitude
     latitude = parsed.latitude
   } catch (e: any) {

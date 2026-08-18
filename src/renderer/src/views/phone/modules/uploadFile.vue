@@ -22,7 +22,13 @@
           <div class="upload-text">
             <p class="upload-primary-text">{{ t('cloudPhone.clickUploadOrDragFile') }}</p>
             <p class="upload-secondary-text">
-              {{ t('cloudPhone.batchUploadSupported', { formats: allowedExtensions?.map((ext) => `.${ext}`).join(', ') || t('cloudPhone.allFiles') }) }}
+              {{
+                t('cloudPhone.batchUploadSupported', {
+                  formats:
+                    allowedExtensions?.map((ext) => `.${ext}`).join(', ') ||
+                    t('cloudPhone.allFiles')
+                })
+              }}
             </p>
           </div>
         </div>

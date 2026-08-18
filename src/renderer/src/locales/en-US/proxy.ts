@@ -25,7 +25,8 @@ export default {
   deleteConfirm: 'Delete Confirm',
   deleteConfirmMessage: 'Are you sure to delete proxy "{name}"? This operation cannot be undone.',
   batchDeleteConfirm: 'Batch Delete Confirm',
-  batchDeleteMessage: 'Are you sure to delete {count} selected proxies? This operation cannot be undone.',
+  batchDeleteMessage:
+    'Are you sure to delete {count} selected proxies? This operation cannot be undone.',
   batchDeleteSelectWarning: 'Please select proxies to delete',
   batchDeleteSuccess: 'Successfully deleted {count} proxies',
   batchDeletePartial: 'Delete completed: {success} succeeded, {fail} failed',
@@ -54,12 +55,17 @@ export default {
   protocolNotSupportTest: '{protocol} protocol does not support proxy test',
   fillRequiredFields: 'Please fill in required fields first',
   testProxyFailed: 'Failed to test proxy',
-  httpHttpsNote: 'Must use standard URL format, user info before {\'@\'}.\nSupports query params: tls, fingerprint, skip-cert-verify, ip-version (ipv4/ipv6/dual)',
-  socks5Note: 'Must use standard URL format, user info before {\'@\'}.\nSupports query params: tls, fingerprint, skip-cert-verify, udp, ip-version (ipv4/ipv6/dual)',
-  ssNote: 'Supports SIP002, Legacy format, plugin params (plugin, v2ray-plugin), query params (uot, tfo)',
+  httpHttpsNote:
+    "Must use standard URL format, user info before {'@'}.\nSupports query params: tls, fingerprint, skip-cert-verify, ip-version (ipv4/ipv6/dual)",
+  socks5Note:
+    "Must use standard URL format, user info before {'@'}.\nSupports query params: tls, fingerprint, skip-cert-verify, udp, ip-version (ipv4/ipv6/dual)",
+  ssNote:
+    'Supports SIP002, Legacy format, plugin params (plugin, v2ray-plugin), query params (uot, tfo)',
   ssrNote: 'base64 encoded format, supports query params: remarks, protoparam, obfsparam',
-  vmessNote: 'Supports V2rayN JSON format, Shadowrocket format (remarks, obfs, path, tls, etc.), Quantumult format',
-  vlessNote: 'Supports params: security, sni, flow, type, serviceName, headerType, host, path, fp, alpn, pbk, sid',
+  vmessNote:
+    'Supports V2rayN JSON format, Shadowrocket format (remarks, obfs, path, tls, etc.), Quantumult format',
+  vlessNote:
+    'Supports params: security, sni, flow, type, serviceName, headerType, host, path, fp, alpn, pbk, sid',
   importTitle: 'Import Proxy',
   namePrefix: 'Name Prefix',
   namePrefixPlaceholder: 'e.g.: Proxy',
@@ -142,5 +148,29 @@ export default {
   protocolVmess: 'VMess',
   protocolVless: 'VLESS',
   protocolSs: 'Shadowsocks (SS)',
-  protocolSsr: 'ShadowsocksR (SSR)'
+  protocolSsr: 'ShadowsocksR (SSR)',
+  exportBtn: 'Export',
+  exportEmpty: 'No data to export in current list',
+  exportSuccess: 'Exported to {path}',
+  importProtocol: 'Protocol Import',
+  importSource: 'Source Data Import',
+  importSourceTitle: 'Source Data Import',
+  importSourceDragHint: 'Drag or click to select an exported JSON file',
+  importSourceOnlyJson: 'Only .json files exported by this tool are supported',
+  importSourceNotArray: 'File content format error, expected a JSON array',
+  importSourceNotObject: 'Item is not a valid object',
+  importSourceInvalidProtocol: 'Invalid protocol: {protocol}',
+  importSourceMissingHost: 'Missing host field',
+  importSourceInvalidPort: 'Invalid port, must be 1~65535',
+  importSourceEmptyArray: 'File is an empty array, no data to import',
+  importSourceJsonParseFailed: 'JSON parse failed, please verify the file format',
+  importSourceReadFailed: 'File read failed',
+  importSourceTotal: 'Total',
+  importSourceValid: 'Valid',
+  importSourceInvalid: 'Invalid',
+  importSourceShowErrors: 'View invalid items',
+  importSourceHideErrors: 'Collapse',
+  importSourceConfirm: 'Import {count}',
+  importSourceResult: 'Import completed: {success} succeeded, {failed} failed',
+  importSourceResultErrors: 'Some items failed to import'
 }

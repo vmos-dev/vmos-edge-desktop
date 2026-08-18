@@ -31,4 +31,3 @@ declare const __APP_VERSION__: string
 declare const __APP_VERSION_CODE__: number
 declare const __APP_VERSION_HASH__: string
 declare const __IMAGE_SUPPORT_VERSION_TIME__: string
-declare const __GA_MEASUREMENT_ID__: string

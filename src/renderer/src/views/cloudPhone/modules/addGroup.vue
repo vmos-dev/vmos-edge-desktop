@@ -1,5 +1,10 @@
 <template>
-  <VmosDialog v-model="visible" :title="t('cloudPhone.addGroup')" width="350px" @closed="handleClose">
+  <VmosDialog
+    v-model="visible"
+    :title="t('cloudPhone.addGroup')"
+    width="350px"
+    @closed="handleClose"
+  >
     <el-form
       ref="formRef"
       :model="form"
@@ -21,7 +26,9 @@
 
     <template #footer>
       <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
-      <el-button type="primary" :loading="loading" @click="handleAddGroup">{{ t('common.confirm') }}</el-button>
+      <el-button type="primary" :loading="loading" @click="handleAddGroup">{{
+        t('common.confirm')
+      }}</el-button>
     </template>
   </VmosDialog>
 </template>

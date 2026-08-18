@@ -282,7 +282,9 @@ export class FileExportQueue {
       }
 
       task.totalBytes = parseTotalBytes(response) ?? task.totalBytes
-      const headerName = parseContentDispositionFilename(response.headers.get('content-disposition'))
+      const headerName = parseContentDispositionFilename(
+        response.headers.get('content-disposition')
+      )
       const writer = await window.backupFs.createWriter({
         token: this.directoryToken,
         fileName: headerName || task.fileName

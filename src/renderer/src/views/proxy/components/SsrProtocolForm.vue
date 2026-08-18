@@ -42,7 +42,11 @@
       />
     </el-form-item>
     <el-form-item :label="t('proxy.obfs')" prop="ssr.obfs">
-      <el-input v-model.trim="modelValue.obfs" maxlength="50" :placeholder="t('proxy.obfsPlaceholder')" />
+      <el-input
+        v-model.trim="modelValue.obfs"
+        maxlength="50"
+        :placeholder="t('proxy.obfsPlaceholder')"
+      />
     </el-form-item>
     <el-form-item :label="t('proxy.obfsParam')" prop="ssr.obfs-param">
       <el-input

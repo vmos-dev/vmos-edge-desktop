@@ -12,6 +12,11 @@ import { ProxyManager } from './modules/ProxyManager'
 import { GroupControlManager } from './modules/GroupControlManager'
 import { MediaMtxManager } from './modules/MediaMtxManager'
 import { AutomationScriptManager } from './modules/AutomationScriptManager'
+import { UDPScanner } from '../window/UdpScanner'
+import { SharedFolderManager } from './modules/SharedFolderManager'
+import { WorkflowManager } from './modules/WorkflowManager'
+import { BatchTaskManager } from './modules/BatchTaskManager'
+import { FrpManager } from './modules/FrpManager'
 import { logger } from '../logger'
 
 // 重新导出类型，保持向后兼容
@@ -30,6 +35,11 @@ class Managers {
   public readonly groupControlManager: GroupControlManager
   public readonly mediaMtxManager: MediaMtxManager
   public readonly automationScriptManager: AutomationScriptManager
+  public readonly udpScanner: UDPScanner
+  public readonly sharedFolderManager: SharedFolderManager
+  public readonly workflowManager: WorkflowManager
+  public readonly batchTaskManager: BatchTaskManager
+  public readonly frpManager: FrpManager
   private constructor() {
     logger.info('[Managers] Initializing managers...')
     this.configManager = new ConfigManager()
@@ -40,9 +50,14 @@ class Managers {
     this.automationScriptManager = new AutomationScriptManager()
     this.deviceManager = new DeviceManager(this.configManager)
     this.hostManager = new HostManager(this.deviceManager)
+    this.sharedFolderManager = new SharedFolderManager(this.configManager)
     this.groupManager = new GroupManager(this.hostManager, this.deviceManager)
     this.imageManager = new ImageManager(this.configManager)
     this.groupControlManager = new GroupControlManager()
+    this.udpScanner = new UDPScanner()
+    this.workflowManager = new WorkflowManager()
+    this.batchTaskManager = new BatchTaskManager()
+    this.frpManager = new FrpManager()
   }
 
   public static getInstance(): Managers {
@@ -67,3 +82,8 @@ export const proxyManager = managers.proxyManager
 export const groupControlManager = managers.groupControlManager
 export const mediaMtxManager = managers.mediaMtxManager
 export const automationScriptManager = managers.automationScriptManager
+export const udpScanner = managers.udpScanner
+export const sharedFolderManager = managers.sharedFolderManager
+export const workflowManager = managers.workflowManager
+export const batchTaskManager = managers.batchTaskManager
+export const frpManager = managers.frpManager

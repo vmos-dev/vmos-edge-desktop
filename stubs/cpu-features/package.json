@@ -1,0 +1,6 @@
+{
+  "name": "cpu-features",
+  "version": "0.0.10",
+  "description": "Pure-JS stub — ssh2 falls back to JS crypto when cpu-features returns empty flags",
+  "main": "index.js"
+}

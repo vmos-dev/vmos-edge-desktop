@@ -116,6 +116,6 @@ export interface SmsRecord {
   seen?: number
   /** 用于显示的字段 */
   contactName?: string
-  formattedDate?: string,
+  formattedDate?: string
   contact?: Contact
 }

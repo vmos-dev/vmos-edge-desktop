@@ -115,7 +115,8 @@ const props = withDefaults(
   defineProps<{
     data: Device[]
     selectedIds?: string[]
-    size?: 'small' | 'medium' | 'large'
+    size?: 'small' | 'medium' | 'large' | 'custom'
+    scale?: number
     orientation?: 'portrait' | 'landscape'
     selectable?: boolean
     getMenuItems?: (device: Device) => MenuItem[]
@@ -124,6 +125,7 @@ const props = withDefaults(
   {
     selectedIds: () => [],
     size: 'medium',
+    scale: 100,
     orientation: 'portrait',
     selectable: true,
     getMenuItems: () => [],
@@ -145,7 +147,11 @@ const CONTAINER_PADDING = 0
 const ITEM_GAP = 10
 
 // 响应式配置表：不同模式下的基准宽高
-const configMap = {
+// ⚠️ 这里的像素值是业务设定值，不要修改
+const configMap: Record<
+  'small' | 'medium' | 'large',
+  { portrait: { width: number; height: number }; landscape: { width: number; height: number } }
+> = {
   small: {
     portrait: { width: 100, height: 280 },
     landscape: { width: 100, height: 158 }
@@ -160,8 +166,20 @@ const configMap = {
   }
 }
 
+// custom 模式以 medium 为基准按比例缩放
+const MEDIUM_BASE_HEIGHT: Record<'portrait' | 'landscape', number> = {
+  portrait: 360,
+  landscape: 203
+}
+
 // 当前生效的配置
-const itemConfig = computed(() => configMap[props.size][props.orientation])
+const itemConfig = computed(() => {
+  if (props.size === 'custom') {
+    const baseHeight = MEDIUM_BASE_HEIGHT[props.orientation]
+    return { width: 100, height: Math.round(baseHeight * (props.scale / 100)) }
+  }
+  return configMap[props.size][props.orientation]
+})
 
 // 每一行的高度（包含底部间距）
 const rowHeight = computed(() => itemConfig.value.height + ITEM_GAP)

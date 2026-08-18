@@ -84,6 +84,8 @@ export default {
   startCaptureFailed: '開啟採集失敗',
   stopCaptureFailed: '停止採集失敗',
   cannotGetAnyMediaTrack: '無法取得任何媒體軌道',
+  noVideoDeviceSelected: '請先選擇攝影機裝置',
+  noAudioDeviceSelected: '請先選擇麥克風裝置',
   partialDeviceFailed: '部分裝置取得失敗：{errors}',
   streamingInterrupted: '推流異常中斷',
   streamSettings: '推流設定',

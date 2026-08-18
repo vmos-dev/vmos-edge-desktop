@@ -50,8 +50,8 @@ const rules = computed(() => ({
     { required: true, message: t('cloudPhone.newNamePlaceholder'), trigger: 'blur' },
     { min: 2, max: 200, message: t('cloudPhone.nameLength'), trigger: 'blur' },
     {
-      // 这个正则表达式的含义：允许由字母（大小写）、数字、下划线、点、短横线和中文字符组成，长度至少为1个字符，且可以是这些字符的任意组合。
-      pattern: /^[a-zA-Z0-9_.\-\u4e00-\u9fa5]+$/,
+      // 这个正则表达式的含义：允许由字母（大小写）、数字、下划线、点、短横线、@符号和中文字符组成，长度至少为1个字符，且可以是这些字符的任意组合。
+      pattern: /^[a-zA-Z0-9_.@\-\u4e00-\u9fa5]+$/,
       message: t('cloudPhone.nameFormat'),
       trigger: 'blur'
     }

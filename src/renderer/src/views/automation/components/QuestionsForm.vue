@@ -19,7 +19,7 @@
         <el-select
           v-else-if="question.type === 'select'"
           v-model="formData[question.id]"
-          :placeholder="question.placeholder || t('automation.questionsForm.selectPlaceholder')"
+          :placeholder="question.placeholder || t('aiWorkflow.questionsForm.selectPlaceholder')"
           style="width: 100%"
         >
           <el-option
@@ -34,7 +34,7 @@
         <el-select
           v-else-if="question.type === 'multiselect'"
           v-model="formData[question.id]"
-          :placeholder="question.placeholder || t('automation.questionsForm.selectPlaceholder')"
+          :placeholder="question.placeholder || t('aiWorkflow.questionsForm.selectPlaceholder')"
           multiple
           style="width: 100%"
         >
@@ -50,15 +50,15 @@
         <el-switch
           v-else-if="question.type === 'confirm'"
           v-model="formData[question.id]"
-          :active-text="t('automation.questionsForm.yes')"
-          :inactive-text="t('automation.questionsForm.no')"
+          :active-text="t('aiWorkflow.questionsForm.yes')"
+          :inactive-text="t('aiWorkflow.questionsForm.no')"
         />
       </el-form-item>
 
       <el-form-item class="submit-item">
         <el-button type="primary" @click="handleSubmit">
           <el-icon><Check /></el-icon>
-          {{ t('automation.questionsForm.submit') }}
+          {{ t('aiWorkflow.questionsForm.submit') }}
         </el-button>
       </el-form-item>
     </el-form>
@@ -100,8 +100,8 @@ const rules = computed<FormRules>(() => {
           required: true,
           message:
             question.type === 'text'
-              ? t('automation.questionsForm.requiredInput', { label: question.label })
-              : t('automation.questionsForm.requiredSelect', { label: question.label }),
+              ? t('aiWorkflow.questionsForm.requiredInput', { label: question.label })
+              : t('aiWorkflow.questionsForm.requiredSelect', { label: question.label }),
           trigger: question.type === 'text' ? 'blur' : 'change'
         }
       ]

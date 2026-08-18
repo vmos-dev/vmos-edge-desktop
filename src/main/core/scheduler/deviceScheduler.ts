@@ -79,23 +79,27 @@ export class HostScannerQueue {
       addedCount++
     }
 
-    const loopDuration = Date.now() - loopStartTime
-    logger.debug(
-      `[HostScannerQueue] loop: totalHosts=${hosts.length}, added=${addedCount}, skipped=${skippedCount}, running=${this.runningHosts.size}, pending=${this.taskQueue.pendingCount}, duration=${loopDuration}ms`
-    )
+    // 仅在有新任务加入时打日志，避免每 3 秒刷屏
+    if (addedCount > 0) {
+      const loopDuration = Date.now() - loopStartTime
+      logger.debug(
+        `[HostScannerQueue] loop: totalHosts=${hosts.length}, added=${addedCount}, skipped=${skippedCount}, running=${this.runningHosts.size}, pending=${this.taskQueue.pendingCount}, duration=${loopDuration}ms`
+      )
+    }
   }
 
   /** 扫描单个 host，带 running 状态 */
   private async scanHost(host: Host) {
     const ip = host.ip
     const scanStartTime = Date.now()
-    logger.debug(`[HostScannerQueue] scanHost: starting hostId=${host.id}, ip=${ip}`)
+    // scanHost start 不再打日志（每 3 秒 * 每台主机太频繁）
 
     try {
       await deviceManager.syncHostDevices(ip, host.id)
+      // 成功时仅 debug，不再每 3 秒打 info
       const scanDuration = Date.now() - scanStartTime
-      logger.info(
-        `[HostScannerQueue] scanHost success: hostId=${host.id}, ip=${ip}, duration=${scanDuration}ms, hostStatus=${host.status}`
+      logger.debug(
+        `[HostScannerQueue] scanHost success: hostId=${host.id}, ip=${ip}, duration=${scanDuration}ms`
       )
 
       // 如果同步成功，确保标记为在线
@@ -163,9 +167,6 @@ export class HostScannerQueue {
       }
     } finally {
       this.runningHosts.delete(ip)
-      logger.debug(
-        `[HostScannerQueue] scanHost: completed hostId=${host.id}, ip=${ip}, runningHosts=${this.runningHosts.size}`
-      )
     }
   }
 

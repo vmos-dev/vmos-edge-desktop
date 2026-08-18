@@ -190,7 +190,7 @@ export function useCloudTree(onDataChanged?: () => void) {
    * 辅助函数：对节点列表按名称排序 (仅处理 Device 节点)
    */
   // 使用统一的排序规则
-  const collator = new Intl.Collator('zh-CN')
+  const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 
   const sortDeviceNodes = (nodes: TreeNode[]) => {
     nodes.sort((a, b) => {
@@ -826,7 +826,11 @@ export function useCloudTree(onDataChanged?: () => void) {
         }
       })
 
-      await refreshView() // 状态变更可能导致节点显示/隐藏（如"运行中"筛选）
+      if (affectedHosts.size > 0) {
+        await refreshView() // 名称变更时才需要重新过滤（filterMethod 只匹配名称）
+      } else {
+        onDataChanged?.() // 仅状态变更，直接通知外部同步，不重新过滤避免树节点被强制展开
+      }
     })
 
     sub(DATA_EVENTS.DEVICE_DELETED, (devices: Device[]) => {
@@ -854,6 +858,28 @@ export function useCloudTree(onDataChanged?: () => void) {
     removeListener = listenerDataUpdated()
   })
   onUnmounted(() => removeListener())
+
+  /**
+   * 获取节点筛选后的子节点数量
+   * 无搜索文本时返回全部子节点数，有搜索文本时返回匹配筛选条件的子节点数
+   */
+  const getFilteredChildCount = (node: TreeNode): number => {
+    if (!node.children || node.children.length === 0) return 0
+    if (!searchText.value) return node.children.length
+
+    const query = searchText.value.toLowerCase()
+    return node.children.filter((child) => {
+      // 子节点自身匹配
+      if (formatTreeLabel(child).toLowerCase().includes(query)) return true
+      // 子节点的后代匹配（如 host 下有匹配的 device）
+      if (child.children && child.children.length > 0) {
+        return child.children.some((grandChild) =>
+          formatTreeLabel(grandChild).toLowerCase().includes(query)
+        )
+      }
+      return false
+    }).length
+  }
 
   /**
    * 获取指定 Host IP 下运行中的云机数量
@@ -924,6 +950,7 @@ export function useCloudTree(onDataChanged?: () => void) {
         removeListener = listenerDataUpdated()
       }
     },
-    getRunningCountByHostIp
+    getRunningCountByHostIp,
+    getFilteredChildCount
   }
 }

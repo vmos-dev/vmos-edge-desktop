@@ -13,7 +13,7 @@ function formatValue(value: unknown, fallback = ''): string {
 
 function resolveTarget(selector: unknown, t: TranslateFn): string {
   if (!isRecord(selector)) {
-    return t('automation.actionDescription.unknownTarget')
+    return t('aiWorkflow.actionDescription.unknownTarget')
   }
 
   const directTarget =
@@ -28,22 +28,22 @@ function resolveTarget(selector: unknown, t: TranslateFn): string {
   }
 
   if (typeof selector.index === 'number') {
-    return t('automation.actionDescription.indexTarget', { index: selector.index })
+    return t('aiWorkflow.actionDescription.indexTarget', { index: selector.index })
   }
 
-  return t('automation.actionDescription.unknownTarget')
+  return t('aiWorkflow.actionDescription.unknownTarget')
 }
 
 function resolveKeyName(keyCode: number, t: TranslateFn): string {
   const keyNameMap: Record<number, string> = {
-    3: t('automation.actionDescription.keys.home'),
-    4: t('automation.actionDescription.keys.back'),
-    24: t('automation.actionDescription.keys.volumeUp'),
-    25: t('automation.actionDescription.keys.volumeDown'),
-    26: t('automation.actionDescription.keys.power'),
-    66: t('automation.actionDescription.keys.enter')
+    3: t('aiWorkflow.actionDescription.keys.home'),
+    4: t('aiWorkflow.actionDescription.keys.back'),
+    24: t('aiWorkflow.actionDescription.keys.volumeUp'),
+    25: t('aiWorkflow.actionDescription.keys.volumeDown'),
+    26: t('aiWorkflow.actionDescription.keys.power'),
+    66: t('aiWorkflow.actionDescription.keys.enter')
   }
-  return keyNameMap[keyCode] || t('automation.actionDescription.keys.keyCode', { keyCode })
+  return keyNameMap[keyCode] || t('aiWorkflow.actionDescription.keys.keyCode', { keyCode })
 }
 
 export function createActionDescriptionGetter(t: TranslateFn) {
@@ -53,20 +53,20 @@ export function createActionDescriptionGetter(t: TranslateFn) {
     switch (action.path) {
       case 'base/sleep':
       case 'logic/sleep':
-        return t('automation.actionDescription.waitMs', {
+        return t('aiWorkflow.actionDescription.waitMs', {
           duration: formatValue(params.duration, '0')
         })
       case 'permission/set':
-        return t('automation.actionDescription.grantPermission', {
+        return t('aiWorkflow.actionDescription.grantPermission', {
           packageName: formatValue(params.package_name)
         })
       case 'activity/start_activity':
       case 'activity/start':
-        return t('automation.actionDescription.startApp', {
+        return t('aiWorkflow.actionDescription.startApp', {
           packageName: formatValue(params.package_name)
         })
       case 'activity/stop':
-        return t('automation.actionDescription.stopApp', {
+        return t('aiWorkflow.actionDescription.stopApp', {
           packageName: formatValue(params.package_name)
         })
       case 'accessibility/node': {
@@ -76,47 +76,47 @@ export function createActionDescriptionGetter(t: TranslateFn) {
         const text = formatValue(actionParams.text)
 
         if (actionType === 'click') {
-          return t('automation.actionDescription.clickTarget', { target })
+          return t('aiWorkflow.actionDescription.clickTarget', { target })
         }
         if (actionType === 'long_click') {
-          return t('automation.actionDescription.longClickTarget', { target })
+          return t('aiWorkflow.actionDescription.longClickTarget', { target })
         }
         if (actionType === 'set_text' || actionType === 'input') {
-          return t('automation.actionDescription.inputToTarget', { text, target })
+          return t('aiWorkflow.actionDescription.inputToTarget', { text, target })
         }
         if (actionType === 'scroll_forward') {
-          return t('automation.actionDescription.scrollForwardTarget', { target })
+          return t('aiWorkflow.actionDescription.scrollForwardTarget', { target })
         }
         if (actionType === 'scroll_backward') {
-          return t('automation.actionDescription.scrollBackwardTarget', { target })
+          return t('aiWorkflow.actionDescription.scrollBackwardTarget', { target })
         }
-        return t('automation.actionDescription.findNode', { target })
+        return t('aiWorkflow.actionDescription.findNode', { target })
       }
       case 'accessibility/find_node': {
         const target =
           formatValue(params.text) ||
           formatValue(params.resource_id) ||
-          t('automation.actionDescription.unknownTarget')
-        return t('automation.actionDescription.findNode', { target })
+          t('aiWorkflow.actionDescription.unknownTarget')
+        return t('aiWorkflow.actionDescription.findNode', { target })
       }
       case 'accessibility/perform_action': {
         const target =
           formatValue(params.text) ||
           formatValue(params.view_id) ||
           resolveTarget(params.selector, t)
-        return t('automation.actionDescription.performAction', { target })
+        return t('aiWorkflow.actionDescription.performAction', { target })
       }
       case 'input/click':
-        return t('automation.actionDescription.clickCoordinate', {
+        return t('aiWorkflow.actionDescription.clickCoordinate', {
           x: formatValue(params.x, '?'),
           y: formatValue(params.y, '?')
         })
       case 'input/text':
-        return t('automation.actionDescription.inputText', {
+        return t('aiWorkflow.actionDescription.inputText', {
           text: formatValue(params.text)
         })
       case 'input/scroll_bezier':
-        return t('automation.actionDescription.scrollBezier', {
+        return t('aiWorkflow.actionDescription.scrollBezier', {
           startX: formatValue(params.start_x, '?'),
           startY: formatValue(params.start_y, '?'),
           endX: formatValue(params.end_x, '?'),
@@ -126,14 +126,14 @@ export function createActionDescriptionGetter(t: TranslateFn) {
         const keyCode = Number(params.key_code)
         const safeKeyCode = Number.isNaN(keyCode) ? -1 : keyCode
         const keyName = resolveKeyName(safeKeyCode, t)
-        return t('automation.actionDescription.keyEvent', { keyName })
+        return t('aiWorkflow.actionDescription.keyEvent', { keyName })
       }
       case 'accessibility/dump':
-        return t('automation.actionDescription.dumpUi')
+        return t('aiWorkflow.actionDescription.dumpUi')
       case 'activity/top_activity':
-        return t('automation.actionDescription.topActivity')
+        return t('aiWorkflow.actionDescription.topActivity')
       case 'system/toast':
-        return t('automation.actionDescription.showToast', {
+        return t('aiWorkflow.actionDescription.showToast', {
           message: formatValue(params.message)
         })
       default:

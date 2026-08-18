@@ -33,7 +33,11 @@
       />
     </el-form-item>
     <el-form-item :label="t('proxy.transportProtocol')" prop="vless.network">
-      <el-select v-model="modelValue.network" :placeholder="t('proxy.transportProtocolPlaceholder')" style="width: 100%">
+      <el-select
+        v-model="modelValue.network"
+        :placeholder="t('proxy.transportProtocolPlaceholder')"
+        style="width: 100%"
+      >
         <el-option label="TCP" value="tcp" />
         <el-option label="UDP" value="udp" />
         <el-option label="WebSocket" value="ws" />

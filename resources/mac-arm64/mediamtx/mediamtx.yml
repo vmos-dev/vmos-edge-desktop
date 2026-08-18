@@ -59,34 +59,34 @@ authMethod: internal
 authInternalUsers:
   # Default unprivileged user.
   # Username. 'any' means any user, including anonymous ones.
-- user: any
-  # Password. Not used in case of 'any' user.
-  pass:
-  # IPs or networks allowed to use this user. An empty list means any IP.
-  ips: []
-  # List of permissions.
-  permissions:
-    # Available actions are: publish, read, playback, api, metrics, pprof.
-  - action: publish
-    # Paths can be set to further restrict access to a specific path.
-    # An empty path means any path.
-    # Regular expressions can be used by using a tilde as prefix.
-    path:
-  - action: read
-    path:
-  - action: playback
-    path:
+  - user: any
+    # Password. Not used in case of 'any' user.
+    pass:
+    # IPs or networks allowed to use this user. An empty list means any IP.
+    ips: []
+    # List of permissions.
+    permissions:
+      # Available actions are: publish, read, playback, api, metrics, pprof.
+      - action: publish
+        # Paths can be set to further restrict access to a specific path.
+        # An empty path means any path.
+        # Regular expressions can be used by using a tilde as prefix.
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
 
-  # Default administrator.
-  # This allows to use API, metrics and PPROF without authentication,
-  # if the IP is localhost.
-- user: any
-  pass:
-  ips: ['127.0.0.1', '::1']
-  permissions:
-  - action: api
-  - action: metrics
-  - action: pprof
+    # Default administrator.
+    # This allows to use API, metrics and PPROF without authentication,
+    # if the IP is localhost.
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1']
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
 
 # HTTP-based authentication.
 # URL called to perform authentication. Every time a user wants
@@ -109,9 +109,9 @@ authHTTPAddress:
 # Actions to exclude from HTTP-based authentication.
 # Format is the same as the one of user permissions.
 authHTTPExclude:
-- action: api
-- action: metrics
-- action: pprof
+  - action: api
+  - action: metrics
+  - action: pprof
 
 # JWT-based authentication.
 # Users have to login through an external identity server and obtain a JWT.
@@ -254,7 +254,7 @@ rtsp: yes
 rtspTransports: [udp, multicast, tcp]
 # Use secure protocol variants (RTSPS, TLS, SRTP).
 # Available values are "no", "strict", "optional".
-rtspEncryption: "no"
+rtspEncryption: 'no'
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
 # Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
@@ -297,7 +297,7 @@ rtmp: yes
 rtmpAddress: :1935
 # Encrypt connections with TLS (RTMPS).
 # Available values are "no", "strict", "optional".
-rtmpEncryption: "no"
+rtmpEncryption: 'no'
 # Address of the RTMPS listener. This is needed only when encryption is "strict" or "optional".
 rtmpsAddress: :1936
 # Path to the server key. This is needed only when encryption is "strict" or "optional".
@@ -436,7 +436,6 @@ srtAddress: :8890
 # Settings in "pathDefaults" are applied anywhere,
 # unless they are overridden in "paths".
 pathDefaults:
-
   ###############################################
   # Default path settings -> General
 
@@ -591,7 +590,7 @@ pathDefaults:
   # format: [red,blue].
   rpiCameraAWBGains: [0, 0]
   # Denoise operating mode (off, cdn_off, cdn_fast, cdn_hq).
-  rpiCameraDenoise: "off"
+  rpiCameraDenoise: 'off'
   # Fixed shutter speed, in microseconds.
   rpiCameraShutter: 0
   # Metering mode of the AEC/AGC algorithm (centre, spot, matrix or custom).

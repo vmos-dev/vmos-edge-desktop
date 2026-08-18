@@ -72,7 +72,6 @@ export const MacvlanPortMap = {
   adb: 5555
 } as const
 
-
 // 代理检测策略 数组
 export const ProxyCheckStrategyList = [
   {
@@ -86,5 +85,5 @@ export const ProxyCheckStrategyList = [
   {
     label: 'Default (No exit info support)',
     value: 'default'
-  },
+  }
 ]

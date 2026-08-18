@@ -185,7 +185,16 @@
   background: var(--aic-fill-color, #f0f2f5);
   padding: 2px 4px;
   border-radius: 3px;
-  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+  font-family: var(
+    --aic-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    monospace
+  );
 }
 
 .aic-markdown-body pre code {
@@ -297,8 +306,15 @@
 }
 
 @keyframes aic-sparkle-pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.1); }
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .aic-thinking-label {
@@ -408,21 +424,43 @@
 }
 
 @keyframes aic-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .aic-tool-entry-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--aic-text-color-regular, #606266);
-  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+  font-family: var(
+    --aic-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    monospace
+  );
 }
 
 .aic-tool-detail-content {
   padding: 8px 12px 8px 32px;
   font-size: 12px;
-  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+  font-family: var(
+    --aic-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    monospace
+  );
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 200px;
@@ -440,7 +478,16 @@
 .aic-raw-block {
   padding: 8px 12px;
   font-size: 11px;
-  font-family: var(--aic-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace);
+  font-family: var(
+    --aic-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    monospace
+  );
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 240px;
@@ -532,7 +579,8 @@
 }
 
 @keyframes aic-typing-fade {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.2;
     transform: scale(0.8);
   }

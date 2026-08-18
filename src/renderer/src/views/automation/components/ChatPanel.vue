@@ -9,20 +9,20 @@
             <div class="welcome-card">
               <div class="welcome-header">
                 <div class="welcome-subtitle">
-                  {{ t('automation.chat.welcomeSubtitle') }}
+                  {{ t('aiWorkflow.chat.welcomeSubtitle') }}
                 </div>
                 <div class="welcome-tips">
                   <span class="tip-item">
                     <el-icon><CircleCheckFilled /></el-icon>
-                    {{ t('automation.chat.tipRealtimeControl') }}
+                    {{ t('aiWorkflow.chat.tipRealtimeControl') }}
                   </span>
                   <span class="tip-item">
                     <el-icon><CircleCheckFilled /></el-icon>
-                    {{ t('automation.chat.tipAutoCapture') }}
+                    {{ t('aiWorkflow.chat.tipAutoCapture') }}
                   </span>
                   <span class="tip-item">
                     <el-icon><CircleCheckFilled /></el-icon>
-                    {{ t('automation.chat.tipEditableParams') }}
+                    {{ t('aiWorkflow.chat.tipEditableParams') }}
                   </span>
                 </div>
               </div>
@@ -30,26 +30,26 @@
               <div class="quick-actions">
                 <div
                   class="action-card"
-                  @click="handleExampleClick(t('automation.chat.exampleVideoGoal'))"
+                  @click="handleExampleClick(t('aiWorkflow.chat.exampleVideoGoal'))"
                 >
                   <div class="card-icon video-icon">
                     <el-icon><VideoCamera /></el-icon>
                   </div>
                   <div class="card-content">
-                    <div class="card-title">{{ t('automation.chat.exampleVideoTitle') }}</div>
-                    <div class="card-desc">{{ t('automation.chat.exampleVideoDesc') }}</div>
+                    <div class="card-title">{{ t('aiWorkflow.chat.exampleVideoTitle') }}</div>
+                    <div class="card-desc">{{ t('aiWorkflow.chat.exampleVideoDesc') }}</div>
                   </div>
                 </div>
                 <div
                   class="action-card"
-                  @click="handleExampleClick(t('automation.chat.exampleDeviceGoal'))"
+                  @click="handleExampleClick(t('aiWorkflow.chat.exampleDeviceGoal'))"
                 >
                   <div class="card-icon">
                     <el-icon><Setting /></el-icon>
                   </div>
                   <div class="card-content">
-                    <div class="card-title">{{ t('automation.chat.exampleDeviceTitle') }}</div>
-                    <div class="card-desc">{{ t('automation.chat.exampleDeviceDesc') }}</div>
+                    <div class="card-title">{{ t('aiWorkflow.chat.exampleDeviceTitle') }}</div>
+                    <div class="card-desc">{{ t('aiWorkflow.chat.exampleDeviceDesc') }}</div>
                   </div>
                 </div>
               </div>
@@ -66,7 +66,7 @@
             <!-- Agent 思考 -->
             <div v-else-if="msg.type === 'thinking'" class="msg-row msg-thinking">
               <div class="timeline-section">
-                <div class="timeline-label">{{ t('automation.chat.thinkingLabel') }}</div>
+                <div class="timeline-label">{{ t('aiWorkflow.chat.thinkingLabel') }}</div>
                 <div class="thinking-block timeline-card">
                   <span class="thinking-text" v-html="renderMarkdown(msg.content)" />
                 </div>
@@ -76,7 +76,7 @@
             <!-- 任务规划 -->
             <div v-else-if="msg.type === 'planning'" class="msg-row msg-planning">
               <div class="timeline-section">
-                <div class="timeline-label">{{ t('automation.chat.planningLabel') }}</div>
+                <div class="timeline-label">{{ t('aiWorkflow.chat.planningLabel') }}</div>
                 <div
                   class="planning-card timeline-card"
                   :class="{ 'is-complete': msg.planningStatus === 'completed' }"
@@ -97,14 +97,14 @@
                   <template v-if="msg.planningStatus === 'completed' && msg.plan">
                     <div class="planning-goal">
                       <span class="planning-section-label">{{
-                        t('automation.chat.planningGoalLabel')
+                        t('aiWorkflow.chat.planningGoalLabel')
                       }}</span>
                       <span class="planning-goal-text">{{ msg.plan.goal }}</span>
                     </div>
 
                     <div class="planning-section">
                       <div class="planning-section-label">
-                        {{ t('automation.chat.planningSubtasksLabel') }}
+                        {{ t('aiWorkflow.chat.planningSubtasksLabel') }}
                       </div>
                       <div
                         v-for="subtask in msg.plan.subtasks"
@@ -116,14 +116,14 @@
                           <span class="planning-item-text">{{ subtask.description }}</span>
                         </div>
                         <div class="planning-item-meta">
-                          {{ t('automation.chat.planningSuccessCriteriaLabel') }}:
+                          {{ t('aiWorkflow.chat.planningSuccessCriteriaLabel') }}:
                           {{ subtask.successCriteria }}
                         </div>
                         <div
                           v-if="subtask.estimatedActions.length > 0"
                           class="planning-item-meta is-secondary"
                         >
-                          {{ t('automation.chat.planningActionsLabel') }}:
+                          {{ t('aiWorkflow.chat.planningActionsLabel') }}:
                           {{ subtask.estimatedActions.join(' / ') }}
                         </div>
                       </div>
@@ -131,7 +131,7 @@
 
                     <div v-if="msg.plan.risks.length > 0" class="planning-section">
                       <div class="planning-section-label">
-                        {{ t('automation.chat.planningRisksLabel') }}
+                        {{ t('aiWorkflow.chat.planningRisksLabel') }}
                       </div>
                       <div class="planning-tags">
                         <span v-for="risk in msg.plan.risks" :key="risk" class="planning-tag">
@@ -142,7 +142,7 @@
 
                     <div v-if="msg.plan.assumptions.length > 0" class="planning-section">
                       <div class="planning-section-label">
-                        {{ t('automation.chat.planningAssumptionsLabel') }}
+                        {{ t('aiWorkflow.chat.planningAssumptionsLabel') }}
                       </div>
                       <div class="planning-tags">
                         <span
@@ -164,7 +164,7 @@
               <div class="timeline-section">
                 <div class="tool-card timeline-card">
                   <div class="event-header">
-                    <span class="event-label">{{ t('automation.chat.toolCallLabel') }}</span>
+                    <span class="event-label">{{ t('aiWorkflow.chat.toolCallLabel') }}</span>
                     <span class="tool-name">{{ msg.toolCall?.name }}</span>
                     <el-button
                       v-if="hasToolCallDetail(msg.toolCall)"
@@ -175,8 +175,8 @@
                     >
                       {{
                         expandedMessages.has(msg.id)
-                          ? t('automation.chat.collapse')
-                          : t('automation.chat.expand')
+                          ? t('aiWorkflow.chat.collapse')
+                          : t('aiWorkflow.chat.expand')
                       }}
                     </el-button>
                   </div>
@@ -203,7 +203,7 @@
                   :class="{ 'result-error': msg.isError }"
                 >
                   <div class="event-header">
-                    <span class="event-label">{{ t('automation.chat.toolResultLabel') }}</span>
+                    <span class="event-label">{{ t('aiWorkflow.chat.toolResultLabel') }}</span>
                     <el-button
                       v-if="hasToolResultDetail(msg.toolResult?.data)"
                       link
@@ -213,8 +213,8 @@
                     >
                       {{
                         expandedMessages.has(msg.id)
-                          ? t('automation.chat.collapse')
-                          : t('automation.chat.expand')
+                          ? t('aiWorkflow.chat.collapse')
+                          : t('aiWorkflow.chat.expand')
                       }}
                     </el-button>
                   </div>
@@ -232,7 +232,7 @@
             <!-- Agent 文本消息 -->
             <div v-else-if="msg.type === 'text'" class="msg-row msg-assistant">
               <div class="timeline-section">
-                <div class="timeline-label">{{ t('automation.chat.assistantLabel') }}</div>
+                <div class="timeline-label">{{ t('aiWorkflow.chat.assistantLabel') }}</div>
                 <div
                   class="msg-bubble assistant-bubble timeline-card"
                   :class="{ 'error-bubble': msg.isError }"
@@ -244,7 +244,7 @@
             <!-- 系统消息 -->
             <div v-else-if="msg.type === 'system'" class="msg-row msg-system">
               <div class="timeline-section">
-                <div class="timeline-label">{{ t('automation.chat.systemLabel') }}</div>
+                <div class="timeline-label">{{ t('aiWorkflow.chat.systemLabel') }}</div>
                 <span class="system-text timeline-card">{{ msg.content }}</span>
               </div>
             </div>
@@ -252,7 +252,7 @@
             <!-- 脚本生成中 -->
             <div v-else-if="msg.type === 'script_generating'" class="msg-row msg-system">
               <div class="timeline-section">
-                <div class="timeline-label">{{ t('automation.chat.systemLabel') }}</div>
+                <div class="timeline-label">{{ t('aiWorkflow.chat.systemLabel') }}</div>
                 <div class="generating-card timeline-card">
                   <span>{{ msg.content }}</span>
                 </div>
@@ -262,7 +262,7 @@
             <!-- 脚本生成完成 -->
             <div v-else-if="msg.type === 'script_complete'" class="msg-row msg-script-complete">
               <div class="timeline-section">
-                <div class="timeline-label">{{ t('automation.chat.workflowLabel') }}</div>
+                <div class="timeline-label">{{ t('aiWorkflow.chat.workflowLabel') }}</div>
                 <div class="script-complete-card timeline-card">
                   <div class="script-header">
                     <span class="script-title">{{ msg.content }}</span>
@@ -297,11 +297,11 @@
           :disabled="isGeneratingScript"
           @click="handleGenerateScript"
         >
-          <el-icon><Document /></el-icon>&nbsp; {{ t('automation.chat.generateScript') }}
+          <el-icon><Document /></el-icon>&nbsp; {{ t('aiWorkflow.chat.generateScript') }}
         </el-button>
         <span class="paused-hint">
-          <span class="paused-hint-main">{{ t('automation.chat.pausedHintMain') }}</span>
-          <span class="paused-hint-sub">{{ t('automation.chat.pausedHintSub') }}</span>
+          <span class="paused-hint-main">{{ t('aiWorkflow.chat.pausedHintMain') }}</span>
+          <span class="paused-hint-sub">{{ t('aiWorkflow.chat.pausedHintSub') }}</span>
         </span>
       </div>
 
@@ -320,7 +320,7 @@
         />
         <div class="input-actions-right">
           <el-tooltip
-            :content="t('automation.chat.optimizeTooltip')"
+            :content="t('aiWorkflow.chat.optimizeTooltip')"
             placement="top"
             v-if="!(isRunning && !isPaused) && !isGeneratingScript"
           >
@@ -364,14 +364,14 @@
           <el-tooltip :content="newSessionTooltip" placement="top">
             <el-button link size="small" :disabled="isNewSessionDisabled" @click="handleNewSession">
               <el-icon><Refresh /></el-icon>
-              <span>{{ t('automation.chat.newSession') }}</span>
+              <span>{{ t('aiWorkflow.chat.newSession') }}</span>
             </el-button>
           </el-tooltip>
 
           <el-switch
             v-model="actionTrajectory"
             size="small"
-            :active-text="t('automation.chat.debugMode')"
+            :active-text="t('aiWorkflow.chat.debugMode')"
             class="action-trajectory-switch"
             :loading="isActionTrajectoryLoading"
             :disabled="!device || isActionTrajectoryLoading"
@@ -387,7 +387,7 @@
           </span>
           <span class="device-tag warning" v-else>
             <el-icon><WarningFilled /></el-icon>
-            <span class="device-name">{{ t('automation.chat.selectDeviceFirst') }}</span>
+            <span class="device-name">{{ t('aiWorkflow.chat.selectDeviceFirst') }}</span>
           </span>
         </div>
       </div>
@@ -483,7 +483,7 @@ async function refreshActionTrajectory(): Promise<void> {
     isSyncingActionTrajectory = true
     actionTrajectory.value = enabled
   } catch (error: any) {
-    ElMessage.error(error?.message || t('automation.service.queryDebugFailed'))
+    ElMessage.error(error?.message || t('aiWorkflow.service.queryDebugFailed'))
   } finally {
     isSyncingActionTrajectory = false
     isActionTrajectoryLoading.value = false
@@ -504,7 +504,7 @@ const handleActionTrajectoryChange = async (enabled: boolean) => {
     actionTrajectory.value = next
   } catch (error: any) {
     actionTrajectory.value = previous
-    ElMessage.error(error?.message || t('automation.service.setDebugFailed'))
+    ElMessage.error(error?.message || t('aiWorkflow.service.setDebugFailed'))
   } finally {
     isActionTrajectoryLoading.value = false
   }
@@ -532,11 +532,11 @@ const expandedMessages = ref(new Set<string>())
 const isOptimizing = ref(false)
 
 const inputPlaceholder = computed(() => {
-  if (!props.device) return t('automation.chat.placeholderNoDevice')
-  if (isGeneratingScript.value) return t('automation.chat.placeholderGenerating')
-  if (isRunning.value && !isPaused.value) return t('automation.chat.placeholderRunning')
-  if (isPaused.value) return t('automation.chat.placeholderPaused')
-  return t('automation.chat.placeholderDefault')
+  if (!props.device) return t('aiWorkflow.chat.placeholderNoDevice')
+  if (isGeneratingScript.value) return t('aiWorkflow.chat.placeholderGenerating')
+  if (isRunning.value && !isPaused.value) return t('aiWorkflow.chat.placeholderRunning')
+  if (isPaused.value) return t('aiWorkflow.chat.placeholderPaused')
+  return t('aiWorkflow.chat.placeholderDefault')
 })
 
 const isInputDisabled = computed(
@@ -564,9 +564,9 @@ const isSendDisabled = computed(
 const isNewSessionDisabled = computed(() => isRunning.value || isGeneratingScript.value)
 
 const newSessionTooltip = computed(() => {
-  if (isGeneratingScript.value) return t('automation.chat.newSessionTooltipGenerating')
-  if (isRunning.value) return t('automation.chat.newSessionTooltipRunning')
-  return t('automation.chat.newSessionTooltipDefault')
+  if (isGeneratingScript.value) return t('aiWorkflow.chat.newSessionTooltipGenerating')
+  if (isRunning.value) return t('aiWorkflow.chat.newSessionTooltipRunning')
+  return t('aiWorkflow.chat.newSessionTooltipDefault')
 })
 
 // ==================== 方法 ====================
@@ -612,12 +612,12 @@ const handleOptimize = async () => {
       inputText.value = result.data.optimizedText
     } else {
       ElMessage.error(
-        t('automation.chat.optimizeFailed', { error: result.error || t('common.unknownError') })
+        t('aiWorkflow.chat.optimizeFailed', { error: result.error || t('common.unknownError') })
       )
     }
   } catch (error: any) {
     ElMessage.error(
-      t('automation.chat.optimizeFailed', { error: error.message || t('common.unknownError') })
+      t('aiWorkflow.chat.optimizeFailed', { error: error.message || t('common.unknownError') })
     )
   } finally {
     isOptimizing.value = false

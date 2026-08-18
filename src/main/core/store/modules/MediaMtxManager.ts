@@ -15,7 +15,7 @@ import { MEDIAMTX_LOG, MEDIAMTX_STATUS_CHANGE } from '@shared/ipc/channels'
 
 /**
  * MediaMTX 服务管理器 (高级版)
- * 
+ *
  * 特性：
  * 1. 进程生命周期管理 (自动重启、优雅退出)
  * 2. 动态端口探测与冲突解决
@@ -82,7 +82,9 @@ export class MediaMtxManager extends BaseManager {
       logger.info(`[MediaMtx] Removed quarantine attribute from: ${binaryPath}`)
     } catch {
       // 属性不存在时会报错，可以忽略
-      logger.debug(`[MediaMtx] No quarantine attribute to remove (normal for signed/local binaries)`)
+      logger.debug(
+        `[MediaMtx] No quarantine attribute to remove (normal for signed/local binaries)`
+      )
     }
 
     try {
@@ -286,11 +288,13 @@ export class MediaMtxManager extends BaseManager {
       this.lastRestartTime = now
       const delay = this.restartCount * 1000 // 线性退避: 1s, 2s, 3s
 
-      logger.warn(`[MediaMtx] Attempting auto-restart (${this.restartCount}/${this.MAX_RESTARTS}) in ${delay}ms...`)
+      logger.warn(
+        `[MediaMtx] Attempting auto-restart (${this.restartCount}/${this.MAX_RESTARTS}) in ${delay}ms...`
+      )
 
       setTimeout(() => {
         if (!this.intentionalStop && this.currentOptions) {
-          this.startServer(this.currentOptions).catch(e => {
+          this.startServer(this.currentOptions).catch((e) => {
             logger.error('[MediaMtx] Auto-restart failed', e)
           })
         }
@@ -384,7 +388,7 @@ export class MediaMtxManager extends BaseManager {
       '    publishUser:',
       '    publishPass:',
       '    readUser:',
-      '    readPass:',
+      '    readPass:'
     ]
 
     fs.writeFileSync(this.configPath, configLines.join('\n'))
@@ -392,7 +396,9 @@ export class MediaMtxManager extends BaseManager {
 
   private findAvailablePort(startPort: number, attempt = 0): Promise<number> {
     if (attempt > 100) {
-      return Promise.reject(new Error(`Could not find available port after 100 attempts starting from ${startPort}`))
+      return Promise.reject(
+        new Error(`Could not find available port after 100 attempts starting from ${startPort}`)
+      )
     }
     return new Promise((resolve, reject) => {
       const server = net.createServer()
@@ -421,7 +427,7 @@ export class MediaMtxManager extends BaseManager {
       if (await this.checkPortOpen(port)) {
         return
       }
-      await new Promise(r => setTimeout(r, intervalMs))
+      await new Promise((r) => setTimeout(r, intervalMs))
     }
 
     throw new Error(`MediaMTX failed to start: Port ${port} is not listening after ${timeoutMs}ms`)

@@ -76,7 +76,9 @@ export function registerAdiHandlers() {
       const raw = (data as any)?.payload ?? data
       const filePath = typeof raw?.filePath === 'string' ? raw.filePath : undefined
       if (!filePath) {
-        logger.error(`[AdiHandler] IMPORT_CUSTOM_ADI invalid payload: filePath expected string, got ${typeof raw?.filePath}`)
+        logger.error(
+          `[AdiHandler] IMPORT_CUSTOM_ADI invalid payload: filePath expected string, got ${typeof raw?.filePath}`
+        )
         return { success: false, error: 'Invalid file path' }
       }
       logger.info(`[AdiHandler] IMPORT_CUSTOM_ADI request: path=${filePath}`)
@@ -104,15 +106,20 @@ export function registerAdiHandlers() {
   })
 
   // 上传机型模板到主机
-  handle<{ adi: Adi | CustomAdi; host: Host }, void>(ADI_EVENTS.UPLOAD_ADI_TO_HOST, async (data) => {
-    logger.info(`[AdiHandler] UPLOAD_ADI_TO_HOST request: adi=${data.adi.name}, host=${data.host.ip}`)
-    try {
-      await adiManager.uploadAdiToHost(data.adi, data.host)
-      return { success: true }
-    } catch (error) {
-      return handleError(error)
+  handle<{ adi: Adi | CustomAdi; host: Host }, void>(
+    ADI_EVENTS.UPLOAD_ADI_TO_HOST,
+    async (data) => {
+      logger.info(
+        `[AdiHandler] UPLOAD_ADI_TO_HOST request: adi=${data.adi.name}, host=${data.host.ip}`
+      )
+      try {
+        await adiManager.uploadAdiToHost(data.adi, data.host)
+        return { success: true }
+      } catch (error) {
+        return handleError(error)
+      }
     }
-  })
+  )
 
   logger.info('[AdiHandler] ✅ 机型设置处理器已注册')
 }

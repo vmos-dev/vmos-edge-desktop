@@ -52,7 +52,7 @@ export class AutomationScriptManager extends BaseManager {
         name: data.name,
         description: data.description,
         content: JSON.stringify(data.workflow),
-        createTime: isUpdate ? (this.scriptDao.getById(id)?.createTime || now) : now,
+        createTime: isUpdate ? this.scriptDao.getById(id)?.createTime || now : now,
         updateTime: now
       }
 

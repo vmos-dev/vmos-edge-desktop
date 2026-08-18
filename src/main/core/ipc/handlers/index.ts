@@ -18,6 +18,12 @@ import { registerMediaMtxHandlers } from './mediaMtx.handler'
 import { registerAutomationScriptHandlers } from './automationScript.handler'
 import { registerAgentHandlers } from './agent.handler'
 import { registerBackupHandlers } from './backup.handler'
+import { registerSharedFolderHandlers } from './sharedFolder.handler'
+import { registerWorkflowHandlers } from './workflow.handler'
+import { registerFlowEngineHandlers } from './flowEngine.handler'
+import { registerFlowProxyHandlers } from './flowProxy.handler'
+import { registerBatchTaskHandlers } from './batchTask.handler'
+import { registerFrpHandlers } from './frp.handler'
 
 /**
  * 注册所有 IPC 事件处理器
@@ -40,5 +46,11 @@ export function registerAllHandlers(): void {
   registerAutomationScriptHandlers()
   registerAgentHandlers()
   registerBackupHandlers()
+  registerSharedFolderHandlers()
+  registerWorkflowHandlers()
+  registerFlowEngineHandlers()
+  registerFlowProxyHandlers()
+  registerBatchTaskHandlers()
+  registerFrpHandlers()
   logger.info('[IPC Handlers] ✅ 所有处理器注册完成')
 }

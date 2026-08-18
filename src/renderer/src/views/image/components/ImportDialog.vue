@@ -28,7 +28,10 @@
           >
             <template v-if="!form.filePath">
               <el-icon class="upload-icon"><Download /></el-icon>
-              <div class="upload-text">{{ t('image.clickToBrowse') }} <span class="link-text">{{ t('image.browseFile') }}</span></div>
+              <div class="upload-text">
+                {{ t('image.clickToBrowse') }}
+                <span class="link-text">{{ t('image.browseFile') }}</span>
+              </div>
               <div class="upload-tip">
                 {{ t('image.supportedFormat') }}
               </div>

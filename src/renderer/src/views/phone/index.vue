@@ -1052,7 +1052,9 @@ const handleToggleAudio = async () => {
       // 关闭音频：覆盖 audio 后只传 config 给设置接口，再调 SDK 关闭
       if (hostIp && dbId) {
         try {
-          await setScdConfig(hostIp, dbId, { scdArgs: JSON.stringify({ ...config, audio: 'false' }) })
+          await setScdConfig(hostIp, dbId, {
+            scdArgs: JSON.stringify({ ...config, audio: 'false' })
+          })
         } catch (e) {
           ElMessage.warning(t('phone.audioSetFailed'))
           return

@@ -35,7 +35,11 @@
       />
     </el-form-item>
     <el-form-item :label="t('proxy.encryption')" prop="vmess.cipher">
-      <el-select v-model="modelValue.cipher" :placeholder="t('proxy.encryptionPlaceholder')" style="width: 100%">
+      <el-select
+        v-model="modelValue.cipher"
+        :placeholder="t('proxy.encryptionPlaceholder')"
+        style="width: 100%"
+      >
         <el-option label="Auto" value="auto" />
         <el-option label="AES-128-GCM" value="aes-128-gcm" />
         <el-option label="ChaCha20-Poly1305" value="chacha20-poly1305" />
@@ -43,7 +47,11 @@
       </el-select>
     </el-form-item>
     <el-form-item :label="t('proxy.transportProtocol')" prop="vmess.network">
-      <el-select v-model="modelValue.network" :placeholder="t('proxy.transportProtocolPlaceholder')" style="width: 100%">
+      <el-select
+        v-model="modelValue.network"
+        :placeholder="t('proxy.transportProtocolPlaceholder')"
+        style="width: 100%"
+      >
         <el-option label="TCP" value="tcp" />
         <el-option label="UDP" value="udp" />
         <el-option label="WebSocket" value="ws" />

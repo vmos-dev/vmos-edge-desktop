@@ -1,3 +1,9 @@
+export interface UDPDevice {
+  ip: string
+  id: string
+  name: string
+}
+
 export interface Group {
   id: string
   name: string
@@ -127,6 +133,10 @@ export interface Proxy {
   protocol: 'http' | 'https' | 'socks5' | 'vmess' | 'ss' | 'ssr' | 'vless'
   host: string
   port: number
+  ip?: string
+  country?: string
+  timezone?: string
+  loc?: string
   username?: string
   password?: string
   // 对于 vmess �?ss 协议，存储原始链接字符串
@@ -189,6 +199,12 @@ export const DATA_EVENTS = {
   GET_DEVICES_BY_IDS: 'DATA:GET_DEVICES_BY_IDS',
   GET_HOST_BY_IP: 'DATA:GET_HOST_BY_IP',
   RESOLVE_DOMAIN: 'DATA:RESOLVE_DOMAIN',
+  START_HOST_SCAN: 'DATA:START_HOST_SCAN',
+  CANCEL_HOST_SCAN: 'DATA:CANCEL_HOST_SCAN',
+
+  // 主进程推送给前端的扫描事件
+  HOST_SCAN_FOUND: 'DATA:HOST_SCAN_FOUND',
+  HOST_SCAN_COMPLETE: 'DATA:HOST_SCAN_COMPLETE',
 
   // Group Control Events
   GET_GROUP_CONTROL_DEVICES: 'DATA:GET_GROUP_CONTROL_DEVICES',

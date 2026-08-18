@@ -66,10 +66,12 @@ describe('HostManager delete rules', () => {
     manager = Object.create(HostManager.prototype) as InstanceType<typeof HostManager>
     ;(manager as unknown as { hostDao: FakeHostDao }).hostDao = hostDao
     ;(manager as unknown as { deviceManager: FakeDeviceManager }).deviceManager = deviceManager
-    ;(manager as unknown as {
-      dbInstance: { transaction<T>(callback: () => T): T }
-      notifyFrontend: ReturnType<typeof vi.fn>
-    }).dbInstance = {
+    ;(
+      manager as unknown as {
+        dbInstance: { transaction<T>(callback: () => T): T }
+        notifyFrontend: ReturnType<typeof vi.fn>
+      }
+    ).dbInstance = {
       transaction<T>(callback: () => T): T {
         return callback()
       }

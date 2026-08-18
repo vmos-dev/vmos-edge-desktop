@@ -3,12 +3,21 @@ import { type Device } from '@shared/ipc/data.types'
 import { DeviceType } from '@renderer/utils/constant'
 import type { TreeNode } from './useCloudTree'
 
+/**
+ * handleCheckChange 的调用模式：
+ * - 'check': 用户勾选树节点 → 基于差异更新有效选中集合（搜索时只添加匹配项）
+ * - 'sync':  数据变更/模式切换 → 有效选中集合与树状态完全同步
+ * - 'filter': 搜索/筛选条件变化 → 不修改有效选中集合，仅重新过滤表格
+ */
+export type CheckChangeMode = 'check' | 'sync' | 'filter'
+
 export function useCloudSelection(
   treeRef: Ref<any>,
   deviceFilter: Ref<string[]>,
   deviceTypeFilter: Ref<string>,
   viewMode: Ref<'list' | 'grid'>,
-  tableRef: Ref<any> // VmosTable instance
+  tableRef: Ref<any>, // VmosTable instance
+  searchText: Ref<string>
 ) {
   const tableData = ref<Device[]>([])
   const selectedRows = ref<Device[]>([])
@@ -44,54 +53,81 @@ export function useCloudSelection(
   }
 
   // 树节点选中状态变化时，更新表格数据
-  // 此方法在树节点勾选状态变更、或筛选条件变化时调用
-  const handleCheckChange = () => {
+  const handleCheckChange = (mode: CheckChangeMode = 'sync') => {
     if (!treeRef.value) return
 
-    // 1. 同步选中键值
-    checkedKeys.value = treeRef.value.getCheckedKeys()
-
-    // 2. 获取所有被勾选的节点（包括半选）
+    // 1. 获取所有被勾选的节点，同步 checkedKeys
     const checkedNodes = treeRef.value.getCheckedNodes()
+    checkedKeys.value = checkedNodes?.map((node: TreeNode) => node.id) || []
+
     const checkedDeviceNodes =
       checkedNodes?.filter((node: TreeNode) => node.type === 'device') || []
-    const nextCheckedDeviceIds = new Set<string>(
+    const treeDeviceIds = new Set<string>(
       checkedDeviceNodes.map((node: TreeNode) => (node.originalData as Device).id)
     )
 
+    // 2. 根据模式更新有效选中集合
+    if (mode === 'check') {
+      // 用户勾选：基于差异更新，搜索状态下只添加匹配的新设备
+      const prevIds = checkedDeviceIds.value
+      const nextIds = new Set<string>()
+      const queryText = searchText.value?.toLowerCase().trim() || ''
+
+      // 保留之前有效且仍在树中勾选的设备
+      for (const id of prevIds) {
+        if (treeDeviceIds.has(id)) nextIds.add(id)
+      }
+
+      // 新增勾选的设备（搜索时只添加匹配项）
+      for (const node of checkedDeviceNodes) {
+        const device = node.originalData as Device
+        if (!prevIds.has(device.id)) {
+          if (queryText) {
+            const name = (device.user_name || '').toLowerCase()
+            if (name.includes(queryText)) nextIds.add(device.id)
+          } else {
+            nextIds.add(device.id)
+          }
+        }
+      }
+
+      checkedDeviceIds.value = nextIds
+    } else if (mode === 'sync') {
+      // 数据同步：直接与树状态对齐
+      checkedDeviceIds.value = treeDeviceIds
+    }
+    // mode === 'filter'：不修改 checkedDeviceIds
+
+    // 3. 清理 manuallyDeselectedIds（移除已不在有效集合中的条目）
     const nextManuallyDeselectedIds = new Set<string>(manuallyDeselectedIds.value)
-    for (const id of checkedDeviceIds.value) {
-      if (!nextCheckedDeviceIds.has(id)) {
+    for (const id of manuallyDeselectedIds.value) {
+      if (!checkedDeviceIds.value.has(id)) {
         nextManuallyDeselectedIds.delete(id)
       }
     }
     manuallyDeselectedIds.value = nextManuallyDeselectedIds
-    checkedDeviceIds.value = nextCheckedDeviceIds
 
-    // 当前筛选条件
+    // 4. 筛选条件
     const stateFilter = deviceFilter.value
     const typeFilter = deviceTypeFilter.value
 
-    // 设备筛选
+    // 5. 设备筛选
+    // 搜索文本只在 'check' 模式的入口处控制哪些设备进入 checkedDeviceIds，
+    // 表格构建不再二次过滤搜索文本——搜索只影响树，不影响表格。
     const selectedDevices = checkedDeviceNodes.filter((node: TreeNode) => {
       const device = node.originalData as Device
 
+      // 必须在有效选中集合中
+      if (!checkedDeviceIds.value.has(device.id)) return false
+
       /**
-       * 1. 状态是否满足
-       * - 未选择状态：全部满足
-       * - 选择状态：必须完全匹配
+       * 状态是否满足
        */
       const isStateMatch =
         stateFilter.length === 0 || (!!device.state && stateFilter.includes(device.state))
 
       /**
-       * 2. 类型是否满足
-       * - 未选择类型：全部满足
-       * - 真机：
-       *    - device_type === 'real'
-       *    - device_type 为空 / undefined
-       * - 虚拟机：
-       *    - device_type === 'virtual'
+       * 类型是否满足
        */
       let isTypeMatch = true
 
@@ -101,18 +137,21 @@ export function useCloudSelection(
         isTypeMatch = device.device_type === DeviceType.VIRTUAL
       }
 
-      // 3. 组合条件（AND）
+      // 组合条件（AND）
       return isStateMatch && isTypeMatch
     })
-    // 4. 更新表格数据源
-    const collator = new Intl.Collator('zh-CN')
+
+    // 6. 更新表格数据源
+    const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 
     tableData.value = (selectedDevices?.map((n) => n.originalData as Device) || []).sort((a, b) =>
       collator.compare(a.user_name || '', b.user_name || '')
     )
 
-    // 5. 左侧树勾选进入表格后默认选中；如果用户在表格中手动取消，则保持取消状态
-    selectedRows.value = tableData.value.filter((device) => !manuallyDeselectedIds.value.has(device.id))
+    // 7. 左侧树勾选进入表格后默认选中；如果用户在表格中手动取消，则保持取消状态
+    selectedRows.value = tableData.value.filter(
+      (device) => !manuallyDeselectedIds.value.has(device.id)
+    )
   }
 
   // 监听表格数据变化，确保 treeRef.value.getCheckedKeys() 返回的值也是最新的
@@ -178,6 +217,7 @@ export function useCloudSelection(
     tableData,
     selectedRows,
     checkedKeys,
+    checkedDeviceIds,
     selectedCount,
     selectedIds,
     selectAll,

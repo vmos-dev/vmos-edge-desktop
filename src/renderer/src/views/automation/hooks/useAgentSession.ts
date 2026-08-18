@@ -107,10 +107,10 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
 
   function formatPlanningMessage(data: AgentPlanningData): string {
     if (data.status === 'started') {
-      return t('automation.session.planningStarted')
+      return t('aiWorkflow.session.planningStarted')
     }
 
-    return t('automation.session.planningCompleted', {
+    return t('aiWorkflow.session.planningCompleted', {
       count: data.plan?.subtasks.length ?? 0
     })
   }
@@ -162,19 +162,19 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
   /** 格式化工具结果为可读摘要 */
   function formatToolResultSummary(result: ToolResult): string {
     if (!result.success) {
-      return t('automation.session.toolFailed', { error: result.error || t('common.unknownError') })
+      return t('aiWorkflow.session.toolFailed', { error: result.error || t('common.unknownError') })
     }
 
     const data = result.data
-    if (data === true || data === undefined) return t('automation.session.toolSuccess')
+    if (data === true || data === undefined) return t('aiWorkflow.session.toolSuccess')
     if (typeof data === 'string') {
       return data.length > 100
-        ? t('automation.session.toolResultEllipsis', { text: data.substring(0, 100) })
+        ? t('aiWorkflow.session.toolResultEllipsis', { text: data.substring(0, 100) })
         : data
     }
     const str = JSON.stringify(data)
     return str.length > 100
-      ? t('automation.session.toolResultEllipsis', { text: str.substring(0, 100) })
+      ? t('aiWorkflow.session.toolResultEllipsis', { text: str.substring(0, 100) })
       : str
   }
 
@@ -184,13 +184,13 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
   async function startAgent(goal: string): Promise<void> {
     if (!goal.trim() || isRunning.value) return
     if (!hasProvider.value) {
-      ElMessage.warning(t('automation.session.noProvider'))
+      ElMessage.warning(t('aiWorkflow.session.noProvider'))
       return
     }
 
     const device = getDeviceConnection()
     if (!device) {
-      ElMessage.warning(t('automation.session.noDevice'))
+      ElMessage.warning(t('aiWorkflow.session.noDevice'))
       return
     }
 
@@ -219,7 +219,7 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
         }
       })
 
-      if (!result.success) throw new Error(result.error || t('automation.session.startAgentFailed'))
+      if (!result.success) throw new Error(result.error || t('aiWorkflow.session.startAgentFailed'))
       if (result.data?.sessionId) {
         sessionId.value = result.data.sessionId
       }
@@ -228,7 +228,7 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
       sessionId.value = null
       addMessage({
         type: 'text',
-        content: error.message || t('automation.session.startFailed'),
+        content: error.message || t('aiWorkflow.session.startFailed'),
         isError: true
       })
     }
@@ -253,13 +253,13 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
           message: input
         })
         if (!result.success)
-          throw new Error(result.error || t('automation.session.resumeAgentFailed'))
+          throw new Error(result.error || t('aiWorkflow.session.resumeAgentFailed'))
       } catch (error: any) {
         isRunning.value = false
         isPaused.value = true
         addMessage({
           type: 'text',
-          content: error.message || t('automation.session.resumeFailed'),
+          content: error.message || t('aiWorkflow.session.resumeFailed'),
           isError: true
         })
       }
@@ -276,7 +276,7 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
     }
     isRunning.value = false
     isPaused.value = false
-    addMessage({ type: 'system', content: t('automation.session.stopped') })
+    addMessage({ type: 'system', content: t('aiWorkflow.session.stopped') })
   }
 
   /** 触发脚本生成（Phase 2） */
@@ -284,19 +284,19 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
     if (!sessionId.value || isRunning.value || isGeneratingScript.value) return
 
     isGeneratingScript.value = true
-    addMessage({ type: 'script_generating', content: t('automation.session.generatingScript') })
+    addMessage({ type: 'script_generating', content: t('aiWorkflow.session.generatingScript') })
 
     try {
       const result = await ipc.invoke(AGENT_EVENTS.GENERATE_SCRIPT, {
         sessionId: sessionId.value
       })
       if (!result.success)
-        throw new Error(result.error || t('automation.session.generateScriptFailed'))
+        throw new Error(result.error || t('aiWorkflow.session.generateScriptFailed'))
     } catch (error: any) {
       isGeneratingScript.value = false
       addMessage({
         type: 'text',
-        content: error.message || t('automation.session.generateScriptFailed'),
+        content: error.message || t('aiWorkflow.session.generateScriptFailed'),
         isError: true
       })
     }
@@ -321,7 +321,7 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
     currentWorkflow.value = null
     msgCounter = 0
 
-    ElMessage.success(t('automation.session.newSessionSuccess'))
+    ElMessage.success(t('aiWorkflow.session.newSessionSuccess'))
   }
 
   // ==================== IPC 事件监听 ====================
@@ -447,7 +447,7 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
 
         addMessage({
           type: 'script_complete',
-          content: t('automation.session.scriptGenerated', {
+          content: t('aiWorkflow.session.scriptGenerated', {
             steps: data.workflow.flow.length,
             iterations: data.totalIterations
           }),
@@ -470,7 +470,7 @@ export function useAgentSession(props: { provider?: AIProviderConfig; device?: D
 
         addMessage({
           type: 'text',
-          content: data.error || t('automation.session.unknownError'),
+          content: data.error || t('aiWorkflow.session.unknownError'),
           isError: true
         })
       })

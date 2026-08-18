@@ -53,7 +53,11 @@ export function useMessageGroups(options: UseMessageGroupsOptions) {
         // 如果有 pendingThinking 但没有 assistant 来接，先 flush 它
         if (pendingThinking) {
           // 创建一个只有 thinking 的虚拟 assistant
-          result.push({ type: MESSAGE_TYPES.ASSISTANT, content: '', _thinking: pendingThinking } as any)
+          result.push({
+            type: MESSAGE_TYPES.ASSISTANT,
+            content: '',
+            _thinking: pendingThinking
+          } as any)
           pendingThinking = null
         }
         // 收集连续的 tool_call
@@ -75,7 +79,11 @@ export function useMessageGroups(options: UseMessageGroupsOptions) {
 
       // 其他消息类型：先 flush pendingThinking
       if (pendingThinking) {
-        result.push({ type: MESSAGE_TYPES.ASSISTANT, content: '', _thinking: pendingThinking } as any)
+        result.push({
+          type: MESSAGE_TYPES.ASSISTANT,
+          content: '',
+          _thinking: pendingThinking
+        } as any)
         pendingThinking = null
       }
       result.push(msg)
@@ -94,9 +102,11 @@ export function useMessageGroups(options: UseMessageGroupsOptions) {
   const hasRecentMessage = computed(() => {
     if (messages.value.length === 0) return false
     const last = messages.value[messages.value.length - 1]
-    return last.type === MESSAGE_TYPES.ASSISTANT
-      || last.type === MESSAGE_TYPES.TOOL_CALL
-      || last.type === MESSAGE_TYPES.THINKING
+    return (
+      last.type === MESSAGE_TYPES.ASSISTANT ||
+      last.type === MESSAGE_TYPES.TOOL_CALL ||
+      last.type === MESSAGE_TYPES.THINKING
+    )
   })
 
   // ===== 思考链展开状态 =====
