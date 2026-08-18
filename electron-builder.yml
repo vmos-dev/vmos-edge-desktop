@@ -28,8 +28,6 @@ extraResources:
     to: flow-engine
   - from: resources/frps
     to: frps
-  - from: resources/nginx
-    to: nginx
 
 win:
   icon: build/icon.ico
