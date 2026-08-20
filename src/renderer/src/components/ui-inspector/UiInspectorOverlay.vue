@@ -6,6 +6,7 @@ import { findNodeAtPoint } from './dumpParser'
 import { useDeviceUiDump } from './useDeviceUiDump'
 import { resolvePickTarget, type PickResult } from './pickResolver'
 import { useFlashHighlight } from './composables/useFlashHighlight'
+import { mapClientPointToDevice, videoSurfaceFrameStyle } from './mapClientToDevice'
 import type { UiNode, DumpResult } from './types'
 
 interface Props {
@@ -14,6 +15,16 @@ interface Props {
   /** 是否处于选择模式(交互式,拦截鼠标) */
   picking: boolean
   device: Device | null
+  /**
+   * VmosEdgeClient 实际渲染区域(getBoundingClientRect)。
+   * 必须与投屏 canvas 对齐;不传则回退 overlay 全屏(旧行为,易错位)。
+   */
+  videoSurfaceRect?: DOMRect | null
+  /**
+   * 视频流原始分辨率(来自 VmosEdgeClient SIZE_CHANGED 的 videoWidth/Height)。
+   * dump 在弹窗/局部窗口时 screenWidth/Height 会偏小,必须用此值做坐标映射。
+   */
+  deviceScreenSize?: { width: number; height: number } | null
   /**
    * 外部指定的高亮节点 id。当其变化时触发 5 秒闪烁动画,辅助用户在候选列表
    * 切换时定位元素在屏幕上的位置。闪烁结束自动消失,不阻塞后续操作。
@@ -52,24 +63,41 @@ const { target: flashingNode, animationKey: flashKey } = useFlashHighlight<UiNod
  * 坐标换算 + 候选收集:鼠标屏幕坐标 → 设备坐标 → findNodeAtPoint(hit) → resolvePickTarget
  * winner 对齐 Maestro 基线(= hit,不升档),candidates 收集整个点击栈供 UI 切换
  */
+const effectiveScreenSize = computed(() => {
+  const fromVideo = props.deviceScreenSize
+  if (fromVideo && fromVideo.width > 0 && fromVideo.height > 0) return fromVideo
+  const d = dump.value
+  return d ? { width: d.screenWidth, height: d.screenHeight } : null
+})
+
 function findPickAt(clientX: number, clientY: number): PickResult | null {
   if (!dump.value || !overlayRef.value) return null
-  const rect = overlayRef.value.getBoundingClientRect()
-  const { screenWidth, screenHeight } = dump.value
-  const scale = Math.min(rect.width / screenWidth, rect.height / screenHeight)
-  const offsetX = (rect.width - screenWidth * scale) / 2
-  const offsetY = (rect.height - screenHeight * scale) / 2
-  const devX = (clientX - rect.left - offsetX) / scale
-  const devY = (clientY - rect.top - offsetY) / scale
 
-  if (devX < 0 || devX > screenWidth || devY < 0 || devY > screenHeight) return null
+  const screen = effectiveScreenSize.value
+  if (!screen) return null
 
-  const hit = findNodeAtPoint(dump.value, devX, devY)
+  const hitRect = props.videoSurfaceRect ?? overlayRef.value.getBoundingClientRect()
+  const point = mapClientPointToDevice(
+    clientX,
+    clientY,
+    hitRect,
+    screen.width,
+    screen.height
+  )
+  if (!point) return null
+
+  const hit = findNodeAtPoint(dump.value, point.x, point.y)
   if (!hit) return null
-  return resolvePickTarget(hit, dump.value, { x: devX, y: devY })
+  return resolvePickTarget(hit, dump.value, { x: point.x, y: point.y })
 }
 
 const overlayRef = shallowRef<HTMLElement | null>(null)
+
+const svgFrameStyle = computed<Record<string, string> | null>(() => {
+  if (!dump.value || !overlayRef.value || !props.videoSurfaceRect) return null
+  const overlayRect = overlayRef.value.getBoundingClientRect()
+  return videoSurfaceFrameStyle(overlayRect, props.videoSurfaceRect)
+})
 
 /** 锁定模式下只渲染选中节点 —— 升档后的目标可能落在 actionableNodes 之外(Tier 4) */
 const selectedNodeOnly = computed(() => {
@@ -174,12 +202,16 @@ watch(
     @mouseleave="onMouseLeave"
     @click="onClick"
   >
-    <svg
+    <div
       v-if="dump"
-      class="bounds-svg"
-      :viewBox="`0 0 ${dump.screenWidth} ${dump.screenHeight}`"
-      preserveAspectRatio="xMidYMid meet"
+      class="svg-frame"
+      :style="svgFrameStyle ?? { position: 'absolute', inset: 0 }"
     >
+      <svg
+        class="bounds-svg"
+        :viewBox="`0 0 ${effectiveScreenSize?.width ?? dump.screenWidth} ${effectiveScreenSize?.height ?? dump.screenHeight}`"
+        preserveAspectRatio="xMidYMid meet"
+      >
       <!-- 选择模式：只渲染可操作元素（预过滤后的 actionableNodes） -->
       <template v-if="picking">
         <rect
@@ -212,14 +244,14 @@ watch(
           :x1="getCrosshairCenter()!.cx"
           y1="0"
           :x2="getCrosshairCenter()!.cx"
-          :y2="dump.screenHeight"
+          :y2="effectiveScreenSize?.height ?? dump.screenHeight"
           class="crosshair"
           :class="selectedNodeId != null ? 'crosshair-selected' : 'crosshair-hovered'"
         />
         <line
           x1="0"
           :y1="getCrosshairCenter()!.cy"
-          :x2="dump.screenWidth"
+          :x2="effectiveScreenSize?.width ?? dump.screenWidth"
           :y2="getCrosshairCenter()!.cy"
           class="crosshair"
           :class="selectedNodeId != null ? 'crosshair-selected' : 'crosshair-hovered'"
@@ -241,6 +273,7 @@ watch(
         class="flash-rect"
       />
     </svg>
+    </div>
 
     <div v-if="loading && !dump" class="loading-mask">
       <el-icon class="is-loading" :size="24"><Loading /></el-icon>
@@ -266,6 +299,11 @@ watch(
 .bounds-svg {
   width: 100%;
   height: 100%;
+  display: block;
+}
+
+.svg-frame {
+  pointer-events: none;
 }
 
 /* 对标 Maestro AnnotatedScreenshot 4 种注解状态 */

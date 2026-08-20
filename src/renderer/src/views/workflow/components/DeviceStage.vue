@@ -66,7 +66,56 @@ const canvasContainerRef = ref<HTMLElement | null>(null)
 const stageRef = ref<HTMLElement | null>(null)
 const isClientReady = shallowRef(false)
 const clientError = shallowRef<string | null>(null)
+/** 与 VmosEdgeClient 内 `.vmos-canvas-container` 对齐,供 overlay hit-test */
+const videoSurfaceRect = shallowRef<DOMRect | null>(null)
+/** 视频流原始分辨率,用于 accessibility 坐标映射(与 dump 局部窗口尺寸解耦) */
+const deviceVideoSize = shallowRef<{ width: number; height: number } | null>(null)
 let client: VmosEdgeClient | null = null
+let videoSurfaceObserver: ResizeObserver | null = null
+let videoSurfaceRaf = 0
+
+function queryVideoSurfaceElement(): HTMLElement | null {
+  const root = canvasContainerRef.value
+  if (!root) return null
+  return (
+    root.querySelector<HTMLElement>('.vmos-canvas-container') ??
+    root.querySelector<HTMLElement>('canvas')
+  )
+}
+
+function syncVideoSurfaceRect(): void {
+  const surface = queryVideoSurfaceElement()
+  videoSurfaceRect.value = surface?.getBoundingClientRect() ?? null
+}
+
+function bindVideoSurfaceObserver(retry = 0): void {
+  videoSurfaceObserver?.disconnect()
+  syncVideoSurfaceRect()
+
+  const root = canvasContainerRef.value
+  const surface = queryVideoSurfaceElement()
+  if (!surface && retry < 15) {
+    requestAnimationFrame(() => bindVideoSurfaceObserver(retry + 1))
+    return
+  }
+  if (!root && !surface) return
+
+  videoSurfaceObserver = new ResizeObserver(() => {
+    cancelAnimationFrame(videoSurfaceRaf)
+    videoSurfaceRaf = requestAnimationFrame(syncVideoSurfaceRect)
+  })
+  if (root) videoSurfaceObserver.observe(root)
+  if (surface) videoSurfaceObserver.observe(surface)
+}
+
+function unbindVideoSurfaceObserver(): void {
+  videoSurfaceObserver?.disconnect()
+  videoSurfaceObserver = null
+  cancelAnimationFrame(videoSurfaceRaf)
+  videoSurfaceRaf = 0
+  videoSurfaceRect.value = null
+  deviceVideoSize.value = null
+}
 
 // ── 尺寸策略 ──
 // 舞台用 CSS padding 留出 toolbar / nav / 左右呼吸的空间,
@@ -142,6 +191,7 @@ async function startClient(): Promise<void> {
 
   client.on(VmosEdgeClientEvents.STARTED, () => {
     isClientReady.value = true
+    void nextTick(() => bindVideoSurfaceObserver())
   })
   client.on(VmosEdgeClientEvents.ERROR, (event: unknown) => {
     const msg =
@@ -151,15 +201,18 @@ async function startClient(): Promise<void> {
     clientError.value = msg
     isClientReady.value = false
   })
-  client.on(VmosEdgeClientEvents.SIZE_CHANGED, ({ idealWidth, idealHeight }) => {
-    // 只保存理想分辨率;实际显示尺寸由 phoneSize computed 按容器大小推导
+  client.on(VmosEdgeClientEvents.SIZE_CHANGED, ({ idealWidth, idealHeight, videoWidth, videoHeight }) => {
+    // ideal*:布局用; video*: accessibility 坐标系(1440x3200 等)
     deviceIdeal.value = { width: idealWidth, height: idealHeight }
+    deviceVideoSize.value = { width: videoWidth, height: videoHeight }
+    void nextTick(() => syncVideoSurfaceRect())
   })
 
   client.start()
 }
 
 function stopClient(): void {
+  unbindVideoSurfaceObserver()
   if (client) {
     client.stop()
     client = null
@@ -169,6 +222,10 @@ function stopClient(): void {
 }
 
 // ═══════════════ 生命周期 + 监听 ═══════════════
+
+watch(phoneSize, () => {
+  void nextTick(() => syncVideoSurfaceRect())
+})
 
 watch(
   () => props.device,
@@ -206,6 +263,7 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
+  unbindVideoSurfaceObserver()
   stopClient()
 })
 
@@ -292,6 +350,8 @@ defineExpose({
           :enabled="true"
           :picking="!frozen && !pickingDisabled"
           :device="device"
+          :video-surface-rect="videoSurfaceRect"
+          :device-screen-size="deviceVideoSize"
           :highlight-node-id="highlightNodeId ?? null"
           @element-inspect="handleElementInspect"
         />

@@ -160,18 +160,23 @@ export function parseDumpXml(xml: string): DumpResult {
       tree.push(node)
     }
 
-    // 用根节点的 bounds 推算屏幕尺寸
-    if (depth === 0 && bounds[2] > 0 && bounds[3] > 0) {
-      screenWidth = bounds[2]
-      screenHeight = bounds[3]
-    }
-
     const children = el.querySelectorAll(':scope > node')
     children.forEach((child) => parseNode(child, depth + 1, node))
   }
 
   const rootNodes = doc.querySelectorAll('hierarchy > node')
   rootNodes.forEach((el) => parseNode(el, 0, null))
+
+  // 屏幕尺寸:仅当根节点从 (0,0) 铺满时可信;否则取所有节点 bounds 的最大包络(弹窗-only dump 仍可能偏小,坐标映射应优先用视频流分辨率)
+  const inferred = inferScreenSizeFromNodes(nodes)
+  const firstRoot = nodes[0]
+  if (firstRoot && firstRoot.bounds[0] === 0 && firstRoot.bounds[1] === 0) {
+    screenWidth = firstRoot.bounds[2]
+    screenHeight = firstRoot.bounds[3]
+  } else {
+    screenWidth = inferred.width
+    screenHeight = inferred.height
+  }
 
   // 计算重复元素的 index（对标 Maestro DeviceService.getIndex）
   computeElementIndices(nodes)
@@ -247,6 +252,20 @@ export function computeElementIndices(nodes: UiNode[]): void {
  */
 function filterActionableNodes(nodes: UiNode[]): UiNode[] {
   return nodes.filter(isInteractable)
+}
+
+/** 从节点 bounds 推算屏幕包络(用于根节点非全屏时的兜底) */
+export function inferScreenSizeFromNodes(nodes: UiNode[]): { width: number; height: number } {
+  let maxX = 0
+  let maxY = 0
+  for (const node of nodes) {
+    maxX = Math.max(maxX, node.bounds[2])
+    maxY = Math.max(maxY, node.bounds[3])
+  }
+  return {
+    width: maxX > 0 ? maxX : 1080,
+    height: maxY > 0 ? maxY : 1920
+  }
 }
 
 /**
